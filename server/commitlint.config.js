@@ -1,5 +1,3 @@
-const { unlink } = require("./src/routes");
-
 module.exports = {
     extends: ["@commitlint/config-conventional"], 
     rules: {
