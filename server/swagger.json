@@ -1,0 +1,948 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "VocalInk Blog Platform API",
+    "version": "1.0.0",
+    "description": "API documentation for VocalInk, a next-gen Medium-style blog platform with AI, gamification, and admin features."
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api" }
+  ],
+  "tags": [
+    { "name": "Auth" },
+    { "name": "User" },
+    { "name": "Blog" },
+    { "name": "Comment" },
+    { "name": "Series" },
+    { "name": "Gamification" },
+    { "name": "Admin" },
+    { "name": "Notification" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "60f7c0b8e1d2c8a1b8e1d2c8" },
+          "name": { "type": "string", "example": "Akash Kumar" },
+          "email": { "type": "string", "example": "akash@email.com" },
+          "password": { "type": "string", "example": "hashedpassword" },
+          "role": { "type": "string", "enum": ["reader", "writer", "admin"], "example": "writer" },
+          "bio": { "type": "string", "example": "Tech enthusiast and writer." },
+          "avatar": { "type": "string", "example": "https://cloudinary.com/avatar.jpg" },
+          "socialLinks": { "type": "array", "items": { "type": "string" } },
+          "xp": { "type": "integer", "example": 1200 },
+          "badges": { "type": "array", "items": { "$ref": "#/components/schemas/Badge" } },
+          "followers": { "type": "array", "items": { "type": "string" } },
+          "following": { "type": "array", "items": { "type": "string" } },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Blog": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "title": { "type": "string", "example": "How to Build a Blog Platform" },
+          "content": { "type": "string", "example": "This is the blog content..." },
+          "summary": { "type": "string", "example": "A quick guide to building a blog platform." },
+          "author": { "$ref": "#/components/schemas/User" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "coverImage": { "type": "string", "example": "https://cloudinary.com/cover.jpg" },
+          "seriesId": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "published", "private"], "example": "published" },
+          "mood": { "type": "string", "example": "motivational" },
+          "language": { "type": "string", "example": "en" },
+          "ttsUrl": { "type": "string", "example": "https://cloudinary.com/audio.mp3" },
+          "likes": { "type": "integer", "example": 10 },
+          "bookmarks": { "type": "integer", "example": 5 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "blogId": { "type": "string" },
+          "userId": { "type": "string" },
+          "content": { "type": "string", "example": "Great post!" },
+          "parentId": { "type": "string" },
+          "inlineRef": { "type": "string", "example": "paragraph-2" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "status": { "type": "string", "enum": ["active", "deleted", "reported"], "example": "active" }
+        }
+      },
+      "Series": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "title": { "type": "string", "example": "Startup Journey" },
+          "description": { "type": "string", "example": "A series about building a startup." },
+          "authorId": { "type": "string" },
+          "blogs": { "type": "array", "items": { "type": "string" } },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Badge": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "example": "Top Commenter" },
+          "description": { "type": "string", "example": "Awarded for most comments in a week." },
+          "icon": { "type": "string", "example": "https://cloudinary.com/badge.png" },
+          "criteria": { "type": "string", "example": "Commented on 10 blogs" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "userId": { "type": "string" },
+          "type": { "type": "string", "example": "comment" },
+          "content": { "type": "string", "example": "You have a new comment." },
+          "read": { "type": "boolean", "example": false },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AbuseReport": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "reporterId": { "type": "string" },
+          "targetId": { "type": "string" },
+          "type": { "type": "string", "example": "comment" },
+          "reason": { "type": "string", "example": "Spam or abuse" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/signup": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "User signup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/User" },
+              "example": {
+                "email": "akash@email.com",
+                "password": "Password123!",
+                "name": "Akash Kumar",
+                "role": "writer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/User" },
+                "example": {
+                  "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
+                  "name": "Akash Kumar",
+                  "email": "akash@email.com",
+                  "role": "writer",
+                  "bio": "Tech enthusiast and writer.",
+                  "avatar": "https://cloudinary.com/avatar.jpg",
+                  "xp": 0,
+                  "badges": [],
+                  "followers": [],
+                  "following": [],
+                  "createdAt": "2024-07-16T00:00:00.000Z",
+                  "updatedAt": "2024-07-16T00:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "User login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                },
+                "required": ["email", "password"]
+              },
+              "example": {
+                "email": "akash@email.com",
+                "password": "Password123!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                },
+                "example": {
+                  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                  "user": {
+                    "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
+                    "name": "Akash Kumar",
+                    "email": "akash@email.com",
+                    "role": "writer"
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/auth/social": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Social login (Google, LinkedIn)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": { "type": "string" },
+                  "token": { "type": "string" }
+                },
+                "required": ["provider", "token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Social login successful" }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Request password reset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Reset email sent" }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Reset password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": { "type": "string" },
+                  "newPassword": { "type": "string" }
+                },
+                "required": ["token", "newPassword"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset successful" }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Verify email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": { "type": "string" }
+                },
+                "required": ["token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email verified" }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get user profile",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User profile" }
+        }
+      },
+      "put": {
+        "tags": ["User"],
+        "summary": "Update user profile",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "bio": { "type": "string" },
+                  "avatar": { "type": "string" },
+                  "socialLinks": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated" }
+        }
+      }
+    },
+    "/users/{id}/blogs": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get user's blogs",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of user's blogs" }
+        }
+      }
+    },
+    "/users/{id}/notifications": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get user notifications",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of notifications" }
+        }
+      }
+    },
+    "/users/{id}/badges": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get user badges",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of badges" }
+        }
+      }
+    },
+    "/users/{id}/leaderboard": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get user leaderboard position",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Leaderboard info" }
+        }
+      }
+    },
+    "/blogs": {
+      "get": {
+        "tags": ["Blog"],
+        "summary": "Get blog feed (with filters, search, mood)",
+        "parameters": [
+          { "name": "tag", "in": "query", "schema": { "type": "string" } },
+          { "name": "mood", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of blogs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Blog" }
+                },
+                "example": [
+                  {
+                    "_id": "blogid1",
+                    "title": "How to Build a Blog Platform",
+                    "summary": "A quick guide to building a blog platform.",
+                    "author": {
+                      "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
+                      "name": "Akash Kumar"
+                    },
+                    "tags": ["tech", "guide"],
+                    "coverImage": "https://cloudinary.com/cover.jpg",
+                    "mood": "motivational",
+                    "createdAt": "2024-07-16T00:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Create a new blog",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Blog" },
+              "example": {
+                "title": "How to Build a Blog Platform",
+                "content": "This is the blog content...",
+                "tags": ["tech", "guide"],
+                "coverImage": "https://cloudinary.com/cover.jpg",
+                "mood": "motivational",
+                "language": "en"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Blog created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Blog" },
+                "example": {
+                  "_id": "blogid1",
+                  "title": "How to Build a Blog Platform",
+                  "content": "This is the blog content...",
+                  "summary": "A quick guide to building a blog platform.",
+                  "author": {
+                    "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
+                    "name": "Akash Kumar"
+                  },
+                  "tags": ["tech", "guide"],
+                  "coverImage": "https://cloudinary.com/cover.jpg",
+                  "mood": "motivational",
+                  "createdAt": "2024-07-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blogs/{id}": {
+      "get": {
+        "tags": ["Blog"],
+        "summary": "Get a blog by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blog details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Blog" },
+                "example": {
+                  "_id": "blogid1",
+                  "title": "How to Build a Blog Platform",
+                  "content": "This is the blog content...",
+                  "summary": "A quick guide to building a blog platform.",
+                  "author": {
+                    "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
+                    "name": "Akash Kumar"
+                  },
+                  "tags": ["tech", "guide"],
+                  "coverImage": "https://cloudinary.com/cover.jpg",
+                  "mood": "motivational",
+                  "createdAt": "2024-07-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Blog"],
+        "summary": "Update a blog",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Blog" },
+              "example": {
+                "title": "How to Build a Blog Platform (Updated)",
+                "content": "Updated blog content...",
+                "tags": ["tech", "guide"],
+                "coverImage": "https://cloudinary.com/cover.jpg",
+                "mood": "motivational",
+                "language": "en"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Blog updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Blog" },
+                "example": {
+                  "_id": "blogid1",
+                  "title": "How to Build a Blog Platform (Updated)",
+                  "content": "Updated blog content...",
+                  "summary": "A quick guide to building a blog platform.",
+                  "author": {
+                    "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
+                    "name": "Akash Kumar"
+                  },
+                  "tags": ["tech", "guide"],
+                  "coverImage": "https://cloudinary.com/cover.jpg",
+                  "mood": "motivational",
+                  "createdAt": "2024-07-16T00:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Blog"],
+        "summary": "Delete a blog",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Blog deleted" }
+        }
+      }
+    },
+    "/blogs/{id}/tts": {
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Generate TTS audio for a blog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "TTS audio generated" }
+        }
+      }
+    },
+    "/blogs/{id}/translate": {
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Translate blog content",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language": { "type": "string" }
+                },
+                "required": ["language"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Blog translated" }
+        }
+      }
+    },
+    "/blogs/{id}/like": {
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Like a blog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Blog liked" }
+        }
+      }
+    },
+    "/blogs/{id}/bookmark": {
+      "post": {
+        "tags": ["Blog"],
+        "summary": "Bookmark a blog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Blog bookmarked" }
+        }
+      }
+    },
+    "/blogs/{id}/comments": {
+      "get": {
+        "tags": ["Comment"],
+        "summary": "Get comments for a blog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of comments" }
+        }
+      },
+      "post": {
+        "tags": ["Comment"],
+        "summary": "Add a comment to a blog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" },
+                  "inlineRef": { "type": "string" }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Comment added" }
+        }
+      }
+    },
+    "/comments/{id}/reply": {
+      "post": {
+        "tags": ["Comment"],
+        "summary": "Reply to a comment",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Reply added" }
+        }
+      }
+    },
+    "/comments/{id}/report": {
+      "post": {
+        "tags": ["Comment"],
+        "summary": "Report a comment",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Comment reported" }
+        }
+      }
+    },
+    "/series": {
+      "get": {
+        "tags": ["Series"],
+        "summary": "Get all blog series",
+        "responses": {
+          "200": { "description": "List of series" }
+        }
+      },
+      "post": {
+        "tags": ["Series"],
+        "summary": "Create a new series",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" }
+                },
+                "required": ["title"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Series created" }
+        }
+      }
+    },
+    "/series/{id}": {
+      "get": {
+        "tags": ["Series"],
+        "summary": "Get a series by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Series details" }
+        }
+      }
+    },
+    "/series/{id}/add-blog": {
+      "post": {
+        "tags": ["Series"],
+        "summary": "Add a blog to a series",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "blogId": { "type": "string" }
+                },
+                "required": ["blogId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Blog added to series" }
+        }
+      }
+    },
+    "/gamification/leaderboard": {
+      "get": {
+        "tags": ["Gamification"],
+        "summary": "Get leaderboard",
+        "responses": {
+          "200": { "description": "Leaderboard data" }
+        }
+      }
+    },
+    "/gamification/badges": {
+      "get": {
+        "tags": ["Gamification"],
+        "summary": "Get all badges",
+        "responses": {
+          "200": { "description": "List of badges" }
+        }
+      }
+    },
+    "/gamification/claim-badge": {
+      "post": {
+        "tags": ["Gamification"],
+        "summary": "Claim a badge",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "badgeId": { "type": "string" }
+                },
+                "required": ["badgeId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Badge claimed" }
+        }
+      }
+    },
+    "/admin/dashboard": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get admin dashboard stats",
+        "responses": {
+          "200": { "description": "Dashboard data" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all users",
+        "responses": {
+          "200": { "description": "List of users" }
+        }
+      }
+    },
+    "/admin/users/{id}/ban": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Ban a user",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User banned" }
+        }
+      }
+    },
+    "/admin/blogs": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all blogs (admin)",
+        "responses": {
+          "200": { "description": "List of blogs" }
+        }
+      }
+    },
+    "/admin/blogs/{id}/approve": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Approve a blog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Blog approved" }
+        }
+      }
+    },
+    "/admin/blogs/{id}": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete a blog (admin)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Blog deleted" }
+        }
+      }
+    },
+    "/admin/comments": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all comments (admin)",
+        "responses": {
+          "200": { "description": "List of comments" }
+        }
+      }
+    },
+    "/admin/comments/{id}": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete a comment (admin)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Comment deleted" }
+        }
+      }
+    },
+    "/admin/reports": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get all abuse reports",
+        "responses": {
+          "200": { "description": "List of reports" }
+        }
+      }
+    },
+    "/admin/settings": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update site settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "branding": { "type": "object" },
+                  "seo": { "type": "object" },
+                  "rewards": { "type": "object" },
+                  "languages": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Settings updated" }
+        }
+      }
+    }
+  }
+} 
