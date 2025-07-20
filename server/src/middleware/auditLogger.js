@@ -19,6 +19,9 @@ const auditLogger = (event) => {
       // Get user agent
       const userAgent = req.headers['user-agent'];
 
+      // Log audit event
+      logger.info(`Audit: ${event} - User: ${userId || 'anonymous'} - Path: ${req.path} - Method: ${req.method}`);
+
       // Create audit log entry
       // await AuditLog.create({
       //   userId,
@@ -34,7 +37,7 @@ const auditLogger = (event) => {
       //   }
       // });
     } catch (error) {
-      logger.error('Audit logging error:', error);
+      logger.error('Audit logging error:', error.message);
       // Don't block the request if logging fails
     }
 

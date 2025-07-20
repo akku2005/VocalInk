@@ -2,10 +2,13 @@
   "scripts": {
     "dev": "nodemon server.js",
     "prod": "node server.js",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test-logger": "node test-logger.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "chalk": "^4.1.2",
+    "colorette": "^2.0.20",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
