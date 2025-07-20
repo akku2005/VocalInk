@@ -1,4 +1,15 @@
 const chalk = require('chalk');
+const fs = require('fs');
+const path = require('path');
+const logDir = path.join(__dirname, '../../logs');
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+const logFile = path.join(logDir, 'server.log');
+
+function writeToFile(message) {
+  // Remove ANSI color codes for file output
+  const noColor = message.replace(/\x1b\[[0-9;]*m/g, '');
+  fs.appendFileSync(logFile, noColor + '\n');
+}
 
 // Get current timestamp
 const getTimestamp = () => {
@@ -36,20 +47,13 @@ const getLevelTag = (level) => {
 const formatArgs = (message, ...args) => {
   let formatted = message;
   
-  // Colorize different types of content
-  if (typeof message === 'string') {
-    // Colorize URLs
-    formatted = formatted.replace(/(https?:\/\/[^\s]+)/g, chalk.cyan('$1'));
-    // Colorize numbers
-    formatted = formatted.replace(/(\d+)/g, chalk.yellow('$1'));
-    // Colorize boolean values
-    formatted = formatted.replace(/\b(true|false)\b/gi, chalk.green('$1'));
-  }
+  // No colorization for URLs, numbers, or booleans
+  // Just keep the message as is
   
   // Format additional arguments
   const formattedArgs = args.map(arg => {
     if (typeof arg === 'object') {
-      return chalk.gray(JSON.stringify(arg, null, 2));
+      return JSON.stringify(arg, null, 2);
     }
     return arg;
   });
@@ -59,25 +63,35 @@ const formatArgs = (message, ...args) => {
 
 const logger = {
   info: (message, ...args) => {
-    console.info(formatMessage('INFO', message, ...args));
+    const msg = formatMessage('INFO', message, ...args);
+    console.info(msg);
+    writeToFile(msg);
   },
   
   warn: (message, ...args) => {
-    console.warn(formatMessage('WARN', message, ...args));
+    const msg = formatMessage('WARN', message, ...args);
+    console.warn(msg);
+    writeToFile(msg);
   },
   
   error: (message, ...args) => {
-    console.error(formatMessage('ERROR', message, ...args));
+    const msg = formatMessage('ERROR', message, ...args);
+    console.error(msg);
+    writeToFile(msg);
   },
   
   debug: (message, ...args) => {
     if (process.env.NODE_ENV !== 'production') {
-      console.debug(formatMessage('DEBUG', message, ...args));
+      const msg = formatMessage('DEBUG', message, ...args);
+      console.debug(msg);
+      writeToFile(msg);
     }
   },
   
   success: (message, ...args) => {
-    console.log(formatMessage('SUCCESS', message, ...args));
+    const msg = formatMessage('SUCCESS', message, ...args);
+    console.log(msg);
+    writeToFile(msg);
   },
   
   // Database specific logging
