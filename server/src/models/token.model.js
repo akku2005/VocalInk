@@ -27,4 +27,34 @@ tokenSchema.statics.revokeAllUserTokensByType = function(userId, type) {
   return this.updateMany({ user: userId, type }, { revoked: true });
 };
 
+tokenSchema.statics.generateVerificationToken = async function(user, code) {
+  // Generate a unique token hash (could use code or a random string)
+  const tokenHash = code + '-' + Date.now();
+  const token = await this.create({
+    tokenHash: tokenHash,
+    type: 'verification',
+    user: user._id,
+    expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+  });
+  return { token: token.tokenHash };
+};
+
+tokenSchema.statics.findByToken = async function(tokenHash) {
+  return this.findOne({
+    tokenHash,
+    revoked: false,
+    type: 'verification',
+    expiresAt: { $gt: new Date() }
+  });
+};
+
+tokenSchema.methods.isExpired = function() {
+  return this.expiresAt < new Date();
+};
+
+tokenSchema.methods.verifyCode = function(code) {
+  // The code is the part before the dash in tokenHash
+  return this.tokenHash.split('-')[0] === code;
+};
+
 module.exports = mongoose.model('Token', tokenSchema); 

@@ -1,5 +1,14 @@
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = require('express-rate-limit');
+
+// Custom function to get client IP
+function getClientIp(req) {
+  return (
+    req.headers['x-forwarded-for']?.split(',').shift() ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    ''
+  );
+}
 
 // Common rate limiter configuration
 const createLimiter = (options) => {
@@ -14,8 +23,8 @@ const createLimiter = (options) => {
     legacyHeaders: false,
     skipSuccessfulRequests: options.skipSuccessfulRequests || false,
     keyGenerator: (req) => {
-      // Use ipKeyGenerator for IPv6 safety
-      const ip = ipKeyGenerator(req);
+      // Use custom getClientIp for IPv6 safety
+      const ip = getClientIp(req);
       const key = [
         ip,
         req.headers['user-agent'],
@@ -61,9 +70,9 @@ const passwordResetLimiter = createLimiter({
 
 // Verification code rate limiter
 const verificationLimiter = createLimiter({
-  windowMs: 30 * 60 * 1000, // 30 minutes
-  max: 3, // 3 attempts per window
-  message: 'Too many verification attempts, please try again after 30 minutes',
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10, // 10 attempts per window
+  message: 'Too many verification attempts, please try again after 1 minute',
   skipSuccessfulRequests: true,
   additionalKey: (req) => req.body.email
 });

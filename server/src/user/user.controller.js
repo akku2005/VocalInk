@@ -21,6 +21,38 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+exports.promoteToAdmin = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.role = 'admin';
+    await user.save();
+
+    res.json({ success: true, message: 'User promoted to admin', user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.upgradeToWriter = async (req, res) => {
+  try {
+    // Only allow the user themselves or an admin to upgrade
+    if (req.user.id !== req.params.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.role = 'writer';
+    await user.save();
+
+    res.json({ success: true, message: 'User upgraded to writer', user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // Stubs for additional user endpoints
 exports.getUserBlogs = async (req, res) => { res.json([]); };
 exports.getUserBadges = async (req, res) => { res.json([]); };

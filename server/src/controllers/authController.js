@@ -108,7 +108,7 @@ class AuthController {
         email,
         password,
         name,
-        role: role || 'user'
+        role: role || 'reader'
       });
 
       // For admin users, automatically verify and provide tokens
