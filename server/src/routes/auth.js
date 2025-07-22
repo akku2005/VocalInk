@@ -242,6 +242,11 @@ router.get('/me', protect, authController.getCurrentUser);
 router.post('/refresh-token', authController.refreshToken);
 router.get('/sessions', protect, authController.getUserSessions);
 
+// 2FA routes
+router.post('/2fa/setup', protect, authController.generate2FASetup);
+router.post('/2fa/verify', protect, authController.verify2FASetup);
+router.post('/2fa/disable', protect, authController.disable2FA);
+
 // Admin-only routes
 /**
  * @swagger
