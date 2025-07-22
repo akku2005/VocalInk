@@ -19,7 +19,11 @@ const {
 const Joi = require('joi');
 const verifyEmailSchema = Joi.object({ email: Joi.string().email().required(), code: Joi.string().required() });
 const forgotPasswordSchema = Joi.object({ email: Joi.string().email().required() });
-const resetPasswordSchema = Joi.object({ token: Joi.string().required(), newPassword: Joi.string().min(6).required() });
+const resetPasswordSchema = Joi.object({
+  token: Joi.string().required(),
+  code: Joi.string().required(),
+  newPassword: Joi.string().min(6).required()
+});
 
 // Helper to wrap controller methods
 function routeHandler(fn) {

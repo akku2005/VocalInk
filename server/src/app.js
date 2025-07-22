@@ -3,6 +3,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const { connectDB } = require('./config/connectDB');
+const { apiLimiter } = require('./middleware/rateLimiter');
 const apiRouter = require('./routes');
 const swaggerDocument = require('../swagger.json');
 const swaggerUi = require('swagger-ui-express');
@@ -43,6 +44,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 logger.info('Swagger documentation available at /api-docs');
 
 // API routes
+app.use('/api', apiLimiter);
 app.use('/api', apiRouter);
 logger.info('API routes mounted at /api');
 

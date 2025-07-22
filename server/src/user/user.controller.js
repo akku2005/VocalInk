@@ -12,8 +12,18 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const updates = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select('-password');
+    // Support PATCH /me (no :id param)
+    const userId = req.params.id || req.user.id;
+    const allowedFields = [
+      'bio', 'dob', 'nationality', 'mobile', 'occupation', 'gender', 'address',
+      'profilePicture', 'company', 'jobTitle', 'website', 'linkedin', 'birthday',
+      'name', 'avatar', 'socialLinks'
+    ];
+    const updates = {};
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (err) {

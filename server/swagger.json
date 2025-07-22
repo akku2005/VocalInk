@@ -126,48 +126,58 @@
     }
   },
   "paths": {
-    "/auth/signup": {
+    "/auth/register": {
       "post": {
         "tags": ["Auth"],
-        "summary": "User signup",
+        "summary": "Register a new user",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/User" },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "format": "password" },
+                  "name": { "type": "string" },
+                  "role": { "type": "string", "enum": ["reader", "writer", "admin"] }
+                },
+                "required": ["email", "password", "name"]
+              },
               "example": {
-                "email": "akash@email.com",
-                "password": "Password123!",
-                "name": "Akash Kumar",
-                "role": "writer"
+                "email": "user@example.com",
+                "password": "StrongPassword123!",
+                "name": "Akash Sahu",
+                "role": "reader"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "User created",
+            "description": "Registration successful",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/User" },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "userId": { "type": "string" },
+                    "verificationToken": { "type": "string" }
+                  }
+                },
                 "example": {
-                  "_id": "60f7c0b8e1d2c8a1b8e1d2c8",
-                  "name": "Akash Kumar",
-                  "email": "akash@email.com",
-                  "role": "writer",
-                  "bio": "Tech enthusiast and writer.",
-                  "avatar": "https://cloudinary.com/avatar.jpg",
-                  "xp": 0,
-                  "badges": [],
-                  "followers": [],
-                  "following": [],
-                  "createdAt": "2024-07-16T00:00:00.000Z",
-                  "updatedAt": "2024-07-16T00:00:00.000Z"
+                  "success": true,
+                  "message": "Registration successful. Please check your email for verification.",
+                  "userId": "687e8816acec10414c96c133",
+                  "verificationToken": "387179-1753122838530"
                 }
               }
             }
           },
-          "400": { "description": "Invalid input" }
+          "400": { "description": "Invalid input" },
+          "409": { "description": "Email already registered" }
         }
       }
     },
@@ -296,7 +306,17 @@
     "/auth/verify-email": {
       "post": {
         "tags": ["Auth"],
-        "summary": "Verify email",
+        "summary": "Verify user email with code and token",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer <verificationToken>"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -304,15 +324,86 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "token": { "type": "string" }
+                  "email": { "type": "string", "format": "email" },
+                  "code": { "type": "string" }
                 },
-                "required": ["token"]
+                "required": ["email", "code"]
+              },
+              "example": {
+                "email": "user@example.com",
+                "code": "387179"
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Email verified" }
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "message": "Email verified successfully"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input" },
+          "401": { "description": "Invalid or expired verification token" }
+        }
+      }
+    },
+    "/auth/resend-verification": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Resend email verification code and token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" }
+                },
+                "required": ["email"]
+              },
+              "example": {
+                "email": "user@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification code resent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "verificationToken": { "type": "string" }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "message": "Verification code resent successfully. Please check your email.",
+                  "verificationToken": "387179-1753122838530"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input" },
+          "404": { "description": "User not found" }
         }
       }
     },
