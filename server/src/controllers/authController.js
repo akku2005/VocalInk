@@ -17,6 +17,8 @@ const EmailService = require('../services/EmailService');
 const { ValidationError, UnauthorizedError, ConflictError, BadRequestError } = require('../utils/errors');
 const mongoose = require('mongoose');
 const { ipKeyGenerator } = require('express-rate-limit');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 
 // Create EmailService instance
 const emailService = new EmailService();
@@ -311,9 +313,72 @@ class AuthController {
     return sanitized;
   }
 
+  // 2FA: Step 1 - Generate secret and QR code
+  static async generate2FASetup(req, res, next) {
+    try {
+      const user = req.user;
+      if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+      if (user.twoFactorEnabled) return res.status(400).json({ success: false, message: '2FA already enabled' });
+      const secret = speakeasy.generateSecret({ name: `VocalInk (${user.email})` });
+      user.twoFactorSecret = secret.base32;
+      await user.save();
+      const qr = await qrcode.toDataURL(secret.otpauth_url);
+      res.json({ success: true, secret: secret.base32, qr });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // 2FA: Step 2 - Verify code and enable 2FA
+  static async verify2FASetup(req, res, next) {
+    try {
+      const user = req.user;
+      const { token } = req.body;
+      if (!user.twoFactorSecret) return res.status(400).json({ success: false, message: '2FA not initialized' });
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token
+      });
+      if (verified) {
+        user.twoFactorEnabled = true;
+        await user.save();
+        return res.json({ success: true, message: '2FA enabled' });
+      } else {
+        return res.status(400).json({ success: false, message: 'Invalid 2FA code' });
+      }
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // 2FA: Disable 2FA (requires valid code)
+  static async disable2FA(req, res, next) {
+    try {
+      const user = req.user;
+      const { token } = req.body;
+      if (!user.twoFactorEnabled || !user.twoFactorSecret) return res.status(400).json({ success: false, message: '2FA not enabled' });
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token
+      });
+      if (verified) {
+        user.twoFactorEnabled = false;
+        user.twoFactorSecret = undefined;
+        await user.save();
+        return res.json({ success: true, message: '2FA disabled' });
+      } else {
+        return res.status(400).json({ success: false, message: 'Invalid 2FA code' });
+      }
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async login(req, res, next) {
     try {
-      const { email, password } = req.body;
+      const { email, password, twoFactorToken } = req.body;
 
       const user = await User.findOne({ email }).select('+password');
       if (!user) {
@@ -327,6 +392,20 @@ class AuthController {
 
       if (!user.isVerified) {
         throw new UnauthorizedError('Please verify your email before logging in');
+      }
+
+      if (user.twoFactorEnabled) {
+        if (!twoFactorToken) {
+          return res.status(401).json({ success: false, message: '2FA code required', twoFactorRequired: true });
+        }
+        const verified = speakeasy.totp.verify({
+          secret: user.twoFactorSecret,
+          encoding: 'base32',
+          token: twoFactorToken
+        });
+        if (!verified) {
+          return res.status(401).json({ success: false, message: 'Invalid 2FA code', twoFactorRequired: true });
+        }
       }
 
       let tokens;
@@ -986,5 +1065,8 @@ module.exports = {
   changePassword: AuthController.changePassword,
   getCurrentUser: AuthController.getCurrentUser,
   refreshToken: AuthController.refreshToken,
-  getUserSessions: AuthController.getUserSessions
+  getUserSessions: AuthController.getUserSessions,
+  generate2FASetup: AuthController.generate2FASetup,
+  verify2FASetup: AuthController.verify2FASetup,
+  disable2FA: AuthController.disable2FA
 };
