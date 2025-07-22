@@ -5,6 +5,7 @@ const { protect, requireAdmin } = require('../middleware/auth');
 
 router.get('/:id', userController.getProfile);
 router.put('/:id', protect, userController.updateProfile);
+router.patch('/me', protect, userController.updateProfile);
 router.get('/:id/blogs', userController.getUserBlogs);
 router.get('/:id/badges', userController.getUserBadges);
 router.get('/:id/leaderboard', userController.getUserLeaderboard);

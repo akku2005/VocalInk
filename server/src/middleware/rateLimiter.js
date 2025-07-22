@@ -62,7 +62,7 @@ const registerLimiter = createLimiter({
 // Password reset rate limiter
 const passwordResetLimiter = createLimiter({
   windowMs: 30 * 60 * 1000, // 30 minutes
-  max: 2, // 2 attempts per window
+  max: 10, // 2 attempts per window
   message: 'Too many password reset attempts, please try again after 30 minutes',
   skipSuccessfulRequests: true,
   additionalKey: (req) => req.body.email
@@ -80,7 +80,7 @@ const verificationLimiter = createLimiter({
 // Global API rate limiter - More granular
 const apiLimiter = createLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: 100, // 100 requests per window per IP
   message: 'Too many requests, please try again later',
   skipSuccessfulRequests: false
 });

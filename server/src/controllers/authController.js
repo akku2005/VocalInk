@@ -262,12 +262,16 @@ class AuthController {
         role: user.role
       });
 
-      res.status(201).json({
+      const response = {
         success: true,
         message: 'Registration successful. Please check your email for verification.',
         userId: user._id,
         verificationToken
-      });
+      };
+      if (process.env.NODE_ENV !== 'production') {
+        response.verificationCode = verificationCode;
+      }
+      res.status(201).json(response);
     } catch (error) {
       logger.error('Error occurred', {
         error: error.message,
@@ -281,13 +285,17 @@ class AuthController {
         stack: error.stack
       });
 
+      // Friendly error handling
+      if (error.name === 'ConflictError' || error.message === 'Email already registered') {
+        return res.status(409).json({ success: false, message: 'Email already registered' });
+      }
       if (error.isOperational) {
-        res.status(error.statusCode).json({
+        return res.status(error.statusCode).json({
           success: false,
           message: error.message
         });
       } else {
-        res.status(500).json({
+        return res.status(500).json({
           success: false,
           message: 'An error occurred during registration'
         });
@@ -350,13 +358,17 @@ class AuthController {
         stack: error.stack
       });
 
+      // Friendly error handling for login
+      if (error.name === 'UnauthorizedError' || error.message === 'Invalid credentials') {
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
       if (error.isOperational) {
-        res.status(error.statusCode).json({
+        return res.status(error.statusCode).json({
           success: false,
           message: error.message
         });
       } else {
-        res.status(500).json({
+        return res.status(500).json({
           success: false,
           message: 'An error occurred during login'
         });
@@ -376,8 +388,10 @@ class AuthController {
       const verificationToken = authHeader.substring(7);
 
       // Find and validate the token
+      console.log('Looking for token:', verificationToken, new Date());
       const token = await Token.findByToken(verificationToken);
-      if (!token || token.revoked || token.type !== 'verify' || token.isExpired()) {
+      console.log('Token found:', token);
+      if (!token || token.revoked || token.type !== 'verification' || token.isExpired()) {
         throw new UnauthorizedError('Invalid or expired verification token');
       }
 
@@ -437,6 +451,7 @@ class AuthController {
       res.status(200).json({
         success: true,
         message: 'Email verified successfully',
+        isVerified: true,
         ...tokens
       });
     } catch (error) {
@@ -493,26 +508,36 @@ class AuthController {
         email: user.email
       });
 
-      res.status(200).json({
+      const response = {
         success: true,
         message: 'Verification code resent successfully. Please check your email.',
         verificationToken
-      });
+      };
+      if (process.env.NODE_ENV !== 'production') {
+        response.verificationCode = verificationCode;
+      }
+      res.status(200).json(response);
     } catch (error) {
-      next(error);
+      logger.error('Error occurred', {
+        error: error.message,
+        body: req.body,
+        ip: req.ip,
+        method: req.method,
+        url: req.originalUrl,
+        params: req.params,
+        query: req.query,
+        userAgent: req.get('user-agent'),
+        stack: error.stack
+      });
+      res.status(500).json({ success: false, message: 'An error occurred while resending verification code' });
     }
   }
 
   static async forgotPassword(req, res, next) {
     try {
       const { email } = req.body;
-
-      // Find user by email
       const user = await User.findOne({ email });
-
-      // Don't reveal if user exists or not
       if (!user) {
-        // Log attempt but return same message
         logger.info('Password reset requested for non-existent email', { email });
         return res.status(200).json({
           success: true,
@@ -523,12 +548,14 @@ class AuthController {
       // Generate reset code and token
       const resetCode = generateNumericalCode(6);
       const resetToken = crypto.randomBytes(32).toString('hex');
+      console.log('Generated raw resetToken:', resetToken);
 
       // Hash the reset token
       const hashedToken = crypto
         .createHash('sha256')
         .update(resetToken)
         .digest('hex');
+      console.log('Hashed resetToken (to be saved):', hashedToken);
 
       // Save reset token and code
       user.resetPasswordToken = hashedToken;
@@ -554,11 +581,15 @@ class AuthController {
         email: user.email
       });
 
-      res.status(200).json({
+      // For dev: return the raw token and code in the response
+      const response = {
         success: true,
-        message: 'If the email exists, password reset instructions will be sent',
-        resetToken // This will be needed for the reset password step
-      });
+        message: 'If the email exists, password reset instructions will be sent'
+      };
+      if (process.env.NODE_ENV === 'development') {
+        response.resetToken = resetToken;
+      }
+      return res.status(200).json(response);
     } catch (error) {
       logger.error('Error in forgot password:', {
         error: error.message,
@@ -566,7 +597,7 @@ class AuthController {
         ip: req.ip,
         userAgent: req.get('user-agent')
       });
-      next(error);
+      res.status(500).json({ success: false, message: 'An error occurred during password reset request' });
     }
   }
 
@@ -579,12 +610,15 @@ class AuthController {
         .createHash('sha256')
         .update(token)
         .digest('hex');
+      console.log('Reset password: raw token:', token);
+      console.log('Reset password: hashed token:', hashedToken);
 
       // Find user by reset token
       const user = await User.findOne({
         resetPasswordToken: hashedToken,
         resetPasswordExpires: { $gt: Date.now() }
       }).select('+resetPasswordCode +resetPasswordToken +resetPasswordExpires +password');
+      console.log('User found for reset:', user);
 
       if (!user) {
         throw new UnauthorizedError('Invalid or expired reset token');
@@ -640,7 +674,7 @@ class AuthController {
         ip: req.ip,
         userAgent: req.get('user-agent')
       });
-      next(error);
+      res.status(500).json({ success: false, message: 'An error occurred during password reset' });
     }
   }
 
@@ -673,12 +707,6 @@ class AuthController {
       // Revoke all user sessions
       await TokenService.revokeAllUserTokens(user._id, 'Password changed');
 
-      // Log security event
-      await user.logSecurityEvent('password_changed', {
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent']
-      });
-
       // Send security alert email
       await emailService.sendSecurityAlertEmail(user, {
         type: 'Password Changed',
@@ -692,7 +720,13 @@ class AuthController {
         message: 'Password changed successfully'
       });
     } catch (error) {
-      next(error);
+      logger.error('Error in change password:', {
+        error: error.message,
+        body: req.body,
+        ip: req.ip,
+        userAgent: req.get('user-agent')
+      });
+      res.status(500).json({ success: false, message: 'An error occurred during password change' });
     }
   }
 
@@ -750,7 +784,17 @@ class AuthController {
         message: 'Logged out from all devices successfully'
       });
     } catch (error) {
-      next(error);
+      logger.error('Error in logoutAll:', {
+        error: error.message,
+        ip: req.ip,
+        method: req.method,
+        url: req.originalUrl,
+        params: req.params,
+        query: req.query,
+        userAgent: req.get('user-agent'),
+        stack: error.stack
+      });
+      res.status(500).json({ success: false, message: 'An error occurred during logout from all devices' });
     }
   }
 
@@ -760,10 +804,11 @@ class AuthController {
       if (!user) {
         throw new UnauthorizedError('User not found');
       }
-
-      res.status(200).json({
+      const userObj = user.toObject();
+      delete userObj.password;
+      return res.status(200).json({
         success: true,
-        data: user.sanitize()
+        data: userObj
       });
     } catch (error) {
       logger.error('Error occurred', {
@@ -795,50 +840,60 @@ class AuthController {
     try {
       const { refreshToken } = req.body;
       if (!refreshToken) {
-        throw new BadRequestError('Refresh token is required');
+        return res.status(400).json({ success: false, message: 'Refresh token is required' });
       }
-
       // Verify refresh token
       const { decoded, tokenRecord } = await TokenService.verifyToken(refreshToken, 'refresh');
-
+      if (!decoded || !decoded.userId) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+      }
       // Get user
       const user = await User.findById(decoded.userId);
       if (!user) {
-        throw new UnauthorizedError('User not found');
+        return res.status(401).json({ success: false, message: 'User not found' });
       }
-
       // Revoke the used refresh token
       await TokenService.revokeToken(refreshToken);
-
       // Generate new tokens
-      const { token: newAccessToken } = await TokenService.createAccessToken(user._id);
-      const { token: newRefreshToken } = await TokenService.createRefreshToken(user._id);
-
-      // Log the token refresh
-      await logAuthActivity(req, 'TOKEN_REFRESH', {
-        userId: user._id,
-        email: user.email
-      });
-
+      const { accessToken, refreshToken: newRefreshToken } = await TokenService.generateTokens(user);
       res.status(200).json({
         success: true,
         message: 'Tokens refreshed successfully',
-        data: {
-          tokens: {
-            access: newAccessToken,
-            refresh: newRefreshToken
-          }
-        }
+        accessToken,
+        refreshToken: newRefreshToken
       });
     } catch (error) {
-      next(error);
+      logger.error('Error occurred', {
+        error: error.message,
+        body: req.body,
+        ip: req.ip,
+        method: req.method,
+        url: req.originalUrl,
+        params: req.params,
+        query: req.query,
+        userAgent: req.get('user-agent'),
+        stack: error.stack
+      });
+      if (error.name === 'UnauthorizedError' || error.message === 'Invalid token' || error.message === 'Token has been revoked' || error.message === 'Token has expired') {
+        return res.status(401).json({ success: false, message: error.message });
+      }
+      if (error.isOperational) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: 'An error occurred during token refresh'
+        });
+      }
     }
   }
 
   static async getUserSessions(req, res, next) {
     try {
       const sessions = await TokenService.getUserSessions(req.user._id);
-
       res.status(200).json({
         success: true,
         data: {
@@ -852,7 +907,17 @@ class AuthController {
         }
       });
     } catch (error) {
-      next(error);
+      logger.error('Error in getUserSessions:', {
+        error: error.message,
+        ip: req.ip,
+        method: req.method,
+        url: req.originalUrl,
+        params: req.params,
+        query: req.query,
+        userAgent: req.get('user-agent'),
+        stack: error.stack
+      });
+      res.status(500).json({ success: false, message: 'An error occurred while fetching user sessions' });
     }
   }
 }
