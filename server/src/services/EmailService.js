@@ -324,6 +324,13 @@ class EmailService {
       throw error;
     }
   }
+
+  async sendAccountLockoutNotification(email, lockoutUntil) {
+    const subject = 'Account Locked Due to Failed Login Attempts';
+    const lockoutTime = new Date(lockoutUntil).toLocaleString();
+    const message = `Your account has been temporarily locked due to multiple failed login attempts.\n\nYou can try logging in again after: ${lockoutTime}.\n\nIf this wasn't you, please contact support immediately.`;
+    return this.sendEmail(email, subject, message);
+  }
 }
 
 module.exports = EmailService; 
