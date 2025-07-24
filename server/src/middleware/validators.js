@@ -5,6 +5,7 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { ObjectId } = require('mongodb');
 const { BadRequestError } = require('../utils/errors');
+const { sanitizeInput, isDisposableEmailDomain } = require('../utils/sanitize');
 
 // Validation Constants
 const VALIDATION = {
@@ -147,23 +148,29 @@ const validateRequest = (req, res, next) => {
   next();
 };
 
+// Add a custom sanitizer to all string fields in userValidations
+const sanitizeField = (field) => body(field).customSanitizer(sanitizeInput);
+
 // User Validations
 const userValidations = {
   register: validate([
-    body('name')
-      .trim()
+    sanitizeField('name')
       .notEmpty().withMessage('Name is required')
       .isLength({ min: VALIDATION.USER.MIN_NAME_LENGTH, max: VALIDATION.USER.MAX_NAME_LENGTH })
       .withMessage(`Name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`),
 
-    body('email')
-      .trim()
+    sanitizeField('email')
       .notEmpty().withMessage('Email is required')
       .isEmail().withMessage('Please enter a valid email')
-      .normalizeEmail(),
+      .normalizeEmail()
+      .custom(async (email) => {
+        if (isDisposableEmailDomain(email)) {
+          throw new Error('Disposable/temporary email addresses are not allowed');
+        }
+        return true;
+      }),
 
-    body('password')
-      .trim()
+    sanitizeField('password')
       .notEmpty().withMessage('Password is required')
       .custom(customValidators.password),
 
@@ -179,14 +186,12 @@ const userValidations = {
   ]),
 
   login: validate([
-    body('email')
-      .trim()
+    sanitizeField('email')
       .notEmpty().withMessage('Email is required')
       .isEmail().withMessage('Please enter a valid email')
       .normalizeEmail(),
 
-    body('password')
-      .trim()
+    sanitizeField('password')
       .notEmpty().withMessage('Password is required')
   ]),
 
@@ -270,14 +275,12 @@ const userValidations = {
   ]),
 
   updateProfile: [
-    body('name')
+    sanitizeField('name')
       .optional()
-      .trim()
       .isLength({ min: VALIDATION.USER.MIN_NAME_LENGTH, max: VALIDATION.USER.MAX_NAME_LENGTH })
       .withMessage(`Name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`),
-    body('mobile')
+    sanitizeField('mobile')
       .optional()
-      .trim()
       .customSanitizer(value => {
         if (!value) return value;
         // Remove all spaces and dashes

@@ -101,13 +101,26 @@ const uploadLimiter = createLimiter({
   skipSuccessfulRequests: true
 });
 
-module.exports = {
-  loginLimiter,
-  registerLimiter,
-  passwordResetLimiter,
-  verificationLimiter,
-  apiLimiter,
-  adminApiLimiter,
-  uploadLimiter,
-  createLimiter // Export for custom limiters
-}; 
+const smartRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: (req) => {
+    if (req.user?.role === 'admin') return 100;
+    if (req.headers['x-forwarded-for']) return 5; // Proxy/VPN
+    return 10;
+  },
+  keyGenerator: (req) => {
+    return `${req.ip}:${req.body.email || 'anonymous'}`;
+  },
+  handler: (req, res, next) => {
+    // Placeholder for CAPTCHA integration after 3 failures
+    // You can check req.rateLimit.current for the current count
+    return res.status(429).json({
+      success: false,
+      message: 'Too many requests. Please try again later.'
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+module.exports = { smartRateLimit, apiLimiter }; 

@@ -1,9 +1,30 @@
 const { StatusCodes } = require('http-status-codes');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
-const { validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const { sendEmail } = require('../utils/emailService');
 const logger = require('../utils/logger');
+
+const updateUserValidators = [
+  body('name').optional().trim().escape().isLength({ min: 2, max: 50 }).withMessage('Name must be 2-50 characters'),
+  body('email').optional().isEmail().withMessage('Invalid email address').normalizeEmail(),
+  body('role').optional().isIn(['reader', 'writer', 'admin']).withMessage('Invalid role')
+];
+
+const updateProfileValidators = [
+  body('name').optional().trim().escape().isLength({ min: 2, max: 50 }).withMessage('Name must be 2-50 characters'),
+  body('email').optional().isEmail().withMessage('Invalid email address').normalizeEmail(),
+  body('mobile').optional().trim().escape().isLength({ min: 7, max: 20 }).withMessage('Mobile must be 7-20 characters'),
+  body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Invalid gender'),
+  body('address').optional().trim().escape().isLength({ max: 100 }).withMessage('Address too long'),
+  body('profilePicture').optional().trim().escape().isURL().withMessage('Invalid profile picture URL'),
+  body('company').optional().trim().escape().isLength({ max: 50 }).withMessage('Company name too long'),
+  body('jobTitle').optional().trim().escape().isLength({ max: 50 }).withMessage('Job title too long'),
+  body('website').optional().trim().escape().isURL().withMessage('Invalid website URL'),
+  body('linkedin').optional().trim().escape().isURL().withMessage('Invalid LinkedIn URL'),
+  body('bio').optional().trim().escape().isLength({ max: 500 }).withMessage('Bio too long'),
+  body('birthday').optional().isISO8601().withMessage('Invalid birthday date')
+];
 
 // Get all users
 const getAllUsers = async (req, res, next) => {

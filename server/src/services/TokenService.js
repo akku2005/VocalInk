@@ -20,16 +20,19 @@ class TokenService {
     return token;
   }
 
-  static async generateVerificationToken(userId, code) {
-    const tokenHash = crypto.createHash('sha256').update(code).digest('hex');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await Token.create({ tokenHash, type: 'verification', user: userId, expiresAt });
-    return code;
+  static async generateVerificationToken(userId) {
+    const user = userId._id ? userId : await require('../models/user.model').findById(userId);
+    const { token } = await Token.generateVerificationToken(user);
+    return token;
   }
 
-  static async verifyVerificationToken(userId, code) {
-    const tokenHash = crypto.createHash('sha256').update(code).digest('hex');
-    const tokenRecord = await Token.findOne({ tokenHash, type: 'verification', user: userId, revoked: false });
+  static async verifyVerificationToken(userId, rawToken) {
+    const tokenRecord = await Token.findOne({
+      tokenHash: crypto.createHash('sha256').update(rawToken).digest('hex'),
+      type: 'verification',
+      user: userId,
+      revoked: false
+    });
     if (!tokenRecord) return false;
     if (tokenRecord.expiresAt < new Date()) return false;
     await tokenRecord.revoke();
