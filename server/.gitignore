@@ -8,8 +8,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-
-
 # OS files
 .DS_Store
 Thumbs.db
@@ -34,4 +32,6 @@ build/
 # Swagger generated files
 swagger.json 
 
-.env
+# Environment files
+.env     # Actual env - keep private
+# example.env will be tracked
