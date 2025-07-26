@@ -6,8 +6,8 @@ const { v4: uuidv4 } = require('uuid');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/user.model');
 const Token = require('../models/token.model');
-// const AuditLog = require('../models/AuditLog');
-const { validationResult } = require('express-validator');
+const AuditLog = require('../models/auditlog.model');
+const { validationResult, body } = require('express-validator');
 const { sendEmail } = require('../services/EmailService');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
@@ -19,6 +19,10 @@ const mongoose = require('mongoose');
 const { ipKeyGenerator } = require('express-rate-limit');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
+const { sanitizeInput, isDisposableEmailDomain, generateDeviceFingerprint } = require('../utils/sanitize');
+
+// Utility: base64 encode a string
+const toBase64 = (str) => Buffer.from(str, 'utf-8').toString('base64');
 
 // Create EmailService instance
 const emailService = new EmailService();
@@ -57,13 +61,13 @@ const generateResetToken = () => {
 
 const logAuthActivity = async (req, action, metadata = {}) => {
   try {
-    // await AuditLog.create({
-    //   event: action,
-    //   userId: metadata.userId,
-    //   ipAddress: req.ip,
-    //   userAgent: req.headers['user-agent'],
-    //   details: metadata
-    // });
+    await AuditLog.create({
+      event: action,
+      userId: metadata.userId,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      details: metadata
+    });
   } catch (error) {
     logger.error('Failed to log auth activity:', error);
   }
@@ -75,8 +79,35 @@ const generateNumericalCode = (length = 6) => {
 };
 
 class AuthController {
+  static registerValidators = [
+    body('email')
+      .isEmail().withMessage('Invalid email address')
+      .normalizeEmail(),
+    body('password')
+      .isLength({ min: 6 }).withMessage('Password must be at least 8 characters')
+      .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
+      .matches(/[a-z]/).withMessage('Password must contain a lowercase letter')
+      .matches(/[0-9]/).withMessage('Password must contain a number')
+      .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain a special character'),
+    body('name')
+      .trim()
+      .escape()
+      .isLength({ min: 2, max: 50 }).withMessage('Name must be 2-50 characters'),
+    body('role')
+      .optional()
+      .isIn(['reader', 'writer', 'admin']).withMessage('Invalid role')
+  ];
+
   static async register(req, res, next) {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
       const { email, password, name, role, skipVerification } = req.body;
 
       // Check if user already exists
@@ -246,6 +277,13 @@ class AuthController {
       const verificationCode = await user.generateVerificationCode();
       const { token: verificationToken } = await Token.generateVerificationToken(user, verificationCode);
 
+      // Save the code in the Token document
+      const tokenDoc = await Token.findOne({ user: user._id, type: 'verification', revoked: false }).sort({ createdAt: -1 });
+      if (tokenDoc) {
+        tokenDoc.code = verificationCode;
+        await tokenDoc.save();
+      }
+
       // Send verification email
       try {
         await emailService.sendVerificationEmail(user.email, verificationCode);
@@ -268,11 +306,8 @@ class AuthController {
         success: true,
         message: 'Registration successful. Please check your email for verification.',
         userId: user._id,
-        verificationToken
+        verificationToken: toBase64(verificationToken)
       };
-      if (process.env.NODE_ENV !== 'production') {
-        response.verificationCode = verificationCode;
-      }
       res.status(201).json(response);
     } catch (error) {
       logger.error('Error occurred', {
@@ -335,10 +370,13 @@ class AuthController {
       const user = req.user;
       const { token } = req.body;
       if (!user.twoFactorSecret) return res.status(400).json({ success: false, message: '2FA not initialized' });
+      // Debug logging (remove in production)
+      console.log('2FA VERIFY:', { secret: user.twoFactorSecret, token });
       const verified = speakeasy.totp.verify({
         secret: user.twoFactorSecret,
         encoding: 'base32',
-        token
+        token,
+        window: 1 // Accepts codes from 30s before/after
       });
       if (verified) {
         user.twoFactorEnabled = true;
@@ -361,7 +399,8 @@ class AuthController {
       const verified = speakeasy.totp.verify({
         secret: user.twoFactorSecret,
         encoding: 'base32',
-        token
+        token,
+        window: 1 // Accepts codes from 30s before/after
       });
       if (verified) {
         user.twoFactorEnabled = false;
@@ -376,22 +415,84 @@ class AuthController {
     }
   }
 
+  static loginValidators = [
+    body('email')
+      .isEmail().withMessage('Invalid email address')
+      .normalizeEmail(),
+    body('password')
+      .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+      .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
+      .matches(/[a-z]/).withMessage('Password must contain a lowercase letter')
+  ];
+
   static async login(req, res, next) {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
       const { email, password, twoFactorToken } = req.body;
 
       const user = await User.findOne({ email }).select('+password');
       if (!user) {
-        throw new UnauthorizedError('Invalid credentials');
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
+
+      // Account lockout check
+      if (user.lockoutUntil && user.lockoutUntil > new Date()) {
+        const minutes = Math.ceil((user.lockoutUntil - new Date()) / 60000);
+        return res.status(423).json({
+          success: false,
+          message: `Account locked. Try again in ${minutes} minute(s).`,
+          lockoutUntil: user.lockoutUntil
+        });
       }
 
       const isPasswordValid = await user.comparePassword(password);
       if (!isPasswordValid) {
-        throw new UnauthorizedError('Invalid credentials');
+        user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+        let lockoutSet = false;
+        // Progressive lockout
+        if (user.failedLoginAttempts === 3) {
+          user.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+          lockoutSet = true;
+        } else if (user.failedLoginAttempts === 6) {
+          user.lockoutUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 hr
+          lockoutSet = true;
+        } else if (user.failedLoginAttempts >= 10) {
+          user.lockoutUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hr
+          lockoutSet = true;
+        }
+        await user.save();
+        if (lockoutSet) {
+          // Log lockout event
+          await logAuthActivity(req, 'AUTH_ACCOUNT_LOCKOUT', {
+            userId: user._id,
+            email: user.email,
+            failedLoginAttempts: user.failedLoginAttempts,
+            lockoutUntil: user.lockoutUntil
+          });
+          // Optionally, send notification email
+          try {
+            await emailService.sendAccountLockoutNotification(user.email, user.lockoutUntil);
+          } catch (e) {
+            logger.error('Failed to send account lockout notification:', e);
+          }
+        }
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
 
+      // Reset failed attempts and lockout on success
+      user.failedLoginAttempts = 0;
+      user.lockoutUntil = null;
+      await user.save();
+
       if (!user.isVerified) {
-        throw new UnauthorizedError('Please verify your email before logging in');
+        return res.status(401).json({ success: false, message: 'Please verify your email before logging in' });
       }
 
       if (user.twoFactorEnabled) {
@@ -419,9 +520,19 @@ class AuthController {
         throw new Error('Error generating tokens');
       }
 
+      // After successful login, generate device fingerprint
+      const deviceFingerprint = generateDeviceFingerprint(req);
+      // Optionally, store or bind this fingerprint to the session/token here
+      // Log device fingerprint in audit log
+      await logAuthActivity(req, 'AUTH_LOGIN_SUCCESS', {
+        userId: user._id,
+        email: user.email,
+        deviceFingerprint
+      });
       res.status(200).json({
         success: true,
         message: 'Login successful',
+        deviceFingerprint,
         ...tokens
       });
     } catch (error) {
@@ -465,10 +576,12 @@ class AuthController {
         throw new UnauthorizedError('Verification token is required in Authorization header');
       }
       const verificationToken = authHeader.substring(7);
+      // Decode from base64 to get the raw token
+      const rawToken = Buffer.from(verificationToken, 'base64').toString('utf-8');
 
       // Find and validate the token
-      console.log('Looking for token:', verificationToken, new Date());
-      const token = await Token.findByToken(verificationToken);
+      console.log('Looking for token:', rawToken, new Date());
+      const token = await Token.findByToken(rawToken);
       console.log('Token found:', token);
       if (!token || token.revoked || token.type !== 'verification' || token.isExpired()) {
         throw new UnauthorizedError('Invalid or expired verification token');
@@ -612,8 +725,35 @@ class AuthController {
     }
   }
 
+  static forgotPasswordValidators = [
+    body('email')
+      .isEmail().withMessage('Invalid email address')
+      .normalizeEmail()
+  ];
+
+  static resetPasswordValidators = [
+    body('token')
+      .isString().withMessage('Token is required')
+      .isLength({ min: 6 }).withMessage('Token is too short'),
+    body('code')
+      .isString().withMessage('Code is required')
+      .isLength({ min: 4, max: 10 }).withMessage('Code must be 4-10 characters'),
+    body('newPassword')
+      .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+      .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
+      .matches(/[a-z]/).withMessage('Password must contain a lowercase letter')
+  ];
+
   static async forgotPassword(req, res, next) {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
       const { email } = req.body;
       const user = await User.findOne({ email });
       if (!user) {
@@ -682,6 +822,14 @@ class AuthController {
 
   static async resetPassword(req, res, next) {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
       const { token, code, newPassword } = req.body;
 
       // Hash the provided token to compare with stored hash
@@ -757,11 +905,26 @@ class AuthController {
     }
   }
 
+  static changePasswordValidators = [
+    body('currentPassword')
+      .isLength({ min: 6 }).withMessage('Current password must be at least 6 characters')
+      .matches(/[A-Z]/).withMessage('Current password must contain an uppercase letter')
+      .matches(/[a-z]/).withMessage('Current password must contain a lowercase letter'),
+    body('newPassword')
+      .isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+      .matches(/[A-Z]/).withMessage('New password must contain an uppercase letter')
+      .matches(/[a-z]/).withMessage('New password must contain a lowercase letter')
+  ];
+
   static async changePassword(req, res, next) {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        throw new AppError('Validation failed', StatusCodes.BAD_REQUEST, errors.array());
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
       }
 
       const { currentPassword, newPassword } = req.body;

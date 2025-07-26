@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const tokenSchema = new mongoose.Schema({
   tokenHash: { type: String, required: true, unique: true },
@@ -7,6 +8,7 @@ const tokenSchema = new mongoose.Schema({
   expiresAt: { type: Date, required: true },
   revoked: { type: Boolean, default: false },
   lastUsedAt: { type: Date, default: Date.now },
+  code: { type: String }, // For verification tokens
 }, { timestamps: true });
 
 tokenSchema.methods.revoke = function() {
@@ -28,18 +30,22 @@ tokenSchema.statics.revokeAllUserTokensByType = function(userId, type) {
 };
 
 tokenSchema.statics.generateVerificationToken = async function(user, code) {
-  // Generate a unique token hash (could use code or a random string)
-  const tokenHash = code + '-' + Date.now();
-  const token = await this.create({
+  // Generate a secure random token
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  await this.create({
     tokenHash: tokenHash,
     type: 'verification',
     user: user._id,
-    expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+    expiresAt: expiresAt,
+    code: code // Store the code
   });
-  return { token: token.tokenHash };
+  return { token: rawToken };
 };
 
-tokenSchema.statics.findByToken = async function(tokenHash) {
+tokenSchema.statics.findByToken = async function(rawToken) {
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   return this.findOne({
     tokenHash,
     revoked: false,
@@ -52,9 +58,8 @@ tokenSchema.methods.isExpired = function() {
   return this.expiresAt < new Date();
 };
 
-tokenSchema.methods.verifyCode = function(code) {
-  // The code is the part before the dash in tokenHash
-  return this.tokenHash.split('-')[0] === code;
+tokenSchema.methods.verifyCode = function(inputCode) {
+  return this.code && inputCode && this.code === inputCode;
 };
 
 module.exports = mongoose.model('Token', tokenSchema); 

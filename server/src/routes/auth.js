@@ -6,10 +6,7 @@ const authController = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 const { auditLogger } = require('../middleware/auditLogger');
 const {
-  loginLimiter,
-  registerLimiter,
-  passwordResetLimiter,
-  verificationLimiter
+  smartRateLimit
 } = require('../middleware/rateLimiter');
 const { validate, validateRequest } = require('../middleware/validators');
 const { 
@@ -229,12 +226,12 @@ function validateJoi(schema) {
 }
 
 // Routes
-router.post('/register', registerLimiter, validateJoi(registerSchema), authController.register);
-router.post('/login', loginLimiter, validateJoi(loginSchema), authController.login);
-router.post('/verify-email', verificationLimiter, validateJoi(verifyEmailSchema), authController.verifyEmail);
-router.post('/resend-verification', verificationLimiter, authController.resendVerificationCode);
-router.post('/forgot-password', passwordResetLimiter, validateJoi(forgotPasswordSchema), authController.forgotPassword);
-router.post('/reset-password', passwordResetLimiter, validateJoi(resetPasswordSchema), authController.resetPassword);
+router.post('/register', smartRateLimit, validateJoi(registerSchema), authController.register);
+router.post('/login', smartRateLimit, validateJoi(loginSchema), authController.login);
+router.post('/verify-email', smartRateLimit, validateJoi(verifyEmailSchema), authController.verifyEmail);
+router.post('/resend-verification', smartRateLimit, authController.resendVerificationCode);
+router.post('/forgot-password', smartRateLimit, validateJoi(forgotPasswordSchema), authController.forgotPassword);
+router.post('/reset-password', smartRateLimit, validateJoi(resetPasswordSchema), authController.resetPassword);
 router.post('/change-password', protect, authController.changePassword);
 router.post('/logout', protect, authController.logout);
 router.post('/logout-all', protect, authController.logoutAll);

@@ -32,6 +32,8 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: { type: Date },
   twoFactorEnabled: { type: Boolean, default: false },
   twoFactorSecret: { type: String },
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockoutUntil: { type: Date, default: null },
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {
