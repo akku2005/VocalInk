@@ -33,3 +33,5 @@ build/
 
 # Swagger generated files
 swagger.json 
+
+.env
