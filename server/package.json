@@ -3,7 +3,8 @@
     "dev": "nodemon server.js",
     "prod": "node server.js",
     "prepare": "husky",
-    "test-logger": "node test-logger.js"
+    "test-logger": "node test-logger.js",
+    "seed-badges": "node src/utils/seedBadges.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
