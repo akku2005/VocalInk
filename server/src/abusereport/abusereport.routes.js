@@ -1,9 +1,11 @@
 const express = require('express');
+
 const router = express.Router();
-const abuseReportController = require('./abusereport.controller');
 const { protect } = require('../middleware/auth');
+
+const abuseReportController = require('./abusereport.controller');
 
 router.post('/', protect, abuseReportController.createReport);
 router.get('/', abuseReportController.getReports);
 
-module.exports = router; 
+module.exports = router;

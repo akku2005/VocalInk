@@ -1,10 +1,12 @@
+const crypto = require('crypto');
+const { promisify } = require('util');
+
 const { StatusCodes } = require('http-status-codes');
 const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { promisify } = require('util');
 const { v4: uuidv4 } = require('uuid');
+
 const AppError = require('../utils/AppError');
 const Project = require('../models/Project');
 const AuditLog = require('../models/AuditLog');
@@ -13,21 +15,25 @@ const Token = require('../models/Token');
 const logger = require('../utils/logger');
 const config = require('../config');
 const TokenService = require('../services/TokenService');
-const { UnauthorizedError, ForbiddenError, BadRequestError } = require('../utils/errors');
+const {
+  UnauthorizedError,
+  ForbiddenError,
+  BadRequestError,
+} = require('../utils/errors');
 
 // Constants
 const PERMISSION_LEVELS = {
   READ: 'read',
   WRITE: 'write',
   DELETE: 'delete',
-  ADMIN: 'admin'
+  ADMIN: 'admin',
 };
 
 const RESOURCE_TYPES = {
   PROJECT: 'project',
   TIMESHEET: 'timesheet',
   USER: 'user',
-  REPORT: 'report'
+  REPORT: 'report',
 };
 
 // Rate Limiters
@@ -42,16 +48,19 @@ const authLimiter = rateLimit({
     return `${ip}-${userAgent}`;
   },
   handler: (req, res) => {
-    logger.warn(`Rate limit exceeded for IP: ${req.ip || req.headers['x-forwarded-for'] || 'unknown'}`, {
-      userAgent: req.headers['user-agent'],
-      endpoint: `${req.method} ${req.originalUrl}`
-    });
+    logger.warn(
+      `Rate limit exceeded for IP: ${req.ip || req.headers['x-forwarded-for'] || 'unknown'}`,
+      {
+        userAgent: req.headers['user-agent'],
+        endpoint: `${req.method} ${req.originalUrl}`,
+      }
+    );
     res.status(StatusCodes.TOO_MANY_REQUESTS).json({
       success: false,
       message: config.security.rateLimits.auth.message,
-      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
     });
-  }
+  },
 });
 
 const sensitiveOperationLimiter = rateLimit({
@@ -69,19 +78,19 @@ const sensitiveOperationLimiter = rateLimit({
     logger.warn(`Sensitive operation rate limit exceeded`, {
       ip: req.ip || req.headers['x-forwarded-for'] || 'unknown',
       userAgent: req.headers['user-agent'],
-      endpoint: `${req.method} ${req.originalUrl}`
+      endpoint: `${req.method} ${req.originalUrl}`,
     });
     res.status(StatusCodes.TOO_MANY_REQUESTS).json({
       success: false,
       message: config.security.rateLimits.sensitive.message,
-      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
     });
   },
   skip: (req) => {
     // Skip rate limiting for whitelisted IPs
     const whitelistedIPs = process.env.RATE_LIMIT_WHITELIST?.split(',') || [];
     return whitelistedIPs.includes(req.ip);
-  }
+  },
 });
 
 // Token Utility Functions
@@ -108,31 +117,43 @@ class TokenUtils {
     return null;
   }
 
-  static async verifyToken(token, tokenType = config.security.token.types.ACCESS) {
+  static async verifyToken(
+    token,
+    tokenType = config.security.token.types.ACCESS
+  ) {
     if (!token || typeof token !== 'string') {
-      logger.warn('Invalid token format:', { token: token ? 'present but invalid' : 'missing' });
+      logger.warn('Invalid token format:', {
+        token: token ? 'present but invalid' : 'missing',
+      });
       throw new AppError('Invalid token format', StatusCodes.UNAUTHORIZED);
     }
 
     if (!process.env.JWT_SECRET) {
       logger.error('JWT_SECRET environment variable is not configured');
-      throw new AppError('Authentication service unavailable', StatusCodes.SERVICE_UNAVAILABLE);
+      throw new AppError(
+        'Authentication service unavailable',
+        StatusCodes.SERVICE_UNAVAILABLE
+      );
     }
 
     try {
       // Verify JWT signature and decode
-      const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET, {
-        issuer: config.security.token.issuer,
-        audience: config.security.token.audience,
-        algorithms: ['HS256'],
-        clockTolerance: 30
-      });
+      const decoded = await promisify(jwt.verify)(
+        token,
+        process.env.JWT_SECRET,
+        {
+          issuer: config.security.token.issuer,
+          audience: config.security.token.audience,
+          algorithms: ['HS256'],
+          clockTolerance: 30,
+        }
+      );
 
       // Log decoded token for debugging
       logger.debug('Token decoded successfully:', {
         jti: decoded.jti,
         type: decoded.type,
-        expectedType: tokenType
+        expectedType: tokenType,
       });
 
       // Validate token structure
@@ -141,7 +162,7 @@ class TokenUtils {
           hasId: !!decoded.id,
           hasJti: !!decoded.jti,
           tokenType: decoded.type,
-          expectedType: tokenType
+          expectedType: tokenType,
         });
         throw new AppError('Invalid token structure', StatusCodes.UNAUTHORIZED);
       }
@@ -152,16 +173,19 @@ class TokenUtils {
         userId: decoded.id,
         type: tokenType,
         isActive: true,
-        expiresAt: { $gt: new Date() }
+        expiresAt: { $gt: new Date() },
       }).select('+tokenHash');
 
       if (!tokenRecord) {
         logger.warn('Token not found or invalid:', {
           jti: decoded.jti,
           userId: decoded.id,
-          type: tokenType
+          type: tokenType,
         });
-        throw new AppError('Invalid authentication token', StatusCodes.UNAUTHORIZED);
+        throw new AppError(
+          'Invalid authentication token',
+          StatusCodes.UNAUTHORIZED
+        );
       }
 
       // Verify token hash matches
@@ -170,36 +194,48 @@ class TokenUtils {
         logger.warn('Token hash mismatch:', {
           tokenId: decoded.jti,
           storedHash: tokenRecord.tokenHash ? 'present' : 'missing',
-          computedHash: tokenHash ? 'present' : 'missing'
+          computedHash: tokenHash ? 'present' : 'missing',
         });
-        throw new AppError('Invalid authentication token', StatusCodes.UNAUTHORIZED);
+        throw new AppError(
+          'Invalid authentication token',
+          StatusCodes.UNAUTHORIZED
+        );
       }
 
       return {
         decoded,
         tokenRecord,
-        userId: decoded.id
+        userId: decoded.id,
       };
     } catch (error) {
       // Handle specific JWT errors
       if (error.name === 'JsonWebTokenError') {
         logger.warn('Invalid JWT signature:', { error: error.message });
-        throw new AppError('Invalid authentication token', StatusCodes.UNAUTHORIZED);
+        throw new AppError(
+          'Invalid authentication token',
+          StatusCodes.UNAUTHORIZED
+        );
       }
       if (error.name === 'TokenExpiredError') {
         logger.info('Token expired:', { tokenId: error.jti });
-        throw new AppError('Authentication token has expired', StatusCodes.UNAUTHORIZED);
+        throw new AppError(
+          'Authentication token has expired',
+          StatusCodes.UNAUTHORIZED
+        );
       }
       if (error.name === 'NotBeforeError') {
         logger.warn('Token not active yet:', { tokenId: error.jti });
-        throw new AppError('Authentication token not yet active', StatusCodes.UNAUTHORIZED);
+        throw new AppError(
+          'Authentication token not yet active',
+          StatusCodes.UNAUTHORIZED
+        );
       }
 
       // Log unexpected errors
       logger.error('Token verification error:', {
         error: error.message,
         stack: error.stack,
-        tokenType
+        tokenType,
       });
 
       throw new AppError('Authentication failed', StatusCodes.UNAUTHORIZED);
@@ -209,7 +245,7 @@ class TokenUtils {
   static async generateToken(userId, type, metadata = {}) {
     const tokenId = uuidv4();
     const expiresIn = config.security.token.expiresIn[type];
-    
+
     const payload = {
       sub: userId,
       type,
@@ -218,11 +254,11 @@ class TokenUtils {
       exp: Math.floor(Date.now() / 1000) + this.getExpiryInSeconds(expiresIn),
       iss: config.security.token.issuer,
       aud: config.security.token.audience,
-      ...metadata
+      ...metadata,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      algorithm: 'HS512'
+      algorithm: 'HS512',
     });
 
     // Store token in database with metadata
@@ -235,8 +271,8 @@ class TokenUtils {
         ipAddress: metadata.ipAddress,
         userAgent: metadata.userAgent,
         issuedAt: new Date(payload.iat * 1000),
-        expiresAt: new Date(payload.exp * 1000)
-      }
+        expiresAt: new Date(payload.exp * 1000),
+      },
     });
 
     return { token, tokenRecord };
@@ -264,7 +300,10 @@ class TokenUtils {
       return tokenRecord;
     } catch (error) {
       logger.error('Error invalidating token:', error);
-      throw new AppError('Failed to invalidate token', StatusCodes.INTERNAL_SERVER_ERROR);
+      throw new AppError(
+        'Failed to invalidate token',
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
@@ -277,7 +316,10 @@ class TokenUtils {
       await Token.updateMany(query, { isActive: false });
     } catch (error) {
       logger.error('Error invalidating user tokens:', error);
-      throw new AppError('Failed to invalidate user tokens', StatusCodes.INTERNAL_SERVER_ERROR);
+      throw new AppError(
+        'Failed to invalidate user tokens',
+        StatusCodes.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
@@ -291,8 +333,8 @@ class TokenUtils {
         details: {
           ...details,
           method: req.method,
-          path: req.originalUrl
-        }
+          path: req.originalUrl,
+        },
       });
     } catch (error) {
       logger.error('Failed to log auth event:', error);
@@ -305,23 +347,27 @@ const authorize = (...allowedRoles) => {
   return async (req, res, next) => {
     try {
       if (!req.user) {
-        return next(new AppError('Authentication required', StatusCodes.UNAUTHORIZED));
+        return next(
+          new AppError('Authentication required', StatusCodes.UNAUTHORIZED)
+        );
       }
 
       const userRole = req.user.role;
       const hasRole = allowedRoles.includes(userRole);
-      
+
       // Role hierarchy: admin > manager > user
       const roleHierarchy = {
-        'admin': 3,
-        'manager': 2,
-        'user': 1,
-        'guest': 0
+        admin: 3,
+        manager: 2,
+        user: 1,
+        guest: 0,
       };
 
       const userRoleLevel = roleHierarchy[userRole] || 0;
-      const minRequiredLevel = Math.min(...allowedRoles.map(role => roleHierarchy[role] || 0));
-      
+      const minRequiredLevel = Math.min(
+        ...allowedRoles.map((role) => roleHierarchy[role] || 0)
+      );
+
       const hasHierarchicalAccess = userRoleLevel >= minRequiredLevel;
 
       if (!hasRole && !hasHierarchicalAccess) {
@@ -329,19 +375,26 @@ const authorize = (...allowedRoles) => {
         await TokenUtils.logAuthEvent(req, 'AUTHORIZATION_FAILED', {
           requiredRoles: allowedRoles,
           userRole,
-          severity: 'medium'
+          severity: 'medium',
         });
 
-        return next(new AppError(
-          'Insufficient privileges to perform this action',
-          StatusCodes.FORBIDDEN
-        ));
+        return next(
+          new AppError(
+            'Insufficient privileges to perform this action',
+            StatusCodes.FORBIDDEN
+          )
+        );
       }
 
       next();
     } catch (error) {
       logger.error('Authorization middleware error:', error);
-      next(new AppError('Authorization service error', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Authorization service error',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -352,18 +405,22 @@ const checkOwnership = (Model, options = {}) => {
     allowedRoles = ['admin'],
     resourceField = 'user',
     cacheTimeout = 300000, // 5 minutes
-    populateFields = ''
+    populateFields = '',
   } = options;
 
   return async (req, res, next) => {
     try {
       if (!req.user) {
-        return next(new AppError('Authentication required', StatusCodes.UNAUTHORIZED));
+        return next(
+          new AppError('Authentication required', StatusCodes.UNAUTHORIZED)
+        );
       }
 
       const resourceId = req.params.id;
       if (!resourceId) {
-        return next(new AppError('Resource ID required', StatusCodes.BAD_REQUEST));
+        return next(
+          new AppError('Resource ID required', StatusCodes.BAD_REQUEST)
+        );
       }
 
       // Fetch from database only (no Redis)
@@ -386,7 +443,12 @@ const checkOwnership = (Model, options = {}) => {
       // Check ownership
       const resourceOwner = resource[resourceField];
       if (!resourceOwner) {
-        return next(new AppError('Resource ownership information not available', StatusCodes.FORBIDDEN));
+        return next(
+          new AppError(
+            'Resource ownership information not available',
+            StatusCodes.FORBIDDEN
+          )
+        );
       }
 
       const ownerId = resourceOwner._id || resourceOwner;
@@ -395,29 +457,40 @@ const checkOwnership = (Model, options = {}) => {
           resourceId,
           resourceType: Model.modelName,
           attemptedBy: req.user.id,
-          severity: 'high'
+          severity: 'high',
         });
-        return next(new AppError(
-          'Access denied: You do not own this resource',
-          StatusCodes.FORBIDDEN
-        ));
+        return next(
+          new AppError(
+            'Access denied: You do not own this resource',
+            StatusCodes.FORBIDDEN
+          )
+        );
       }
 
       req.resource = resource;
       next();
     } catch (error) {
       logger.error('Ownership check error:', error);
-      next(new AppError('Resource access verification failed', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Resource access verification failed',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
 
 // Enhanced project membership check with role-based permissions
-const checkProjectMembership = (requiredPermission = PERMISSION_LEVELS.READ) => {
+const checkProjectMembership = (
+  requiredPermission = PERMISSION_LEVELS.READ
+) => {
   return async (req, res, next) => {
     try {
       if (!req.user) {
-        return next(new AppError('Authentication required', StatusCodes.UNAUTHORIZED));
+        return next(
+          new AppError('Authentication required', StatusCodes.UNAUTHORIZED)
+        );
       }
 
       // Admin bypass
@@ -437,7 +510,7 @@ const checkProjectMembership = (requiredPermission = PERMISSION_LEVELS.READ) => 
       }
 
       if (req.body.entries && Array.isArray(req.body.entries)) {
-        req.body.entries.forEach(entry => {
+        req.body.entries.forEach((entry) => {
           if (entry.project) projectIds.push(entry.project);
         });
       }
@@ -456,39 +529,52 @@ const checkProjectMembership = (requiredPermission = PERMISSION_LEVELS.READ) => 
           .lean();
 
         if (!project) {
-          return next(new AppError(`Project ${projectId} not found`, StatusCodes.NOT_FOUND));
+          return next(
+            new AppError(
+              `Project ${projectId} not found`,
+              StatusCodes.NOT_FOUND
+            )
+          );
         }
 
         // Check if user is project creator
-        const isCreator = project.createdBy && project.createdBy.toString() === req.user.id;
-        
+        const isCreator =
+          project.createdBy && project.createdBy.toString() === req.user.id;
+
         // Check if user is project member with required permission
-        const membership = project.members.find(member => 
-          member.user._id.toString() === req.user.id
+        const membership = project.members.find(
+          (member) => member.user._id.toString() === req.user.id
         );
 
-        const hasRequiredPermission = membership && 
-          hasPermissionLevel(membership.role, requiredPermission);
+        const hasRequiredPermission =
+          membership && hasPermissionLevel(membership.role, requiredPermission);
 
         if (!isCreator && !hasRequiredPermission) {
           await TokenUtils.logAuthEvent(req, 'PROJECT_ACCESS_DENIED', {
             projectId,
             requiredPermission,
             userRole: membership?.role || 'none',
-            severity: 'medium'
+            severity: 'medium',
           });
 
-          return next(new AppError(
-            `Insufficient permissions for project: ${project.name}`,
-            StatusCodes.FORBIDDEN
-          ));
+          return next(
+            new AppError(
+              `Insufficient permissions for project: ${project.name}`,
+              StatusCodes.FORBIDDEN
+            )
+          );
         }
       }
 
       next();
     } catch (error) {
       logger.error('Project membership check error:', error);
-      next(new AppError('Project access verification failed', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Project access verification failed',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -501,11 +587,19 @@ const checkProjectMembershipStrict = () => async (req, res, next) => {
     for (const entry of entries) {
       const project = await Project.findById(entry.project);
       if (!project) {
-        return res.status(400).json({ success: false, message: `Project ${entry.project} not found` });
+        return res.status(400).json({
+          success: false,
+          message: `Project ${entry.project} not found`,
+        });
       }
-      const isMember = project.members.some(m => m.user.toString() === userId);
+      const isMember = project.members.some(
+        (m) => m.user.toString() === userId
+      );
       if (!isMember) {
-        return res.status(403).json({ success: false, message: `Not a member of project ${project.name}` });
+        return res.status(403).json({
+          success: false,
+          message: `Not a member of project ${project.name}`,
+        });
       }
     }
     next();
@@ -521,7 +615,9 @@ const authorizeDepartment = (allowedDepartments, options = {}) => {
   return async (req, res, next) => {
     try {
       if (!req.user.department) {
-        return next(new AppError('User department not set', StatusCodes.FORBIDDEN));
+        return next(
+          new AppError('User department not set', StatusCodes.FORBIDDEN)
+        );
       }
 
       const userDepartment = req.user.department;
@@ -531,24 +627,36 @@ const authorizeDepartment = (allowedDepartments, options = {}) => {
         await TokenUtils.logAuthEvent(req, 'DEPARTMENT_ACCESS_DENIED', {
           userDepartment,
           allowedDepartments,
-          severity: 'medium'
+          severity: 'medium',
         });
 
-        return next(new AppError(
-          'Access denied: Insufficient department privileges',
-          StatusCodes.FORBIDDEN
-        ));
+        return next(
+          new AppError(
+            'Access denied: Insufficient department privileges',
+            StatusCodes.FORBIDDEN
+          )
+        );
       }
 
       // Allow managers to access cross-department resources if managerOverride is true
-      if (!isAllowed && allowCrossDepartment && managerOverride && req.user.role === 'manager') {
+      if (
+        !isAllowed &&
+        allowCrossDepartment &&
+        managerOverride &&
+        req.user.role === 'manager'
+      ) {
         return next();
       }
 
       next();
     } catch (error) {
       logger.error('Department authorization error:', error);
-      next(new AppError('Department access verification failed', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Department access verification failed',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -560,13 +668,15 @@ const timeBasedAccess = (config) => {
     startTime = '09:00',
     endTime = '17:00',
     timezone = 'UTC',
-    message = 'Access not allowed at this time'
+    message = 'Access not allowed at this time',
   } = config;
 
   return async (req, res, next) => {
     try {
       const now = new Date();
-      const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const currentDay = now
+        .toLocaleDateString('en-US', { weekday: 'long' })
+        .toLowerCase();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
@@ -575,10 +685,12 @@ const timeBasedAccess = (config) => {
         await TokenUtils.logAuthEvent(req, 'TIME_BASED_ACCESS_DENIED', {
           currentDay,
           allowedDays,
-          timezone
+          timezone,
         });
 
-        return next(new AppError('Access not allowed on this day', StatusCodes.FORBIDDEN));
+        return next(
+          new AppError('Access not allowed on this day', StatusCodes.FORBIDDEN)
+        );
       }
 
       // Parse time range
@@ -591,11 +703,14 @@ const timeBasedAccess = (config) => {
       const endTimeInMinutes = endHour * 60 + endMinute;
 
       // Check if current time is within allowed range
-      if (currentTimeInMinutes < startTimeInMinutes || currentTimeInMinutes > endTimeInMinutes) {
+      if (
+        currentTimeInMinutes < startTimeInMinutes ||
+        currentTimeInMinutes > endTimeInMinutes
+      ) {
         await TokenUtils.logAuthEvent(req, 'TIME_BASED_ACCESS_DENIED', {
           currentTime: `${currentHour}:${currentMinute}`,
           allowedRange: `${startTime}-${endTime}`,
-          timezone
+          timezone,
         });
 
         return next(new AppError(message, StatusCodes.FORBIDDEN));
@@ -604,7 +719,12 @@ const timeBasedAccess = (config) => {
       next();
     } catch (error) {
       logger.error('Time-based access check error:', error);
-      next(new AppError('Time access verification failed', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Time access verification failed',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -614,12 +734,15 @@ const ipBasedAccess = (config) => {
   const {
     allowedIPs = [],
     allowedRanges = [],
-    message = 'Access not allowed from this IP'
+    message = 'Access not allowed from this IP',
   } = config;
 
   return async (req, res, next) => {
     try {
-      const clientIP = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      const clientIP =
+        req.ip ||
+        req.headers['x-forwarded-for'] ||
+        req.connection.remoteAddress;
 
       // Check if IP is in allowed list
       if (allowedIPs.includes(clientIP)) {
@@ -627,8 +750,8 @@ const ipBasedAccess = (config) => {
       }
 
       // Check if IP is in allowed ranges
-      const isInRange = allowedRanges.some(range => {
-        const [start, end] = range.split('-').map(ip => ip.trim());
+      const isInRange = allowedRanges.some((range) => {
+        const [start, end] = range.split('-').map((ip) => ip.trim());
         return isIPInRange(clientIP, start, end);
       });
 
@@ -636,7 +759,7 @@ const ipBasedAccess = (config) => {
         await TokenUtils.logAuthEvent(req, 'IP_BASED_ACCESS_DENIED', {
           clientIP,
           allowedIPs,
-          allowedRanges
+          allowedRanges,
         });
 
         return next(new AppError(message, StatusCodes.FORBIDDEN));
@@ -645,7 +768,12 @@ const ipBasedAccess = (config) => {
       next();
     } catch (error) {
       logger.error('IP-based access check error:', error);
-      next(new AppError('IP access verification failed', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'IP access verification failed',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -653,8 +781,10 @@ const ipBasedAccess = (config) => {
 // Helper function to check if IP is in range
 const isIPInRange = (ip, start, end) => {
   const ipToLong = (ip) => {
-    return ip.split('.')
-      .reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
+    return (
+      ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>>
+      0
+    );
   };
 
   const ipLong = ipToLong(ip);
@@ -676,9 +806,9 @@ const createRateLimit = (options) => {
       res.status(StatusCodes.TOO_MANY_REQUESTS).json({
         success: false,
         message,
-        retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+        retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
       });
-    }
+    },
   } = options;
 
   return rateLimit({
@@ -692,10 +822,10 @@ const createRateLimit = (options) => {
       logger.warn('Rate limit exceeded:', {
         ip: req.ip,
         endpoint: `${req.method} ${req.originalUrl}`,
-        key: keyGenerator(req)
+        key: keyGenerator(req),
       });
       handler(req, res);
-    }
+    },
   });
 };
 
@@ -704,7 +834,7 @@ const featureFlag = (featureName, options = {}) => {
   const {
     enabled = true,
     message = 'This feature is currently disabled',
-    bypassRoles = ['admin']
+    bypassRoles = ['admin'],
   } = options;
 
   return async (req, res, next) => {
@@ -718,7 +848,7 @@ const featureFlag = (featureName, options = {}) => {
       if (!enabled) {
         await TokenUtils.logAuthEvent(req, 'FEATURE_ACCESS_DENIED', {
           feature: featureName,
-          userRole: req.user?.role
+          userRole: req.user?.role,
         });
 
         return next(new AppError(message, StatusCodes.FORBIDDEN));
@@ -727,7 +857,12 @@ const featureFlag = (featureName, options = {}) => {
       next();
     } catch (error) {
       logger.error('Feature flag check error:', error);
-      next(new AppError('Feature access verification failed', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Feature access verification failed',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -735,10 +870,10 @@ const featureFlag = (featureName, options = {}) => {
 // Helper function to check permission levels
 const hasPermissionLevel = (userRole, requiredPermission) => {
   const permissionLevels = {
-    'admin': 4,
-    'manager': 3,
-    'supervisor': 2,
-    'user': 1
+    admin: 4,
+    manager: 3,
+    supervisor: 2,
+    user: 1,
   };
 
   const userLevel = permissionLevels[userRole] || 0;
@@ -753,10 +888,16 @@ const securityHeaders = (req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains'
+  );
   res.setHeader('Content-Security-Policy', "default-src 'self'");
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader(
+    'Permissions-Policy',
+    'geolocation=(), microphone=(), camera=()'
+  );
 
   next();
 };
@@ -772,7 +913,9 @@ const isAdmin = (req, res, next) => {
 // Owner or admin check middleware
 const isOwnerOrAdmin = (req, res, next) => {
   if (!req.user) {
-    return next(new AppError('Authentication required', StatusCodes.UNAUTHORIZED));
+    return next(
+      new AppError('Authentication required', StatusCodes.UNAUTHORIZED)
+    );
   }
   if (req.user.role === 'admin' || req.user._id?.toString() === req.params.id) {
     return next();
@@ -787,14 +930,19 @@ const isOwnerOrAdmin = (req, res, next) => {
  * @param {boolean} options.requireAll - If true, user must have all permissions. If false, any one permission is sufficient
  * @returns {Function} Express middleware
  */
-const checkPermissions = (requiredPermissions, options = { requireAll: false }) => {
+const checkPermissions = (
+  requiredPermissions,
+  options = { requireAll: false }
+) => {
   return (req, res, next) => {
     try {
       if (!req.user) {
         throw new UnauthorizedError('Authentication required');
       }
 
-      const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
+      const permissions = Array.isArray(requiredPermissions)
+        ? requiredPermissions
+        : [requiredPermissions];
 
       const hasPermission = options.requireAll
         ? req.user.hasAllPermissions(permissions)
@@ -850,5 +998,5 @@ module.exports = {
   isAdmin,
   isOwnerOrAdmin,
   checkPermissions,
-  requireAdmin
+  requireAdmin,
 };

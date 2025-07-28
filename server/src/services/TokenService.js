@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+
 const Token = require('../models/token.model');
 const logger = require('../utils/logger');
 const { UnauthorizedError } = require('../utils/errors');
@@ -21,7 +22,9 @@ class TokenService {
   }
 
   static async generateVerificationToken(userId) {
-    const user = userId._id ? userId : await require('../models/user.model').findById(userId);
+    const user = userId._id
+      ? userId
+      : await require('../models/user.model').findById(userId);
     const { token } = await Token.generateVerificationToken(user);
     return token;
   }
@@ -31,7 +34,7 @@ class TokenService {
       tokenHash: crypto.createHash('sha256').update(rawToken).digest('hex'),
       type: 'verification',
       user: userId,
-      revoked: false
+      revoked: false,
     });
     if (!tokenRecord) return false;
     if (tokenRecord.expiresAt < new Date()) return false;
@@ -48,7 +51,12 @@ class TokenService {
 
   static async verifyResetToken(userId, code) {
     const tokenHash = crypto.createHash('sha256').update(code).digest('hex');
-    const tokenRecord = await Token.findOne({ tokenHash, type: 'reset', user: userId, revoked: false });
+    const tokenRecord = await Token.findOne({
+      tokenHash,
+      type: 'reset',
+      user: userId,
+      revoked: false,
+    });
     if (!tokenRecord) return false;
     if (tokenRecord.expiresAt < new Date()) return false;
     await tokenRecord.revoke();
@@ -60,7 +68,7 @@ class TokenService {
     const refreshToken = await this.generateRefreshToken(user._id);
     return {
       accessToken: authToken,
-      refreshToken: refreshToken
+      refreshToken: refreshToken,
     };
   }
 
@@ -68,8 +76,10 @@ class TokenService {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const tokenRecord = await Token.findOne({ tokenHash });
     if (!tokenRecord) throw new UnauthorizedError('Invalid token');
-    if (tokenRecord.revoked) throw new UnauthorizedError('Token has been revoked');
-    if (tokenRecord.expiresAt < new Date()) throw new UnauthorizedError('Token has expired');
+    if (tokenRecord.revoked)
+      throw new UnauthorizedError('Token has been revoked');
+    if (tokenRecord.expiresAt < new Date())
+      throw new UnauthorizedError('Token has expired');
     await tokenRecord.updateLastUsed();
     return { userId: tokenRecord.user, type: tokenRecord.type };
   }
@@ -90,4 +100,4 @@ class TokenService {
   }
 }
 
-module.exports = TokenService; 
+module.exports = TokenService;

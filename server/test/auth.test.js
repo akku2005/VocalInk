@@ -1,22 +1,26 @@
 // server/test/auth.test.js
 const request = require('supertest');
+
 const app = require('../src/app');
 
 describe('Authentication System', () => {
-  let accessToken, refreshToken, verificationToken, verificationCode, resetToken, resetCode;
+  let accessToken,
+    refreshToken,
+    verificationToken,
+    verificationCode,
+    resetToken,
+    resetCode;
   const testEmail = `testuser${Date.now()}@example.com`;
   const testPassword = 'TestPassword123!';
   let newAccessToken, newRefreshToken;
 
   it('should register a new user', async () => {
-    const res = await request(app)
-      .post('/api/auth/register')
-      .send({
-        email: testEmail,
-        password: testPassword,
-        name: 'Test User',
-        role: 'reader'
-      });
+    const res = await request(app).post('/api/auth/register').send({
+      email: testEmail,
+      password: testPassword,
+      name: 'Test User',
+      role: 'reader',
+    });
     expect(res.statusCode).toBe(201);
     expect(res.body.success).toBe(true);
     verificationToken = res.body.verificationToken;
@@ -30,7 +34,8 @@ describe('Authentication System', () => {
       .send({ email: testEmail });
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    if (res.body.verificationToken) verificationToken = res.body.verificationToken;
+    if (res.body.verificationToken)
+      verificationToken = res.body.verificationToken;
     if (res.body.verificationCode) verificationCode = res.body.verificationCode;
   });
 
@@ -73,7 +78,10 @@ describe('Authentication System', () => {
     const res = await request(app)
       .post('/api/auth/change-password')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ currentPassword: testPassword, newPassword: 'NewTestPassword123!' });
+      .send({
+        currentPassword: testPassword,
+        newPassword: 'NewTestPassword123!',
+      });
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
     // Log in again with new password
@@ -116,4 +124,4 @@ describe('Authentication System', () => {
   });
 
   // Add more tests for forgot/reset password, edge cases, etc.
-}); 
+});

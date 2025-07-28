@@ -2,11 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const swaggerUi = require('swagger-ui-express');
+
+const swaggerDocument = require('../swagger.json');
+
 const { connectDB } = require('./config/connectDB');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const apiRouter = require('./routes');
-const swaggerDocument = require('../swagger.json');
-const swaggerUi = require('swagger-ui-express');
 
 // Optional: Use logger if available
 let logger = console;
@@ -19,12 +21,14 @@ dotenv.config();
 const app = express();
 
 // Connect to MongoDB
-connectDB().then(() => {
-  logger.success('Application initialized successfully');
-}).catch(err => {
-  logger.error('Failed to initialize application:', err.message);
-  process.exit(1);
-});
+connectDB()
+  .then(() => {
+    logger.success('Application initialized successfully');
+  })
+  .catch((err) => {
+    logger.error('Failed to initialize application:', err.message);
+    process.exit(1);
+  });
 
 // Middleware
 app.use(cors());
@@ -33,21 +37,30 @@ app.use(express.json());
 // Custom morgan format with colors
 morgan.token('status-color', (req, res) => {
   const status = res.statusCode;
-  const color = status >= 500 ? 31 : status >= 400 ? 33 : status >= 300 ? 36 : 32;
+  const color =
+    status >= 500 ? 31 : status >= 400 ? 33 : status >= 300 ? 36 : 32;
   return `\x1b[${color}m${status}\x1b[0m`;
 });
 
-app.use(morgan(':method :url :status-color :res[content-length] - :response-time ms'));
+app.use(
+  morgan(':method :url :status-color :res[content-length] - :response-time ms')
+);
 
 // Security headers middleware
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains; preload'
+  );
   res.setHeader('Content-Security-Policy', "default-src 'self'");
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=()'
+  );
   next();
 });
 
@@ -60,4 +73,4 @@ app.use('/api', apiLimiter);
 app.use('/api', apiRouter);
 logger.info('API routes mounted at /api');
 
-module.exports = app; 
+module.exports = app;

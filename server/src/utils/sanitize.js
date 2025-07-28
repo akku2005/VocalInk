@@ -29,7 +29,7 @@ const DISPOSABLE_DOMAINS = [
   'moakt.com',
   'temp-mail.org',
   'tempail.com',
-  'mailcatch.com'
+  'mailcatch.com',
 ];
 
 function isDisposableEmailDomain(email) {
@@ -45,11 +45,13 @@ function generateDeviceFingerprint(req) {
     req.ip,
     req.headers['user-agent'] || '',
     req.headers['accept-language'] || '',
-    req.headers['accept-encoding'] || ''
+    req.headers['accept-encoding'] || '',
   ];
-  return crypto.createHash('sha256')
-    .update(components.join('|'))
-    .digest('hex');
+  return crypto.createHash('sha256').update(components.join('|')).digest('hex');
 }
 
-module.exports = { sanitizeInput, isDisposableEmailDomain, generateDeviceFingerprint }; 
+module.exports = {
+  sanitizeInput,
+  isDisposableEmailDomain,
+  generateDeviceFingerprint,
+};

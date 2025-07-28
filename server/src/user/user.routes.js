@@ -1,7 +1,9 @@
 const express = require('express');
+
 const router = express.Router();
-const userController = require('./user.controller');
 const { protect, requireAdmin } = require('../middleware/auth');
+
+const userController = require('./user.controller');
 
 // Profile routes
 router.get('/:id', userController.getProfile);
@@ -18,8 +20,16 @@ router.get('/:id/badges', userController.getUserBadges);
 
 // Notifications
 router.get('/:id/notifications', protect, userController.getUserNotifications);
-router.patch('/notifications/:notificationId/read', protect, userController.markNotificationRead);
-router.patch('/notifications/read-all', protect, userController.markAllNotificationsRead);
+router.patch(
+  '/notifications/:notificationId/read',
+  protect,
+  userController.markNotificationRead
+);
+router.patch(
+  '/notifications/read-all',
+  protect,
+  userController.markAllNotificationsRead
+);
 
 // Leaderboard
 router.get('/leaderboard', userController.getLeaderboard);
@@ -29,7 +39,12 @@ router.get('/:id/leaderboard', userController.getUserLeaderboard);
 router.get('/search', userController.searchUsers);
 
 // Role management
-router.patch('/:id/promote', protect, requireAdmin, userController.promoteToAdmin);
+router.patch(
+  '/:id/promote',
+  protect,
+  requireAdmin,
+  userController.promoteToAdmin
+);
 router.patch('/:id/upgrade', protect, userController.upgradeToWriter);
 
-module.exports = router; 
+module.exports = router;

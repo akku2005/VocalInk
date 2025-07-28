@@ -21,7 +21,9 @@ exports.getSeries = async (req, res) => {
 
 exports.getSeriesById = async (req, res) => {
   try {
-    const series = await Series.findById(req.params.id).populate('authorId', 'name').populate('blogs');
+    const series = await Series.findById(req.params.id)
+      .populate('authorId', 'name')
+      .populate('blogs');
     if (!series) return res.status(404).json({ message: 'Series not found' });
     res.json(series);
   } catch (err) {
@@ -39,4 +41,4 @@ exports.addBlogToSeries = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-}; 
+};

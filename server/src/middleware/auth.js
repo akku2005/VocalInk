@@ -1,4 +1,5 @@
 const { StatusCodes } = require('http-status-codes');
+
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const TokenService = require('../services/TokenService');
 const User = require('../models/user.model');
@@ -116,5 +117,5 @@ module.exports = {
   optionalAuth,
   requireAdmin,
   requireOwnerOrAdmin,
-  requirePermission
-}; 
+  requirePermission,
+};

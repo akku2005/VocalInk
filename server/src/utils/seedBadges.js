@@ -1,4 +1,5 @@
 const Badge = require('../models/badge.model');
+
 const logger = require('./logger');
 
 const badges = [
@@ -12,9 +13,9 @@ const badges = [
     category: 'engagement',
     criteria: 'Receive your first like on any blog post',
     requirements: {
-      likesRequired: 1
+      likesRequired: 1,
     },
-    xpReward: 10
+    xpReward: 10,
   },
   {
     name: 'Popular Writer',
@@ -25,9 +26,9 @@ const badges = [
     category: 'social',
     criteria: 'Reach 10 followers',
     requirements: {
-      followersRequired: 10
+      followersRequired: 10,
     },
-    xpReward: 25
+    xpReward: 25,
   },
   {
     name: 'Influencer',
@@ -38,9 +39,9 @@ const badges = [
     category: 'social',
     criteria: 'Reach 50 followers',
     requirements: {
-      followersRequired: 50
+      followersRequired: 50,
     },
-    xpReward: 50
+    xpReward: 50,
   },
   {
     name: 'Viral Sensation',
@@ -51,9 +52,9 @@ const badges = [
     category: 'social',
     criteria: 'Reach 100 followers',
     requirements: {
-      followersRequired: 100
+      followersRequired: 100,
     },
-    xpReward: 100
+    xpReward: 100,
   },
 
   // Content Creation Badges
@@ -66,9 +67,9 @@ const badges = [
     category: 'content',
     criteria: 'Publish your first blog post',
     requirements: {
-      blogsRequired: 1
+      blogsRequired: 1,
     },
-    xpReward: 15
+    xpReward: 15,
   },
   {
     name: 'Regular Writer',
@@ -79,9 +80,9 @@ const badges = [
     category: 'content',
     criteria: 'Publish 5 blog posts',
     requirements: {
-      blogsRequired: 5
+      blogsRequired: 5,
     },
-    xpReward: 30
+    xpReward: 30,
   },
   {
     name: 'Prolific Author',
@@ -92,9 +93,9 @@ const badges = [
     category: 'content',
     criteria: 'Publish 20 blog posts',
     requirements: {
-      blogsRequired: 20
+      blogsRequired: 20,
     },
-    xpReward: 75
+    xpReward: 75,
   },
   {
     name: 'Master Blogger',
@@ -105,9 +106,9 @@ const badges = [
     category: 'content',
     criteria: 'Publish 50 blog posts',
     requirements: {
-      blogsRequired: 50
+      blogsRequired: 50,
     },
-    xpReward: 150
+    xpReward: 150,
   },
 
   // Achievement Badges
@@ -120,9 +121,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Complete your profile and join the community',
     requirements: {
-      daysActiveRequired: 1
+      daysActiveRequired: 1,
     },
-    xpReward: 5
+    xpReward: 5,
   },
   {
     name: 'Dedicated Reader',
@@ -133,9 +134,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Stay active for 7 days',
     requirements: {
-      daysActiveRequired: 7
+      daysActiveRequired: 7,
     },
-    xpReward: 20
+    xpReward: 20,
   },
   {
     name: 'Loyal Member',
@@ -146,9 +147,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Stay active for 30 days',
     requirements: {
-      daysActiveRequired: 30
+      daysActiveRequired: 30,
     },
-    xpReward: 50
+    xpReward: 50,
   },
   {
     name: 'Veteran',
@@ -159,9 +160,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Stay active for 100 days',
     requirements: {
-      daysActiveRequired: 100
+      daysActiveRequired: 100,
     },
-    xpReward: 100
+    xpReward: 100,
   },
 
   // XP Level Badges
@@ -174,9 +175,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Reach level 5 (500 XP)',
     requirements: {
-      xpRequired: 500
+      xpRequired: 500,
     },
-    xpReward: 10
+    xpReward: 10,
   },
   {
     name: 'Level 10',
@@ -187,9 +188,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Reach level 10 (1000 XP)',
     requirements: {
-      xpRequired: 1000
+      xpRequired: 1000,
     },
-    xpReward: 25
+    xpReward: 25,
   },
   {
     name: 'Level 25',
@@ -200,9 +201,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Reach level 25 (2500 XP)',
     requirements: {
-      xpRequired: 2500
+      xpRequired: 2500,
     },
-    xpReward: 50
+    xpReward: 50,
   },
   {
     name: 'Level 50',
@@ -213,9 +214,9 @@ const badges = [
     category: 'achievement',
     criteria: 'Reach level 50 (5000 XP)',
     requirements: {
-      xpRequired: 5000
+      xpRequired: 5000,
     },
-    xpReward: 100
+    xpReward: 100,
   },
 
   // Special Badges
@@ -228,10 +229,10 @@ const badges = [
     category: 'special',
     criteria: 'Join VocalInk during the early access period',
     requirements: {
-      daysActiveRequired: 1
+      daysActiveRequired: 1,
     },
     xpReward: 200,
-    isSecret: true
+    isSecret: true,
   },
   {
     name: 'Community Helper',
@@ -242,9 +243,9 @@ const badges = [
     category: 'engagement',
     criteria: 'Make 10 helpful comments',
     requirements: {
-      commentsRequired: 10
+      commentsRequired: 10,
     },
-    xpReward: 30
+    xpReward: 30,
   },
   {
     name: 'Engagement Master',
@@ -256,10 +257,10 @@ const badges = [
     criteria: 'Make 50 comments and receive 100 likes',
     requirements: {
       commentsRequired: 50,
-      likesRequired: 100
+      likesRequired: 100,
     },
-    xpReward: 75
-  }
+    xpReward: 75,
+  },
 ];
 
 async function seedBadges() {
@@ -277,7 +278,7 @@ async function seedBadges() {
       try {
         // Check if badge already exists
         const existingBadge = await Badge.findOne({ name: badgeData.name });
-        
+
         if (existingBadge) {
           skippedBadges.push(badgeData.name);
           continue;
@@ -294,11 +295,11 @@ async function seedBadges() {
     logger.info(`Badge seeding completed!`);
     logger.info(`Created: ${createdBadges.length} badges`);
     logger.info(`Skipped: ${skippedBadges.length} badges (already exist)`);
-    
+
     if (createdBadges.length > 0) {
       logger.info('Created badges:', createdBadges);
     }
-    
+
     if (skippedBadges.length > 0) {
       logger.info('Skipped badges:', skippedBadges);
     }
@@ -306,7 +307,7 @@ async function seedBadges() {
     return {
       created: createdBadges,
       skipped: skippedBadges,
-      total: badges.length
+      total: badges.length,
     };
   } catch (error) {
     logger.error('Error seeding badges:', error);
@@ -334,4 +335,4 @@ if (require.main === module) {
   }
 
   run();
-} 
+}
