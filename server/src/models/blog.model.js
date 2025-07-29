@@ -23,6 +23,8 @@ const blogSchema = new mongoose.Schema(
     ttsUrl: { type: String },
     likes: { type: Number, default: 0 },
     bookmarks: { type: Number, default: 0 },
+    likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    bookmarkedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );

@@ -347,6 +347,26 @@ class EmailService {
     const message = `Your account has been temporarily locked due to multiple failed login attempts.\n\nYou can try logging in again after: ${lockoutTime}.\n\nIf this wasn't you, please contact support immediately.`;
     return this.sendEmail(email, subject, message);
   }
+
+  async sendNotificationEmail(email, subject, html) {
+    try {
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject,
+        html,
+      };
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Notification email sent successfully', { email, subject });
+    } catch (error) {
+      logger.error('Error sending notification email:', {
+        error: error.message,
+        email,
+        subject,
+      });
+      throw error;
+    }
+  }
 }
 
 module.exports = EmailService;
