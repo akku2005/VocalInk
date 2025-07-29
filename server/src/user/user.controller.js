@@ -1,16 +1,23 @@
+const { StatusCodes } = require('http-status-codes');
+
 const User = require('../models/user.model');
 const Blog = require('../models/blog.model');
 const Badge = require('../models/badge.model');
 const Notification = require('../models/notification.model');
-const { StatusCodes } = require('http-status-codes');
-const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
+const {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+} = require('../utils/errors');
 const logger = require('../utils/logger');
 
 // Get user profile by ID
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret')
+      .select(
+        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
+      )
       .populate('badges', 'name description icon')
       .populate('followers', 'name email avatar')
       .populate('following', 'name email avatar');
@@ -21,25 +28,28 @@ exports.getProfile = async (req, res) => {
 
     // Add computed fields
     const profile = user.toObject();
-    profile.blogCount = await Blog.countDocuments({ author: user._id, status: 'published' });
+    profile.blogCount = await Blog.countDocuments({
+      author: user._id,
+      status: 'published',
+    });
     profile.followerCount = user.followers.length;
     profile.followingCount = user.following.length;
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: profile
+      data: profile,
     });
   } catch (error) {
     logger.error('Error in getProfile:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching user profile'
+        message: 'An error occurred while fetching user profile',
       });
     }
   }
@@ -50,33 +60,47 @@ exports.updateProfile = async (req, res) => {
   try {
     // Support PATCH /me (no :id param)
     const userId = req.params.id || req.user.id;
-    
+
     // Ensure user can only update their own profile (unless admin)
     if (req.user.id !== userId && req.user.role !== 'admin') {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only update your own profile'
+        message: 'You can only update your own profile',
       });
     }
 
     const allowedFields = [
-      'bio', 'dob', 'nationality', 'mobile', 'occupation', 'gender', 'address',
-      'profilePicture', 'company', 'jobTitle', 'website', 'linkedin', 'birthday',
-      'name', 'avatar', 'socialLinks'
+      'bio',
+      'dob',
+      'nationality',
+      'mobile',
+      'occupation',
+      'gender',
+      'address',
+      'profilePicture',
+      'company',
+      'jobTitle',
+      'website',
+      'linkedin',
+      'birthday',
+      'name',
+      'avatar',
+      'socialLinks',
     ];
 
     const updates = {};
-    allowedFields.forEach(field => {
+    allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
     });
 
-    const user = await User.findByIdAndUpdate(
-      userId, 
-      updates, 
-      { new: true, runValidators: true }
-    )
-    .select('-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret')
-    .populate('badges', 'name description icon');
+    const user = await User.findByIdAndUpdate(userId, updates, {
+      new: true,
+      runValidators: true,
+    })
+      .select(
+        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
+      )
+      .populate('badges', 'name description icon');
 
     if (!user) {
       throw new NotFoundError('User not found');
@@ -85,19 +109,19 @@ exports.updateProfile = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Profile updated successfully',
-      data: user
+      data: user,
     });
   } catch (error) {
     logger.error('Error in updateProfile:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while updating profile'
+        message: 'An error occurred while updating profile',
       });
     }
   }
@@ -112,7 +136,7 @@ exports.followUser = async (req, res) => {
     if (followerId === targetUserId) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: 'You cannot follow yourself'
+        message: 'You cannot follow yourself',
       });
     }
 
@@ -122,22 +146,22 @@ exports.followUser = async (req, res) => {
     }
 
     const follower = await User.findById(followerId);
-    
+
     // Check if already following
     if (follower.following.includes(targetUserId)) {
       return res.status(StatusCodes.CONFLICT).json({
         success: false,
-        message: 'You are already following this user'
+        message: 'You are already following this user',
       });
     }
 
     // Add to following/followers
     await User.findByIdAndUpdate(followerId, {
-      $addToSet: { following: targetUserId }
+      $addToSet: { following: targetUserId },
     });
 
     await User.findByIdAndUpdate(targetUserId, {
-      $addToSet: { followers: followerId }
+      $addToSet: { followers: followerId },
     });
 
     // Create notification for the followed user
@@ -145,7 +169,7 @@ exports.followUser = async (req, res) => {
       userId: targetUserId,
       type: 'follow',
       content: `${follower.name} started following you`,
-      read: false
+      read: false,
     });
 
     // Award XP for following (engagement)
@@ -153,19 +177,19 @@ exports.followUser = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Successfully followed user'
+      message: 'Successfully followed user',
     });
   } catch (error) {
     logger.error('Error in followUser:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while following user'
+        message: 'An error occurred while following user',
       });
     }
   }
@@ -180,7 +204,7 @@ exports.unfollowUser = async (req, res) => {
     if (followerId === targetUserId) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: 'You cannot unfollow yourself'
+        message: 'You cannot unfollow yourself',
       });
     }
 
@@ -190,39 +214,39 @@ exports.unfollowUser = async (req, res) => {
     }
 
     const follower = await User.findById(followerId);
-    
+
     // Check if not following
     if (!follower.following.includes(targetUserId)) {
       return res.status(StatusCodes.CONFLICT).json({
         success: false,
-        message: 'You are not following this user'
+        message: 'You are not following this user',
       });
     }
 
     // Remove from following/followers
     await User.findByIdAndUpdate(followerId, {
-      $pull: { following: targetUserId }
+      $pull: { following: targetUserId },
     });
 
     await User.findByIdAndUpdate(targetUserId, {
-      $pull: { followers: followerId }
+      $pull: { followers: followerId },
     });
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Successfully unfollowed user'
+      message: 'Successfully unfollowed user',
     });
   } catch (error) {
     logger.error('Error in unfollowUser:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while unfollowing user'
+        message: 'An error occurred while unfollowing user',
       });
     }
   }
@@ -262,21 +286,21 @@ exports.getUserBlogs = async (req, res) => {
           totalPages: Math.ceil(total / limit),
           totalBlogs: total,
           hasNext: page * limit < total,
-          hasPrev: page > 1
-        }
-      }
+          hasPrev: page > 1,
+        },
+      },
     });
   } catch (error) {
     logger.error('Error in getUserBlogs:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching user blogs'
+        message: 'An error occurred while fetching user blogs',
       });
     }
   }
@@ -286,7 +310,7 @@ exports.getUserBlogs = async (req, res) => {
 exports.getUserBadges = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const user = await User.findById(id).populate('badges');
     if (!user) {
       throw new NotFoundError('User not found');
@@ -294,10 +318,13 @@ exports.getUserBadges = async (req, res) => {
 
     // Get all available badges to show progress
     const allBadges = await Badge.find();
-    
+
     const userBadges = user.badges || [];
-    const availableBadges = allBadges.filter(badge => 
-      !userBadges.some(userBadge => userBadge._id.toString() === badge._id.toString())
+    const availableBadges = allBadges.filter(
+      (badge) =>
+        !userBadges.some(
+          (userBadge) => userBadge._id.toString() === badge._id.toString()
+        )
     );
 
     res.status(StatusCodes.OK).json({
@@ -306,20 +333,20 @@ exports.getUserBadges = async (req, res) => {
         earned: userBadges,
         available: availableBadges,
         totalEarned: userBadges.length,
-        totalAvailable: allBadges.length
-      }
+        totalAvailable: allBadges.length,
+      },
     });
   } catch (error) {
     logger.error('Error in getUserBadges:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching user badges'
+        message: 'An error occurred while fetching user badges',
       });
     }
   }
@@ -335,7 +362,7 @@ exports.getUserNotifications = async (req, res) => {
     if (req.user.id !== id && req.user.role !== 'admin') {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only view your own notifications'
+        message: 'You can only view your own notifications',
       });
     }
 
@@ -351,7 +378,10 @@ exports.getUserNotifications = async (req, res) => {
       .exec();
 
     const total = await Notification.countDocuments(query);
-    const unreadCount = await Notification.countDocuments({ userId: id, read: false });
+    const unreadCount = await Notification.countDocuments({
+      userId: id,
+      read: false,
+    });
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -363,15 +393,15 @@ exports.getUserNotifications = async (req, res) => {
           totalNotifications: total,
           unreadCount,
           hasNext: page * limit < total,
-          hasPrev: page > 1
-        }
-      }
+          hasPrev: page > 1,
+        },
+      },
     });
   } catch (error) {
     logger.error('Error in getUserNotifications:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while fetching notifications'
+      message: 'An error occurred while fetching notifications',
     });
   }
 };
@@ -391,7 +421,7 @@ exports.markNotificationRead = async (req, res) => {
     if (notification.userId.toString() !== userId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only mark your own notifications as read'
+        message: 'You can only mark your own notifications as read',
       });
     }
 
@@ -400,19 +430,19 @@ exports.markNotificationRead = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Notification marked as read'
+      message: 'Notification marked as read',
     });
   } catch (error) {
     logger.error('Error in markNotificationRead:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while marking notification as read'
+        message: 'An error occurred while marking notification as read',
       });
     }
   }
@@ -423,20 +453,17 @@ exports.markAllNotificationsRead = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    await Notification.updateMany(
-      { userId, read: false },
-      { read: true }
-    );
+    await Notification.updateMany({ userId, read: false }, { read: true });
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'All notifications marked as read'
+      message: 'All notifications marked as read',
     });
   } catch (error) {
     logger.error('Error in markAllNotificationsRead:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while marking notifications as read'
+      message: 'An error occurred while marking notifications as read',
     });
   }
 };
@@ -445,7 +472,7 @@ exports.markAllNotificationsRead = async (req, res) => {
 exports.getLeaderboard = async (req, res) => {
   try {
     const { type = 'xp', limit = 50 } = req.query;
-    
+
     let sortField = 'xp';
     let sortOrder = -1;
 
@@ -470,21 +497,21 @@ exports.getLeaderboard = async (req, res) => {
           from: 'blogs',
           localField: '_id',
           foreignField: 'author',
-          as: 'blogs'
-        }
+          as: 'blogs',
+        },
       },
       {
         $addFields: {
           blogCount: { $size: '$blogs' },
           followerCount: { $size: '$followers' },
-          followingCount: { $size: '$following' }
-        }
+          followingCount: { $size: '$following' },
+        },
       },
       {
-        $sort: { [sortField]: sortOrder }
+        $sort: { [sortField]: sortOrder },
       },
       {
-        $limit: parseInt(limit)
+        $limit: parseInt(limit),
       },
       {
         $project: {
@@ -497,9 +524,9 @@ exports.getLeaderboard = async (req, res) => {
           blogCount: 1,
           followerCount: 1,
           followingCount: 1,
-          badges: 1
-        }
-      }
+          badges: 1,
+        },
+      },
     ]);
 
     res.status(StatusCodes.OK).json({
@@ -507,14 +534,14 @@ exports.getLeaderboard = async (req, res) => {
       data: {
         leaderboard,
         type,
-        totalUsers: leaderboard.length
-      }
+        totalUsers: leaderboard.length,
+      },
     });
   } catch (error) {
     logger.error('Error in getLeaderboard:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while fetching leaderboard'
+      message: 'An error occurred while fetching leaderboard',
     });
   }
 };
@@ -547,7 +574,7 @@ exports.getUserLeaderboard = async (req, res) => {
 
     // Get user's rank
     const userRank = await User.countDocuments({
-      [sortField]: { $gt: user[sortField] || 0 }
+      [sortField]: { $gt: user[sortField] || 0 },
     });
 
     // Get nearby users (5 above, 5 below)
@@ -557,32 +584,32 @@ exports.getUserLeaderboard = async (req, res) => {
           from: 'blogs',
           localField: '_id',
           foreignField: 'author',
-          as: 'blogs'
-        }
+          as: 'blogs',
+        },
       },
       {
         $addFields: {
           blogCount: { $size: '$blogs' },
           followerCount: { $size: '$followers' },
-          followingCount: { $size: '$following' }
-        }
+          followingCount: { $size: '$following' },
+        },
       },
       {
-        $sort: { [sortField]: -1 }
+        $sort: { [sortField]: -1 },
       },
       {
         $facet: {
           above: [
             { $match: { [sortField]: { $gt: user[sortField] || 0 } } },
             { $limit: 5 },
-            { $sort: { [sortField]: 1 } }
+            { $sort: { [sortField]: 1 } },
           ],
           below: [
             { $match: { [sortField]: { $lte: user[sortField] || 0 } } },
-            { $limit: 6 }
-          ]
-        }
-      }
+            { $limit: 6 },
+          ],
+        },
+      },
     ]);
 
     res.status(StatusCodes.OK).json({
@@ -596,25 +623,25 @@ exports.getUserLeaderboard = async (req, res) => {
           email: user.email,
           avatar: user.avatar,
           xp: user.xp,
-          [sortField]: user[sortField] || 0
+          [sortField]: user[sortField] || 0,
         },
         nearby: {
           above: nearbyUsers[0].above.reverse(),
-          below: nearbyUsers[0].below
-        }
-      }
+          below: nearbyUsers[0].below,
+        },
+      },
     });
   } catch (error) {
     logger.error('Error in getUserLeaderboard:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching user leaderboard'
+        message: 'An error occurred while fetching user leaderboard',
       });
     }
   }
@@ -628,32 +655,34 @@ exports.searchUsers = async (req, res) => {
     if (!q || q.trim().length < 2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: 'Search query must be at least 2 characters long'
+        message: 'Search query must be at least 2 characters long',
       });
     }
 
     const searchRegex = new RegExp(q, 'i');
-    
+
     const users = await User.find({
       $or: [
         { name: searchRegex },
         { email: searchRegex },
-        { bio: searchRegex }
-      ]
+        { bio: searchRegex },
+      ],
     })
-    .select('-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret')
-    .populate('badges', 'name description icon')
-    .sort({ name: 1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit)
-    .exec();
+      .select(
+        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
+      )
+      .populate('badges', 'name description icon')
+      .sort({ name: 1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
 
     const total = await User.countDocuments({
       $or: [
         { name: searchRegex },
         { email: searchRegex },
-        { bio: searchRegex }
-      ]
+        { bio: searchRegex },
+      ],
     });
 
     res.status(StatusCodes.OK).json({
@@ -665,15 +694,15 @@ exports.searchUsers = async (req, res) => {
           totalPages: Math.ceil(total / limit),
           totalUsers: total,
           hasNext: page * limit < total,
-          hasPrev: page > 1
-        }
-      }
+          hasPrev: page > 1,
+        },
+      },
     });
   } catch (error) {
     logger.error('Error in searchUsers:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while searching users'
+      message: 'An error occurred while searching users',
     });
   }
 };
@@ -695,19 +724,19 @@ exports.promoteToAdmin = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'User promoted to admin successfully',
-      data: user
+      data: user,
     });
   } catch (error) {
     logger.error('Error in promoteToAdmin:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while promoting user'
+        message: 'An error occurred while promoting user',
       });
     }
   }
@@ -720,7 +749,7 @@ exports.upgradeToWriter = async (req, res) => {
     if (req.user.id !== req.params.id && req.user.role !== 'admin') {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'Not authorized to upgrade this user'
+        message: 'Not authorized to upgrade this user',
       });
     }
 
@@ -732,7 +761,7 @@ exports.upgradeToWriter = async (req, res) => {
     if (user.role === 'writer') {
       return res.status(StatusCodes.CONFLICT).json({
         success: false,
-        message: 'User is already a writer'
+        message: 'User is already a writer',
       });
     }
 
@@ -745,19 +774,19 @@ exports.upgradeToWriter = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'User upgraded to writer successfully',
-      data: user
+      data: user,
     });
   } catch (error) {
     logger.error('Error in upgradeToWriter:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while upgrading user'
+        message: 'An error occurred while upgrading user',
       });
     }
   }
@@ -767,7 +796,7 @@ exports.upgradeToWriter = async (req, res) => {
 async function awardXP(userId, amount, reason) {
   try {
     await User.findByIdAndUpdate(userId, {
-      $inc: { xp: amount }
+      $inc: { xp: amount },
     });
 
     // Check for badge achievements
@@ -784,48 +813,57 @@ async function checkBadgeAchievements(userId) {
   try {
     const user = await User.findById(userId);
     const allBadges = await Badge.find();
-    
+
     // Check for various badge criteria
-    const blogCount = await Blog.countDocuments({ author: userId, status: 'published' });
+    const blogCount = await Blog.countDocuments({
+      author: userId,
+      status: 'published',
+    });
     const followerCount = user.followers.length;
-    
+
     // Example badge checks
     const newBadges = [];
-    
+
     // First blog badge
     if (blogCount >= 1) {
-      const firstBlogBadge = allBadges.find(badge => badge.name === 'First Blog');
+      const firstBlogBadge = allBadges.find(
+        (badge) => badge.name === 'First Blog'
+      );
       if (firstBlogBadge && !user.badges.includes(firstBlogBadge._id)) {
         newBadges.push(firstBlogBadge._id);
       }
     }
-    
+
     // Popular writer badge
     if (followerCount >= 10) {
-      const popularBadge = allBadges.find(badge => badge.name === 'Popular Writer');
+      const popularBadge = allBadges.find(
+        (badge) => badge.name === 'Popular Writer'
+      );
       if (popularBadge && !user.badges.includes(popularBadge._id)) {
         newBadges.push(popularBadge._id);
       }
     }
-    
+
     // Add new badges to user
     if (newBadges.length > 0) {
       await User.findByIdAndUpdate(userId, {
-        $addToSet: { badges: { $each: newBadges } }
+        $addToSet: { badges: { $each: newBadges } },
       });
-      
+
       // Create notifications for new badges
       for (const badgeId of newBadges) {
-        const badge = allBadges.find(b => b._id.toString() === badgeId.toString());
+        const badge = allBadges.find(
+          (b) => b._id.toString() === badgeId.toString()
+        );
         await Notification.create({
           userId,
           type: 'badge_earned',
           content: `Congratulations! You earned the "${badge.name}" badge!`,
-          read: false
+          read: false,
         });
       }
     }
   } catch (error) {
     logger.error('Error checking badge achievements:', error);
   }
-} 
+}

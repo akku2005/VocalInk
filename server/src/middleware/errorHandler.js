@@ -1,4 +1,5 @@
 const { StatusCodes } = require('http-status-codes');
+
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 
@@ -11,7 +12,7 @@ const errorHandler = (err, req, res, next) => {
   let error = {
     success: false,
     message: err.message || 'Internal server error',
-    statusCode: err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR
+    statusCode: err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR,
   };
 
   // Handle specific error types
@@ -20,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
     error = {
       success: false,
       message: err.message,
-      statusCode: err.statusCode
+      statusCode: err.statusCode,
     };
   } else if (err.name === 'ValidationError') {
     // Mongoose validation error
@@ -28,11 +29,11 @@ const errorHandler = (err, req, res, next) => {
     error = {
       success: false,
       message: 'Validation Error',
-      errors: Object.values(err.errors).map(e => ({
+      errors: Object.values(err.errors).map((e) => ({
         field: e.path,
-        message: e.message
+        message: e.message,
       })),
-      statusCode: StatusCodes.BAD_REQUEST
+      statusCode: StatusCodes.BAD_REQUEST,
     };
   } else if (err.name === 'CastError') {
     // Mongoose cast error (invalid ID)
@@ -40,7 +41,7 @@ const errorHandler = (err, req, res, next) => {
     error = {
       success: false,
       message: `Invalid ${err.path}: ${err.value}`,
-      statusCode: StatusCodes.BAD_REQUEST
+      statusCode: StatusCodes.BAD_REQUEST,
     };
   } else if (err.code === 11000) {
     // Mongoose duplicate key error
@@ -49,21 +50,21 @@ const errorHandler = (err, req, res, next) => {
     error = {
       success: false,
       message: `Duplicate value for ${field}. Please use another value.`,
-      statusCode: StatusCodes.CONFLICT
+      statusCode: StatusCodes.CONFLICT,
     };
   } else if (err.name === 'JsonWebTokenError') {
     logger.warn('JWT Error: Invalid token');
     error = {
       success: false,
       message: 'Invalid token. Please log in again.',
-      statusCode: StatusCodes.UNAUTHORIZED
+      statusCode: StatusCodes.UNAUTHORIZED,
     };
   } else if (err.name === 'TokenExpiredError') {
     logger.warn('JWT Error: Token expired');
     error = {
       success: false,
       message: 'Token expired. Please log in again.',
-      statusCode: StatusCodes.UNAUTHORIZED
+      statusCode: StatusCodes.UNAUTHORIZED,
     };
   }
 

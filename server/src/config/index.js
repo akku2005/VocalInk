@@ -23,4 +23,4 @@ module.exports = {
     verification: { maxAttempts: 5 },
     resetToken: { length: 32 },
   },
-}; 
+};

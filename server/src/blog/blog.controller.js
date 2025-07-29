@@ -31,7 +31,9 @@ exports.getBlogById = async (req, res) => {
 
 exports.updateBlog = async (req, res) => {
   try {
-    const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const blog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
     res.json(blog);
   } catch (err) {
@@ -50,9 +52,21 @@ exports.deleteBlog = async (req, res) => {
 };
 
 // Stubs for advanced endpoints
-exports.generateTTS = async (req, res) => { res.json({}); };
-exports.translateBlog = async (req, res) => { res.json({}); };
-exports.likeBlog = async (req, res) => { res.json({}); };
-exports.bookmarkBlog = async (req, res) => { res.json({}); };
-exports.getBlogComments = async (req, res) => { res.json([]); };
-exports.addBlogComment = async (req, res) => { res.json({}); }; 
+exports.generateTTS = async (req, res) => {
+  res.json({});
+};
+exports.translateBlog = async (req, res) => {
+  res.json({});
+};
+exports.likeBlog = async (req, res) => {
+  res.json({});
+};
+exports.bookmarkBlog = async (req, res) => {
+  res.json({});
+};
+exports.getBlogComments = async (req, res) => {
+  res.json([]);
+};
+exports.addBlogComment = async (req, res) => {
+  res.json({});
+};

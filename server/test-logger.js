@@ -42,10 +42,10 @@ const userData = {
   id: 'user123',
   email: 'test@example.com',
   isActive: true,
-  lastLogin: new Date()
+  lastLogin: new Date(),
 };
 
 logger.info('User data:', userData);
 logger.debug('Processing user:', { userId: 'user123', action: 'login' });
 
-console.log('\n✅ Logger test completed!\n'); 
+console.log('\n✅ Logger test completed!\n');
