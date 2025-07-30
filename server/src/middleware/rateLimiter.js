@@ -112,7 +112,8 @@ const smartRateLimit = rateLimit({
     return 10;
   },
   keyGenerator: (req) => {
-    return `${req.ip}:${req.body.email || 'anonymous'}`;
+    const ip = getClientIp(req);
+    return `${ip}:${req.body.email || 'anonymous'}`;
   },
   handler: (req, res, next) => {
     // Placeholder for CAPTCHA integration after 3 failures

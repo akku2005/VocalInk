@@ -4,6 +4,7 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const commentController = require('./comment.controller');
 const { apiLimiter } = require('../middleware/rateLimiter');
+const { awardCommentXP } = require('../middleware/xpMiddleware');
 
 // Validation middleware
 function validate(req, res, next) {
@@ -32,7 +33,8 @@ router.post(
     param('id').isMongoId().withMessage('Invalid blog ID'),
   ],
   validate,
-  commentController.addComment
+  commentController.addComment,
+  awardCommentXP
 );
 
 // Get a specific comment by ID (must come before /:id/report)

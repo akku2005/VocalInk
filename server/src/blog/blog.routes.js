@@ -4,6 +4,11 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const blogController = require('./blog.controller');
 const { apiLimiter } = require('../middleware/rateLimiter');
+const { 
+  awardBlogCreationXP, 
+  awardBlogPublishingXP, 
+  awardBlogUpdateXP 
+} = require('../middleware/xpMiddleware');
 
 // Validation middleware
 function validate(req, res, next) {
@@ -24,14 +29,16 @@ router.post(
   protect,
   [body('title').notEmpty(), body('content').notEmpty()],
   validate,
-  blogController.createBlog
+  blogController.createBlog,
+  awardBlogCreationXP
 );
 router.put(
   '/:id',
   protect,
   [body('title').optional().notEmpty(), body('content').optional().notEmpty()],
   validate,
-  blogController.updateBlog
+  blogController.updateBlog,
+  awardBlogUpdateXP
 );
 router.delete('/:id', protect, blogController.deleteBlog);
 

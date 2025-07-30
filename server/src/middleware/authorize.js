@@ -8,10 +8,9 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
 const AppError = require('../utils/AppError');
-const Project = require('../models/Project');
-const AuditLog = require('../models/AuditLog');
-const User = require('../models/User');
-const Token = require('../models/Token');
+const AuditLog = require('../models/auditlog.model');
+const User = require('../models/user.model');
+const Token = require('../models/token.model');
 const logger = require('../utils/logger');
 const config = require('../config');
 const TokenService = require('../services/TokenService');
@@ -30,11 +29,22 @@ const PERMISSION_LEVELS = {
 };
 
 const RESOURCE_TYPES = {
-  PROJECT: 'project',
-  TIMESHEET: 'timesheet',
+  BLOG: 'blog',
+  COMMENT: 'comment',
   USER: 'user',
-  REPORT: 'report',
+  BADGE: 'badge',
+  XP: 'xp',
 };
+
+// Helper function to get client IP safely
+function getClientIp(req) {
+  return (
+    req.headers['x-forwarded-for']?.split(',').shift() ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    'unknown'
+  );
+}
 
 // Rate Limiters
 const authLimiter = rateLimit({
@@ -43,13 +53,13 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     return `${ip}-${userAgent}`;
   },
   handler: (req, res) => {
     logger.warn(
-      `Rate limit exceeded for IP: ${req.ip || req.headers['x-forwarded-for'] || 'unknown'}`,
+      `Rate limit exceeded for IP: ${getClientIp(req)}`,
       {
         userAgent: req.headers['user-agent'],
         endpoint: `${req.method} ${req.originalUrl}`,
@@ -69,14 +79,14 @@ const sensitiveOperationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = getClientIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
     const endpoint = req.originalUrl;
     return `${ip}-${userAgent}-${endpoint}`;
   },
   handler: (req, res) => {
     logger.warn(`Sensitive operation rate limit exceeded`, {
-      ip: req.ip || req.headers['x-forwarded-for'] || 'unknown',
+      ip: getClientIp(req),
       userAgent: req.headers['user-agent'],
       endpoint: `${req.method} ${req.originalUrl}`,
     });
@@ -89,7 +99,7 @@ const sensitiveOperationLimiter = rateLimit({
   skip: (req) => {
     // Skip rate limiting for whitelisted IPs
     const whitelistedIPs = process.env.RATE_LIMIT_WHITELIST?.split(',') || [];
-    return whitelistedIPs.includes(req.ip);
+    return whitelistedIPs.includes(getClientIp(req));
   },
 });
 
@@ -481,10 +491,8 @@ const checkOwnership = (Model, options = {}) => {
   };
 };
 
-// Enhanced project membership check with role-based permissions
-const checkProjectMembership = (
-  requiredPermission = PERMISSION_LEVELS.READ
-) => {
+// Blog ownership check middleware
+const checkBlogOwnership = () => {
   return async (req, res, next) => {
     try {
       if (!req.user) {
@@ -498,114 +506,45 @@ const checkProjectMembership = (
         return next();
       }
 
-      const projectIds = [];
-
-      // Extract project IDs from various sources
-      if (req.params.projectId) {
-        projectIds.push(req.params.projectId);
+      const blogId = req.params.id || req.params.blogId;
+      if (!blogId) {
+        return next(); // No blog to check
       }
 
-      if (req.body.project) {
-        projectIds.push(req.body.project);
-      }
+      // Import Blog model dynamically to avoid circular dependencies
+      const Blog = require('../models/blog.model');
+      const blog = await Blog.findById(blogId).lean();
 
-      if (req.body.entries && Array.isArray(req.body.entries)) {
-        req.body.entries.forEach((entry) => {
-          if (entry.project) projectIds.push(entry.project);
-        });
-      }
-
-      if (projectIds.length === 0) {
-        return next(); // No projects to check
-      }
-
-      // Remove duplicates
-      const uniqueProjectIds = [...new Set(projectIds)];
-
-      // Check membership for each project
-      for (const projectId of uniqueProjectIds) {
-        const project = await Project.findById(projectId)
-          .populate('members.user', 'id')
-          .lean();
-
-        if (!project) {
-          return next(
-            new AppError(
-              `Project ${projectId} not found`,
-              StatusCodes.NOT_FOUND
-            )
-          );
-        }
-
-        // Check if user is project creator
-        const isCreator =
-          project.createdBy && project.createdBy.toString() === req.user.id;
-
-        // Check if user is project member with required permission
-        const membership = project.members.find(
-          (member) => member.user._id.toString() === req.user.id
+      if (!blog) {
+        return next(
+          new AppError('Blog not found', StatusCodes.NOT_FOUND)
         );
+      }
 
-        const hasRequiredPermission =
-          membership && hasPermissionLevel(membership.role, requiredPermission);
+      // Check if user is blog author
+      if (blog.author.toString() !== req.user.id) {
+        await TokenUtils.logAuthEvent(req, 'BLOG_ACCESS_DENIED', {
+          blogId,
+          attemptedBy: req.user.id,
+          severity: 'medium',
+        });
 
-        if (!isCreator && !hasRequiredPermission) {
-          await TokenUtils.logAuthEvent(req, 'PROJECT_ACCESS_DENIED', {
-            projectId,
-            requiredPermission,
-            userRole: membership?.role || 'none',
-            severity: 'medium',
-          });
-
-          return next(
-            new AppError(
-              `Insufficient permissions for project: ${project.name}`,
-              StatusCodes.FORBIDDEN
-            )
-          );
-        }
+        return next(
+          new AppError('You can only modify your own blogs', StatusCodes.FORBIDDEN)
+        );
       }
 
       next();
     } catch (error) {
-      logger.error('Project membership check error:', error);
+      logger.error('Blog ownership check error:', error);
       next(
         new AppError(
-          'Project access verification failed',
+          'Blog access verification failed',
           StatusCodes.INTERNAL_SERVER_ERROR
         )
       );
     }
   };
-};
-
-// Strict project membership check (user must be a member, not just admin)
-const checkProjectMembershipStrict = () => async (req, res, next) => {
-  try {
-    const entries = req.body.entries || [];
-    const userId = req.user.id;
-    for (const entry of entries) {
-      const project = await Project.findById(entry.project);
-      if (!project) {
-        return res.status(400).json({
-          success: false,
-          message: `Project ${entry.project} not found`,
-        });
-      }
-      const isMember = project.members.some(
-        (m) => m.user.toString() === userId
-      );
-      if (!isMember) {
-        return res.status(403).json({
-          success: false,
-          message: `Not a member of project ${project.name}`,
-        });
-      }
-    }
-    next();
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Department-based authorization with hierarchical structure
@@ -983,8 +922,7 @@ module.exports = {
   TokenUtils,
   authorize,
   checkOwnership,
-  checkProjectMembership,
-  checkProjectMembershipStrict,
+  checkBlogOwnership,
   authorizeDepartment,
   timeBasedAccess,
   ipBasedAccess,
