@@ -168,6 +168,7 @@ exports.followUser = async (req, res) => {
     await Notification.create({
       userId: targetUserId,
       type: 'follow',
+      title: 'New Follower',
       content: `${follower.name} started following you`,
       read: false,
     });
@@ -858,6 +859,7 @@ async function checkBadgeAchievements(userId) {
         await Notification.create({
           userId,
           type: 'badge_earned',
+          title: 'Badge Earned!',
           content: `Congratulations! You earned the "${badge.name}" badge!`,
           read: false,
         });
