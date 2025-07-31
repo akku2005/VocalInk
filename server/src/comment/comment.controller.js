@@ -5,6 +5,7 @@ const User = require('../models/user.model');
 const Notification = require('../models/notification.model');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const logger = require('../utils/logger');
+const XPService = require('../services/XPService');
 
 // Get all comments for a blog
 exports.getComments = async (req, res) => {
@@ -150,6 +151,22 @@ exports.addComment = async (req, res) => {
     }
 
     logger.info('Comment added', { userId, blogId, commentId: comment._id });
+
+    // Award XP for comment creation
+    try {
+      await XPService.awardXP(userId, 'write_comment', {
+        commentId: comment._id,
+        blogId: blogId,
+        isReply: !!parentId,
+      }, {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        platform: 'web',
+      });
+      logger.info('XP awarded for comment creation', { userId, commentId: comment._id });
+    } catch (xpError) {
+      logger.error('Failed to award XP for comment creation', { userId, error: xpError.message });
+    }
 
     res.status(StatusCodes.CREATED).json({
       success: true,

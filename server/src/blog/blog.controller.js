@@ -7,12 +7,30 @@ const Comment = require('../models/comment.model');
 const logger = require('../utils/logger');
 const EmailService = require('../services/EmailService');
 const User = require('../models/user.model');
+const XPService = require('../services/XPService');
 
 exports.createBlog = async (req, res) => {
   try {
     const blog = new Blog({ ...req.body, author: req.user.id });
     await blog.save();
     logger.info(`Blog created`, { user: req.user.id, blog: blog._id });
+    
+    // Award XP for blog creation
+    try {
+      await XPService.awardXP(req.user.id, 'create_blog_draft', {
+        blogId: blog._id,
+        category: req.body.tags?.[0] || 'general',
+        language: req.body.language || 'en',
+      }, {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        platform: 'web',
+      });
+      logger.info('XP awarded for blog creation', { userId: req.user.id, blogId: blog._id });
+    } catch (xpError) {
+      logger.error('Failed to award XP for blog creation', { userId: req.user.id, error: xpError.message });
+    }
+    
     res.status(201).json(blog);
   } catch (err) {
     logger.error(`Blog creation failed`, { user: req.user.id, error: err.message });

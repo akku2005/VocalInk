@@ -28,9 +28,17 @@ class BadRequestError extends AppError {
   }
 }
 
+class NotFoundError extends AppError {
+  constructor(message) {
+    super(message, 404);
+    this.name = 'NotFoundError';
+  }
+}
+
 module.exports = {
   ValidationError,
   UnauthorizedError,
   ConflictError,
   BadRequestError,
+  NotFoundError,
 };
