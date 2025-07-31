@@ -1,11 +1,14 @@
-import React from 'react'
+import React from "react";
+import Navbar from "./components/Navbar";
+import BlogCard from "./components/BlogCard";
 
 const App = () => {
   return (
     <div>
-      <h1 className='font-bold text-9xl'>VocalInk</h1>
+      <Navbar />
+      <BlogCard />
     </div>
-  )
-}
+  );
+};
 
-export default App
+export default App;
