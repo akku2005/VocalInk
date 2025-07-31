@@ -2,24 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { StatusCodes } = require('http-status-codes');
+const Joi = require('joi');
+
 const authController = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 const { auditLogger } = require('../middleware/auditLogger');
-const {
-  smartRateLimit
-} = require('../middleware/rateLimiter');
+const { smartRateLimit } = require('../middleware/rateLimiter');
 const { validate, validateRequest } = require('../middleware/validators');
-const { 
-  registerSchema, 
-  loginSchema 
-} = require('../validations/authSchema');
-const Joi = require('joi');
-const verifyEmailSchema = Joi.object({ email: Joi.string().email().required(), code: Joi.string().required() });
-const forgotPasswordSchema = Joi.object({ email: Joi.string().email().required() });
+const { registerSchema, loginSchema } = require('../validations/authSchema');
+const verifyEmailSchema = Joi.object({
+  email: Joi.string().email().required(),
+  code: Joi.string().required(),
+});
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
 const resetPasswordSchema = Joi.object({
   token: Joi.string().required(),
   code: Joi.string().required(),
-  newPassword: Joi.string().min(6).required()
+  newPassword: Joi.string().min(6).required(),
 });
 
 // Helper to wrap controller methods
@@ -200,38 +201,65 @@ const registerValidation = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Name must be between 2 and 50 characters'),
-  body('email')
-    .trim()
-    .isEmail()
-    .withMessage('Please enter a valid email'),
+  body('email').trim().isEmail().withMessage('Please enter a valid email'),
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-  body('role')
-    .optional()
-    .isIn(['user', 'admin'])
-    .withMessage('Invalid role')
+    .withMessage(
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
+  body('role').optional().isIn(['user', 'admin']).withMessage('Invalid role'),
 ];
 
 function validateJoi(schema) {
   return (req, res, next) => {
     const { error } = schema.validate(req.body);
     if (error) {
-      return res.status(400).json({ success: false, message: error.details[0].message });
+      return res
+        .status(400)
+        .json({ success: false, message: error.details[0].message });
     }
     next();
   };
 }
 
 // Routes
-router.post('/register', smartRateLimit, validateJoi(registerSchema), authController.register);
-router.post('/login', smartRateLimit, validateJoi(loginSchema), authController.login);
-router.post('/verify-email', smartRateLimit, validateJoi(verifyEmailSchema), authController.verifyEmail);
-router.post('/resend-verification', smartRateLimit, authController.resendVerificationCode);
-router.post('/forgot-password', smartRateLimit, validateJoi(forgotPasswordSchema), authController.forgotPassword);
-router.post('/reset-password', smartRateLimit, validateJoi(resetPasswordSchema), authController.resetPassword);
+router.post(
+  '/register',
+  smartRateLimit,
+  validateJoi(registerSchema),
+  authController.register
+);
+router.post(
+  '/login',
+  smartRateLimit,
+  validateJoi(loginSchema),
+  authController.login
+);
+router.post(
+  '/verify-email',
+  smartRateLimit,
+  validateJoi(verifyEmailSchema),
+  authController.verifyEmail
+);
+router.post(
+  '/resend-verification',
+  smartRateLimit,
+  authController.resendVerificationCode
+);
+router.post(
+  '/forgot-password',
+  smartRateLimit,
+  validateJoi(forgotPasswordSchema),
+  authController.forgotPassword
+);
+router.post(
+  '/reset-password',
+  smartRateLimit,
+  validateJoi(resetPasswordSchema),
+  authController.resetPassword
+);
 router.post('/change-password', protect, authController.changePassword);
 router.post('/logout', protect, authController.logout);
 router.post('/logout-all', protect, authController.logoutAll);
@@ -280,9 +308,9 @@ router.get(
   (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Admin access granted'
+      message: 'Admin access granted',
     });
   }
 );
 
-module.exports = router; 
+module.exports = router;

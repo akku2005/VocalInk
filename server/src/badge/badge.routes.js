@@ -1,7 +1,9 @@
 const express = require('express');
+
 const router = express.Router();
-const badgeController = require('./badge.controller');
 const { protect, requireAdmin } = require('../middleware/auth');
+
+const badgeController = require('./badge.controller');
 
 // Public routes
 router.get('/', badgeController.getAllBadges);
@@ -19,4 +21,4 @@ router.put('/:id', protect, requireAdmin, badgeController.updateBadge);
 router.delete('/:id', protect, requireAdmin, badgeController.deleteBadge);
 router.post('/award', protect, requireAdmin, badgeController.awardBadgeToUser);
 
-module.exports = router; 
+module.exports = router;

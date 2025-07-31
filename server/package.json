@@ -4,9 +4,19 @@
     "prod": "node server.js",
     "prepare": "husky",
     "test-logger": "node test-logger.js",
-    "seed-badges": "node src/utils/seedBadges.js"
+    "seed-badges": "node src/utils/seedBadges.js",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write .",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "dependencies": {
+    "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
     "chalk": "^4.1.2",
     "colorette": "^2.0.20",
@@ -14,10 +24,12 @@
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.0",
+    "express-slow-down": "^2.1.0",
     "express-validator": "^7.2.1",
     "http-status-codes": "^2.3.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.18.0",
     "mongoose": "^8.16.3",
     "morgan": "^1.10.0",
     "nodemailer": "^7.0.5",
@@ -29,9 +41,14 @@
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.3",
+    "globals": "^16.3.0",
     "husky": "^9.1.7",
     "jest": "^30.0.4",
     "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
     "supertest": "^7.1.3"
   }
 }

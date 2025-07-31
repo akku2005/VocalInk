@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+
 const logger = require('../utils/logger');
 const config = require('../config');
 
@@ -11,19 +12,21 @@ class EmailService {
     try {
       // Check for required environment variables
       if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        logger.warn('Email configuration is missing. Please set SMTP_USER and SMTP_PASS environment variables.');
+        logger.warn(
+          'Email configuration is missing. Please set SMTP_USER and SMTP_PASS environment variables.'
+        );
         this.transporter = {
           sendMail: async (mailOptions) => {
             logger.warn('Email service not configured. Would have sent:', {
               to: mailOptions.to,
-              subject: mailOptions.subject
+              subject: mailOptions.subject,
             });
             return { messageId: 'dummy-id' };
           },
           verify: async () => {
             logger.warn('Email service is not configured');
             return true;
-          }
+          },
         };
         return;
       }
@@ -35,11 +38,11 @@ class EmailService {
         secure: process.env.SMTP_SECURE === 'true',
         auth: {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
+          pass: process.env.SMTP_PASS,
         },
         tls: {
-          rejectUnauthorized: false 
-        }
+          rejectUnauthorized: false,
+        },
       });
 
       // Verify connection
@@ -61,7 +64,12 @@ class EmailService {
   }
 
   static async createTransporter() {
-    if (!config.smtp.host || !config.smtp.port || !config.smtp.auth.user || !config.smtp.auth.pass) {
+    if (
+      !config.smtp.host ||
+      !config.smtp.port ||
+      !config.smtp.auth.user ||
+      !config.smtp.auth.pass
+    ) {
       throw new Error('SMTP configuration is missing');
     }
 
@@ -71,8 +79,8 @@ class EmailService {
       secure: config.smtp.secure,
       auth: {
         user: config.smtp.auth.user,
-        pass: config.smtp.auth.pass
-      }
+        pass: config.smtp.auth.pass,
+      },
     });
   }
 
@@ -94,7 +102,7 @@ class EmailService {
             <p style="color: #666;">This code will expire in 10 minutes.</p>
             <p style="color: #666;">If you didn't request this verification, please ignore this email.</p>
           </div>
-        `
+        `,
       };
 
       await transporter.sendMail(mailOptions);
@@ -102,7 +110,7 @@ class EmailService {
     } catch (error) {
       logger.error('Error sending verification email:', {
         error: error.message,
-        email
+        email,
       });
       throw error;
     }
@@ -124,7 +132,7 @@ class EmailService {
             <p style="color: #666;">This code will expire in 10 minutes.</p>
             <p style="color: #666;">If you didn't request this verification, please ignore this email.</p>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -132,7 +140,7 @@ class EmailService {
     } catch (error) {
       logger.error('Error sending verification email:', {
         error: error.message,
-        email
+        email,
       });
       throw error;
     }
@@ -169,7 +177,7 @@ class EmailService {
               This is an automated message. Please do not reply.
             </p>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -177,7 +185,7 @@ class EmailService {
     } catch (error) {
       logger.error('Error sending password reset email:', {
         error: error.message,
-        email
+        email,
       });
       throw error;
     }
@@ -205,7 +213,7 @@ class EmailService {
             </div>
             <p style="color: #666;">Thank you for joining us!</p>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -213,13 +221,17 @@ class EmailService {
     } catch (error) {
       logger.error('Error sending verification success email:', {
         error: error.message,
-        email
+        email,
       });
       throw error;
     }
   }
 
-  async sendAdminCreationNotification(newAdminEmail, newAdminName, creatorEmail) {
+  async sendAdminCreationNotification(
+    newAdminEmail,
+    newAdminName,
+    creatorEmail
+  ) {
     try {
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
@@ -249,15 +261,17 @@ class EmailService {
             </div>
             <p style="color: #666; font-style: italic;">This is an automated message. Please do not reply.</p>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
-      logger.info('Admin creation notification sent successfully', { email: newAdminEmail });
+      logger.info('Admin creation notification sent successfully', {
+        email: newAdminEmail,
+      });
     } catch (error) {
       logger.error('Error sending admin creation notification:', {
         error: error.message,
-        email: newAdminEmail
+        email: newAdminEmail,
       });
       throw error;
     }
@@ -281,15 +295,17 @@ class EmailService {
             </div>
             <p style="color: #666;">If this wasn't you, please secure your account immediately.</p>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
-      logger.info('Security alert email sent successfully', { email: user.email });
+      logger.info('Security alert email sent successfully', {
+        email: user.email,
+      });
     } catch (error) {
       logger.error('Error sending security alert email:', {
         error: error.message,
-        email: user.email
+        email: user.email,
       });
       throw error;
     }
@@ -311,7 +327,7 @@ class EmailService {
               This is an automated message. Please do not reply.
             </p>
           </div>
-        `
+        `,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -319,7 +335,7 @@ class EmailService {
     } catch (error) {
       logger.error('Error sending password change notification:', {
         error: error.message,
-        email
+        email,
       });
       throw error;
     }
@@ -331,6 +347,26 @@ class EmailService {
     const message = `Your account has been temporarily locked due to multiple failed login attempts.\n\nYou can try logging in again after: ${lockoutTime}.\n\nIf this wasn't you, please contact support immediately.`;
     return this.sendEmail(email, subject, message);
   }
+
+  async sendNotificationEmail(email, subject, html) {
+    try {
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject,
+        html,
+      };
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Notification email sent successfully', { email, subject });
+    } catch (error) {
+      logger.error('Error sending notification email:', {
+        error: error.message,
+        email,
+        subject,
+      });
+      throw error;
+    }
+  }
 }
 
-module.exports = EmailService; 
+module.exports = EmailService;

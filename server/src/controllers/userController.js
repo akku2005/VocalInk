@@ -1,42 +1,114 @@
 const { StatusCodes } = require('http-status-codes');
+const { body, validationResult } = require('express-validator');
+
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
-const { body, validationResult } = require('express-validator');
 const { sendEmail } = require('../utils/emailService');
 const logger = require('../utils/logger');
 
 const updateUserValidators = [
-  body('name').optional().trim().escape().isLength({ min: 2, max: 50 }).withMessage('Name must be 2-50 characters'),
-  body('email').optional().isEmail().withMessage('Invalid email address').normalizeEmail(),
-  body('role').optional().isIn(['reader', 'writer', 'admin']).withMessage('Invalid role')
+  body('name')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Name must be 2-50 characters'),
+  body('email')
+    .optional()
+    .isEmail()
+    .withMessage('Invalid email address')
+    .normalizeEmail(),
+  body('role')
+    .optional()
+    .isIn(['reader', 'writer', 'admin'])
+    .withMessage('Invalid role'),
 ];
 
 const updateProfileValidators = [
-  body('name').optional().trim().escape().isLength({ min: 2, max: 50 }).withMessage('Name must be 2-50 characters'),
-  body('email').optional().isEmail().withMessage('Invalid email address').normalizeEmail(),
-  body('mobile').optional().trim().escape().isLength({ min: 7, max: 20 }).withMessage('Mobile must be 7-20 characters'),
-  body('gender').optional().isIn(['male', 'female', 'other']).withMessage('Invalid gender'),
-  body('address').optional().trim().escape().isLength({ max: 100 }).withMessage('Address too long'),
-  body('profilePicture').optional().trim().escape().isURL().withMessage('Invalid profile picture URL'),
-  body('company').optional().trim().escape().isLength({ max: 50 }).withMessage('Company name too long'),
-  body('jobTitle').optional().trim().escape().isLength({ max: 50 }).withMessage('Job title too long'),
-  body('website').optional().trim().escape().isURL().withMessage('Invalid website URL'),
-  body('linkedin').optional().trim().escape().isURL().withMessage('Invalid LinkedIn URL'),
-  body('bio').optional().trim().escape().isLength({ max: 500 }).withMessage('Bio too long'),
-  body('birthday').optional().isISO8601().withMessage('Invalid birthday date')
+  body('name')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Name must be 2-50 characters'),
+  body('email')
+    .optional()
+    .isEmail()
+    .withMessage('Invalid email address')
+    .normalizeEmail(),
+  body('mobile')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ min: 7, max: 20 })
+    .withMessage('Mobile must be 7-20 characters'),
+  body('gender')
+    .optional()
+    .isIn(['male', 'female', 'other'])
+    .withMessage('Invalid gender'),
+  body('address')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 100 })
+    .withMessage('Address too long'),
+  body('profilePicture')
+    .optional()
+    .trim()
+    .escape()
+    .isURL()
+    .withMessage('Invalid profile picture URL'),
+  body('company')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 })
+    .withMessage('Company name too long'),
+  body('jobTitle')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 })
+    .withMessage('Job title too long'),
+  body('website')
+    .optional()
+    .trim()
+    .escape()
+    .isURL()
+    .withMessage('Invalid website URL'),
+  body('linkedin')
+    .optional()
+    .trim()
+    .escape()
+    .isURL()
+    .withMessage('Invalid LinkedIn URL'),
+  body('bio')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 500 })
+    .withMessage('Bio too long'),
+  body('birthday').optional().isISO8601().withMessage('Invalid birthday date'),
 ];
 
 // Get all users
 const getAllUsers = async (req, res, next) => {
   try {
-    const { role, search, page = 1, limit = 10, sortBy = 'createdAt', sortOrder = -1 } = req.query;
+    const {
+      role,
+      search,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+    } = req.query;
     const query = {};
 
     if (role) query.role = role;
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -51,13 +123,17 @@ const getAllUsers = async (req, res, next) => {
         .sort({ [sortBy]: sortOrder })
         .skip((page - 1) * safeLimit)
         .limit(safeLimit)
-        .lean()
+        .lean(),
     ]);
 
     res.status(StatusCodes.OK).json({
       success: true,
       data: { users },
-      pagination: { total, page: parseInt(page), pages: Math.ceil(total / safeLimit) }
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / safeLimit),
+      },
     });
   } catch (error) {
     next(error);
@@ -72,13 +148,13 @@ const getUserById = async (req, res, next) => {
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: { user }
+      data: { user },
     });
   } catch (error) {
     next(error);
@@ -93,7 +169,7 @@ const updateUser = async (req, res, next) => {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array()
+        errors: errors.array(),
       });
     }
 
@@ -103,7 +179,7 @@ const updateUser = async (req, res, next) => {
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -111,7 +187,7 @@ const updateUser = async (req, res, next) => {
     if (req.user.role !== 'admin' && req.user.id !== user._id.toString()) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'Not authorized to update this user'
+        message: 'Not authorized to update this user',
       });
     }
 
@@ -119,7 +195,7 @@ const updateUser = async (req, res, next) => {
     if (role && req.user.role !== 'admin') {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'Not authorized to update user role'
+        message: 'Not authorized to update user role',
       });
     }
 
@@ -132,7 +208,7 @@ const updateUser = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: { user: updatedUser }
+      data: { user: updatedUser },
     });
   } catch (error) {
     next(error);
@@ -147,7 +223,7 @@ const deleteUser = async (req, res, next) => {
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -155,7 +231,7 @@ const deleteUser = async (req, res, next) => {
     if (req.user.role !== 'admin' && req.user.id !== user._id.toString()) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'Not authorized to delete this user'
+        message: 'Not authorized to delete this user',
       });
     }
 
@@ -163,7 +239,7 @@ const deleteUser = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'User deleted successfully'
+      message: 'User deleted successfully',
     });
   } catch (error) {
     next(error);
@@ -178,13 +254,13 @@ const getProfile = async (req, res, next) => {
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: { user }
+      data: { user },
     });
   } catch (error) {
     next(error);
@@ -199,17 +275,30 @@ const updateProfile = async (req, res, next) => {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array()
+        errors: errors.array(),
       });
     }
 
-    const { name, email, mobile, gender, address, profilePicture, company, jobTitle, website, linkedin, bio, birthday } = req.body;
+    const {
+      name,
+      email,
+      mobile,
+      gender,
+      address,
+      profilePicture,
+      company,
+      jobTitle,
+      website,
+      linkedin,
+      bio,
+      birthday,
+    } = req.body;
     const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -229,15 +318,14 @@ const updateProfile = async (req, res, next) => {
     if (birthday !== undefined) updateObj.birthday = birthday;
 
     // Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      updateObj,
-      { new: true, runValidators: true }
-    ).select('-password');
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, updateObj, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: { user: updatedUser }
+      data: { user: updatedUser },
     });
   } catch (error) {
     next(error);
@@ -252,7 +340,7 @@ const deactivateUser = async (req, res, next) => {
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -260,7 +348,7 @@ const deactivateUser = async (req, res, next) => {
     if (req.user.role !== 'admin' && req.user.id !== user._id.toString()) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'Not authorized to deactivate this user'
+        message: 'Not authorized to deactivate this user',
       });
     }
 
@@ -269,7 +357,7 @@ const deactivateUser = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'User deactivated successfully'
+      message: 'User deactivated successfully',
     });
   } catch (error) {
     next(error);
@@ -284,7 +372,7 @@ const reactivateUser = async (req, res, next) => {
     if (!user) {
       return res.status(StatusCodes.NOT_FOUND).json({
         success: false,
-        message: 'User not found'
+        message: 'User not found',
       });
     }
 
@@ -292,7 +380,7 @@ const reactivateUser = async (req, res, next) => {
     if (req.user.role !== 'admin') {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'Not authorized to reactivate users'
+        message: 'Not authorized to reactivate users',
       });
     }
 
@@ -301,7 +389,7 @@ const reactivateUser = async (req, res, next) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'User reactivated successfully'
+      message: 'User reactivated successfully',
     });
   } catch (error) {
     next(error);
@@ -316,7 +404,7 @@ const changePassword = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: 'Authentication required or invalid token',
-        statusCode: 401
+        statusCode: 401,
       });
     }
 
@@ -327,7 +415,7 @@ const changePassword = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'Please provide current and new password',
-        statusCode: 400
+        statusCode: 400,
       });
     }
 
@@ -337,7 +425,7 @@ const changePassword = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'User not found',
-        statusCode: 404
+        statusCode: 404,
       });
     }
 
@@ -347,7 +435,7 @@ const changePassword = async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: 'Current password is incorrect',
-        statusCode: 401
+        statusCode: 401,
       });
     }
 
@@ -357,21 +445,23 @@ const changePassword = async (req, res, next) => {
 
     // Send password changed email (optional)
     try {
-      await sendEmail(user.email, 'passwordChanged', { name: user.name || user.firstName || user.email });
+      await sendEmail(user.email, 'passwordChanged', {
+        name: user.name || user.firstName || user.email,
+      });
     } catch (e) {
       console.error('Password change email failed:', e.message);
     }
 
     res.status(200).json({
       success: true,
-      message: 'Password updated successfully'
+      message: 'Password updated successfully',
     });
   } catch (error) {
     console.error('Change password error:', error); // Improved error logging
     res.status(500).json({
       success: false,
       message: error.message || 'Error changing password',
-      statusCode: 500
+      statusCode: 500,
     });
   }
 };
@@ -380,7 +470,10 @@ const changePassword = async (req, res, next) => {
 const getUserStats = async (req, res, next) => {
   try {
     if (req.user.role !== 'admin') {
-      throw new AppError('Not authorized to view user statistics', StatusCodes.FORBIDDEN);
+      throw new AppError(
+        'Not authorized to view user statistics',
+        StatusCodes.FORBIDDEN
+      );
     }
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
@@ -389,9 +482,9 @@ const getUserStats = async (req, res, next) => {
       {
         $group: {
           _id: '$department',
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     res.status(StatusCodes.OK).json({
@@ -400,8 +493,8 @@ const getUserStats = async (req, res, next) => {
         totalUsers,
         activeUsers,
         adminUsers,
-        usersByDepartment
-      }
+        usersByDepartment,
+      },
     });
   } catch (error) {
     next(error);
@@ -418,5 +511,5 @@ module.exports = {
   deactivateUser,
   reactivateUser,
   changePassword,
-  getUserStats
+  getUserStats,
 };

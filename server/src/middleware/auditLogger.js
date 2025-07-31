@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 const auditLogger = (event) => {
   return async (req, res, next) => {
     const originalJson = res.json;
-    res.json = function(data) {
+    res.json = function (data) {
       // Store the response data
       res.locals.responseData = data;
       // Call the original json method
@@ -20,7 +20,9 @@ const auditLogger = (event) => {
       const userAgent = req.headers['user-agent'];
 
       // Log audit event
-      logger.info(`Audit: ${event} - User: ${userId || 'anonymous'} - Path: ${req.path} - Method: ${req.method}`);
+      logger.info(
+        `Audit: ${event} - User: ${userId || 'anonymous'} - Path: ${req.path} - Method: ${req.method}`
+      );
 
       // Create audit log entry
       // await AuditLog.create({
@@ -46,5 +48,5 @@ const auditLogger = (event) => {
 };
 
 module.exports = {
-  auditLogger
-}; 
+  auditLogger,
+};

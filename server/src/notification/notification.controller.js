@@ -1,6 +1,7 @@
+const { StatusCodes } = require('http-status-codes');
+
 const Notification = require('../models/notification.model');
 const User = require('../models/user.model');
-const { StatusCodes } = require('http-status-codes');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
@@ -11,11 +12,11 @@ exports.getUserNotifications = async (req, res) => {
     const { page = 1, limit = 20, type, unreadOnly = false } = req.query;
 
     let query = { userId, isDeleted: false };
-    
+
     if (type) {
       query.type = type;
     }
-    
+
     if (unreadOnly === 'true') {
       query.read = false;
     }
@@ -42,15 +43,15 @@ exports.getUserNotifications = async (req, res) => {
           totalNotifications: total,
           unreadCount,
           hasNext: page * limit < total,
-          hasPrev: page > 1
-        }
-      }
+          hasPrev: page > 1,
+        },
+      },
     });
   } catch (error) {
     logger.error('Error in getUserNotifications:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while fetching notifications'
+      message: 'An error occurred while fetching notifications',
     });
   }
 };
@@ -74,25 +75,25 @@ exports.getNotificationById = async (req, res) => {
     if (notification.userId.toString() !== userId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only view your own notifications'
+        message: 'You can only view your own notifications',
       });
     }
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: notification
+      data: notification,
     });
   } catch (error) {
     logger.error('Error in getNotificationById:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching notification'
+        message: 'An error occurred while fetching notification',
       });
     }
   }
@@ -113,7 +114,7 @@ exports.markNotificationRead = async (req, res) => {
     if (notification.userId.toString() !== userId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only mark your own notifications as read'
+        message: 'You can only mark your own notifications as read',
       });
     }
 
@@ -121,19 +122,19 @@ exports.markNotificationRead = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Notification marked as read'
+      message: 'Notification marked as read',
     });
   } catch (error) {
     logger.error('Error in markNotificationRead:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while marking notification as read'
+        message: 'An error occurred while marking notification as read',
       });
     }
   }
@@ -148,13 +149,13 @@ exports.markAllNotificationsRead = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'All notifications marked as read'
+      message: 'All notifications marked as read',
     });
   } catch (error) {
     logger.error('Error in markAllNotificationsRead:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while marking notifications as read'
+      message: 'An error occurred while marking notifications as read',
     });
   }
 };
@@ -174,7 +175,7 @@ exports.markNotificationUnread = async (req, res) => {
     if (notification.userId.toString() !== userId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only mark your own notifications as unread'
+        message: 'You can only mark your own notifications as unread',
       });
     }
 
@@ -182,19 +183,19 @@ exports.markNotificationUnread = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Notification marked as unread'
+      message: 'Notification marked as unread',
     });
   } catch (error) {
     logger.error('Error in markNotificationUnread:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while marking notification as unread'
+        message: 'An error occurred while marking notification as unread',
       });
     }
   }
@@ -215,7 +216,7 @@ exports.deleteNotification = async (req, res) => {
     if (notification.userId.toString() !== userId) {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
-        message: 'You can only delete your own notifications'
+        message: 'You can only delete your own notifications',
       });
     }
 
@@ -224,19 +225,19 @@ exports.deleteNotification = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: 'Notification deleted successfully'
+      message: 'Notification deleted successfully',
     });
   } catch (error) {
     logger.error('Error in deleteNotification:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while deleting notification'
+        message: 'An error occurred while deleting notification',
       });
     }
   }
@@ -247,25 +248,30 @@ exports.getNotificationStats = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const totalNotifications = await Notification.countDocuments({ 
-      userId, 
-      isDeleted: false 
+    const totalNotifications = await Notification.countDocuments({
+      userId,
+      isDeleted: false,
     });
-    
+
     const unreadCount = await Notification.getUnreadCount(userId);
-    
+
     const notificationsByType = await Notification.aggregate([
-      { $match: { userId: require('mongoose').Types.ObjectId(userId), isDeleted: false } },
-      { $group: { _id: '$type', count: { $sum: 1 } } }
+      {
+        $match: {
+          userId: require('mongoose').Types.ObjectId(userId),
+          isDeleted: false,
+        },
+      },
+      { $group: { _id: '$type', count: { $sum: 1 } } },
     ]);
 
-    const recentNotifications = await Notification.find({ 
-      userId, 
-      isDeleted: false 
+    const recentNotifications = await Notification.find({
+      userId,
+      isDeleted: false,
     })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .populate('data.fromUserId', 'name avatar');
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('data.fromUserId', 'name avatar');
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -274,14 +280,14 @@ exports.getNotificationStats = async (req, res) => {
         unreadCount,
         readCount: totalNotifications - unreadCount,
         byType: notificationsByType,
-        recent: recentNotifications
-      }
+        recent: recentNotifications,
+      },
     });
   } catch (error) {
     logger.error('Error in getNotificationStats:', error);
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: 'An error occurred while fetching notification statistics'
+      message: 'An error occurred while fetching notification statistics',
     });
   }
 };
@@ -289,7 +295,13 @@ exports.getNotificationStats = async (req, res) => {
 // Create system notification (admin only)
 exports.createSystemNotification = async (req, res) => {
   try {
-    const { userIds, title, content, type = 'system', priority = 'normal' } = req.body;
+    const {
+      userIds,
+      title,
+      content,
+      type = 'system',
+      priority = 'normal',
+    } = req.body;
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       throw new ValidationError('User IDs array is required');
@@ -300,12 +312,14 @@ exports.createSystemNotification = async (req, res) => {
     }
 
     const notifications = [];
-    
+
     for (const userId of userIds) {
       // Verify user exists
       const user = await User.findById(userId);
       if (!user) {
-        logger.warn(`Attempted to create notification for non-existent user: ${userId}`);
+        logger.warn(
+          `Attempted to create notification for non-existent user: ${userId}`
+        );
         continue;
       }
 
@@ -316,8 +330,8 @@ exports.createSystemNotification = async (req, res) => {
         content,
         priority,
         data: {
-          actionUrl: '/notifications'
-        }
+          actionUrl: '/notifications',
+        },
       });
 
       notifications.push(notification);
@@ -328,20 +342,20 @@ exports.createSystemNotification = async (req, res) => {
       message: `System notification sent to ${notifications.length} users`,
       data: {
         sentCount: notifications.length,
-        totalRequested: userIds.length
-      }
+        totalRequested: userIds.length,
+      },
     });
   } catch (error) {
     logger.error('Error in createSystemNotification:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while creating system notification'
+        message: 'An error occurred while creating system notification',
       });
     }
   }
@@ -351,9 +365,11 @@ exports.createSystemNotification = async (req, res) => {
 exports.getNotificationPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    const user = await User.findById(userId).select('emailNotifications pushNotifications');
-    
+
+    const user = await User.findById(userId).select(
+      'emailNotifications pushNotifications'
+    );
+
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -362,20 +378,20 @@ exports.getNotificationPreferences = async (req, res) => {
       success: true,
       data: {
         emailNotifications: user.emailNotifications,
-        pushNotifications: user.pushNotifications
-      }
+        pushNotifications: user.pushNotifications,
+      },
     });
   } catch (error) {
     logger.error('Error in getNotificationPreferences:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching notification preferences'
+        message: 'An error occurred while fetching notification preferences',
       });
     }
   }
@@ -395,7 +411,7 @@ exports.updateNotificationPreferences = async (req, res) => {
     if (emailNotifications !== undefined) {
       user.emailNotifications = emailNotifications;
     }
-    
+
     if (pushNotifications !== undefined) {
       user.pushNotifications = pushNotifications;
     }
@@ -407,21 +423,21 @@ exports.updateNotificationPreferences = async (req, res) => {
       message: 'Notification preferences updated successfully',
       data: {
         emailNotifications: user.emailNotifications,
-        pushNotifications: user.pushNotifications
-      }
+        pushNotifications: user.pushNotifications,
+      },
     });
   } catch (error) {
     logger.error('Error in updateNotificationPreferences:', error);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while updating notification preferences'
+        message: 'An error occurred while updating notification preferences',
       });
     }
   }
-}; 
+};

@@ -8,4 +8,4 @@ app.listen(PORT, () => {
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`API Documentation: http://localhost:${PORT}/api-docs`);
   logger.info(`API Base URL: http://localhost:${PORT}/api`);
-}); 
+});
