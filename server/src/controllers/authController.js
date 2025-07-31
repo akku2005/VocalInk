@@ -18,7 +18,7 @@ const { sendEmail } = require('../services/EmailService');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const config = require('../config');
-const TokenService = require('../services/TokenService');
+const JWTService = require('../services/JWTService');
 const EmailService = require('../services/EmailService');
 const {
   ValidationError,
@@ -174,32 +174,7 @@ class AuthController {
         await user.save();
 
         // Generate access and refresh tokens
-        const accessToken = jwt.sign(
-          {
-            userId: user._id,
-            email: user.email,
-            role: user.role,
-          },
-          config.jwt.secret,
-          {
-            expiresIn: config.jwt.accessExpiration,
-            issuer: config.jwt.issuer,
-            audience: config.jwt.audience,
-          }
-        );
-
-        const refreshToken = jwt.sign(
-          {
-            userId: user._id,
-            tokenId: crypto.randomBytes(32).toString('hex'),
-          },
-          config.jwt.refreshSecret,
-          {
-            expiresIn: config.jwt.refreshExpiration,
-            issuer: config.jwt.issuer,
-            audience: config.jwt.audience,
-          }
-        );
+        const tokens = JWTService.generateTokenPair(user);
 
         // Log the admin registration
         await logAuthActivity(req, 'AUTH_REGISTER', {
@@ -234,10 +209,7 @@ class AuthController {
             role: user.role,
             isVerified: user.isVerified,
           },
-          tokens: {
-            accessToken,
-            refreshToken,
-          },
+          tokens,
         });
       }
 
@@ -248,32 +220,7 @@ class AuthController {
         await user.save();
 
         // Generate access and refresh tokens
-        const accessToken = jwt.sign(
-          {
-            userId: user._id,
-            email: user.email,
-            role: user.role,
-          },
-          config.jwt.secret,
-          {
-            expiresIn: config.jwt.accessExpiration,
-            issuer: config.jwt.issuer,
-            audience: config.jwt.audience,
-          }
-        );
-
-        const refreshToken = jwt.sign(
-          {
-            userId: user._id,
-            tokenId: crypto.randomBytes(32).toString('hex'),
-          },
-          config.jwt.refreshSecret,
-          {
-            expiresIn: config.jwt.refreshExpiration,
-            issuer: config.jwt.issuer,
-            audience: config.jwt.audience,
-          }
-        );
+        const tokens = JWTService.generateTokenPair(user);
 
         // Log the registration
         await logAuthActivity(req, 'AUTH_REGISTER', {
@@ -592,7 +539,7 @@ class AuthController {
 
       let tokens;
       try {
-        tokens = await TokenService.generateTokens(user);
+        tokens = JWTService.generateTokenPair(user);
       } catch (error) {
         logger.error('Error generating tokens:', {
           error: error.message,
@@ -703,7 +650,7 @@ class AuthController {
       // Generate new auth tokens
       let tokens;
       try {
-        tokens = await TokenService.generateTokens(user);
+        tokens = JWTService.generateTokenPair(user);
       } catch (error) {
         logger.error('Error generating tokens:', {
           error: error.message,
@@ -1111,7 +1058,12 @@ class AuthController {
     try {
       const token = req.headers.authorization?.split(' ')[1];
       if (token) {
-        await TokenService.revokeToken(token);
+        // For JWT tokens, we don't need to store them in DB for revocation
+        // The token will expire naturally, but we can log the logout
+        logger.info('User logged out', {
+          userId: req.user._id,
+          email: req.user.email,
+        });
       }
 
       res.status(200).json({
@@ -1139,11 +1091,8 @@ class AuthController {
 
   static async logoutAll(req, res, next) {
     try {
-      // Revoke all user tokens
-      await TokenService.revokeAllUserTokens(
-        req.user._id,
-        'User logged out from all devices'
-      );
+      // Revoke all refresh tokens for the user
+      await JWTService.revokeAllRefreshTokens(req.user._id);
 
       // Log security event
       await req.user.logSecurityEvent('logout_all', {
@@ -1227,17 +1176,10 @@ class AuthController {
           .status(400)
           .json({ success: false, message: 'Refresh token is required' });
       }
-      // Verify refresh token
-      const { decoded, tokenRecord } = await TokenService.verifyToken(
-        refreshToken,
-        'refresh'
-      );
-      if (!decoded || !decoded.userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid or expired refresh token',
-        });
-      }
+      
+      // Verify refresh token using JWT service
+      const decoded = await JWTService.verifyRefreshToken(refreshToken);
+      
       // Get user
       const user = await User.findById(decoded.userId);
       if (!user) {
@@ -1245,16 +1187,17 @@ class AuthController {
           .status(401)
           .json({ success: false, message: 'User not found' });
       }
+      
       // Revoke the used refresh token
-      await TokenService.revokeToken(refreshToken);
+      await JWTService.revokeRefreshToken(refreshToken);
+      
       // Generate new tokens
-      const { accessToken, refreshToken: newRefreshToken } =
-        await TokenService.generateTokens(user);
+      const tokens = JWTService.generateTokenPair(user);
+      
       res.status(200).json({
         success: true,
         message: 'Tokens refreshed successfully',
-        accessToken,
-        refreshToken: newRefreshToken,
+        ...tokens,
       });
     } catch (error) {
       logger.error('Error occurred', {
