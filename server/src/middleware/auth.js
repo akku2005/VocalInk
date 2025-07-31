@@ -1,7 +1,7 @@
 const { StatusCodes } = require('http-status-codes');
 
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
-const TokenService = require('../services/TokenService');
+const JWTService = require('../services/JWTService');
 const User = require('../models/user.model');
 
 // Protect routes
@@ -17,7 +17,7 @@ const protect = async (req, res, next) => {
       throw new UnauthorizedError('Not authorized to access this route');
     }
 
-    const decoded = await TokenService.verifyToken(token);
+    const decoded = await JWTService.verifyAccessToken(token);
     const user = await User.findById(decoded.userId);
 
     if (!user) {
@@ -54,7 +54,7 @@ const optionalAuth = async (req, res, next) => {
       return next();
     }
 
-    const decoded = await TokenService.verifyToken(token);
+    const decoded = await JWTService.verifyAccessToken(token);
     const user = await User.findById(decoded.userId);
 
     if (user) {

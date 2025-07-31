@@ -12,10 +12,12 @@ module.exports = {
   jwt: {
     secret: process.env.JWT_SECRET || 'your_jwt_secret',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'your_jwt_refresh_secret',
-    accessExpiration: process.env.JWT_ACCESS_EXPIRATION || '15m',
-    refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
-    issuer: process.env.JWT_ISSUER || 'vocalink',
-    audience: process.env.JWT_AUDIENCE || 'vocalink_users',
+    accessExpiration: process.env.JWT_EXPIRES_IN || '24h',
+    refreshExpiration: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    resetExpiration: process.env.JWT_RESET_EXPIRES_IN || '24h',
+    verificationExpiration: process.env.JWT_VERIFICATION_EXPIRES_IN || '24h',
+    issuer: process.env.JWT_ISSUER || 'akash',
+    audience: process.env.JWT_AUDIENCE || 'akash',
   },
   security: {
     login: { maxAttempts: 10 },
