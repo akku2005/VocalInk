@@ -1,6 +1,7 @@
 const XPTransaction = require('../models/xpTransaction.model');
 const User = require('../models/user.model');
 const Badge = require('../models/badge.model');
+const NotificationService = require('./NotificationService');
 const logger = require('../utils/logger');
 
 class XPService {
@@ -434,7 +435,13 @@ class XPService {
       bonusAmount: levelUpBonus,
     }, { platform: 'system' });
 
-    // Could also trigger notifications, achievements, etc.
+    // Send level up notification (in-app + email)
+    try {
+      await NotificationService.sendLevelUpNotification(user._id, newLevel, levelUpBonus);
+    } catch (error) {
+      logger.error('Error sending level up notification:', error);
+    }
+
     logger.info(`User ${user._id} leveled up from ${previousLevel} to ${newLevel}`);
   }
 

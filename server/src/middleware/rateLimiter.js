@@ -1,6 +1,6 @@
 const rateLimit = require('express-rate-limit');
 
-// Custom function to get client IP
+// Custom function to get client IP (fallback)
 function getClientIp(req) {
   return (
     req.headers['x-forwarded-for']?.split(',').shift() ||
@@ -23,7 +23,7 @@ const createLimiter = (options) => {
     legacyHeaders: false,
     skipSuccessfulRequests: options.skipSuccessfulRequests || false,
     keyGenerator: (req) => {
-      // Use custom getClientIp for IPv6 safety
+      // Use a safe IP extraction method
       const ip = getClientIp(req);
       const key = [
         ip,

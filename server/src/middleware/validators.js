@@ -5,7 +5,7 @@ const { ObjectId } = require('mongodb');
 
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { BadRequestError } = require('../utils/errors');
+const { BadRequestError, ValidationError } = require('../utils/errors');
 const { sanitizeInput, isDisposableEmailDomain } = require('../utils/sanitize');
 
 // Validation Constants
@@ -101,7 +101,7 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 // Validation Middleware Wrapper
-const validate = (validations) => {
+const validateExpress = (validations) => {
   return async (req, res, next) => {
     try {
       // Run all validations
@@ -160,7 +160,7 @@ const sanitizeField = (field) => body(field).customSanitizer(sanitizeInput);
 
 // User Validations
 const userValidations = {
-  register: validate([
+  register: validateExpress([
     sanitizeField('name')
       .notEmpty()
       .withMessage('Name is required')
@@ -204,7 +204,7 @@ const userValidations = {
       .withMessage('Department cannot be empty'),
   ]),
 
-  login: validate([
+  login: validateExpress([
     sanitizeField('email')
       .notEmpty()
       .withMessage('Email is required')
@@ -215,7 +215,7 @@ const userValidations = {
     sanitizeField('password').notEmpty().withMessage('Password is required'),
   ]),
 
-  update: validate([
+  update: validateExpress([
     param('id').custom(customValidators.mongoId),
 
     body('firstName')
@@ -269,7 +269,7 @@ const userValidations = {
       .withMessage('isActive must be a boolean value'),
   ]),
 
-  changePassword: validate([
+  changePassword: validateExpress([
     body('currentPassword')
       .trim()
       .notEmpty()
@@ -282,7 +282,7 @@ const userValidations = {
       .custom(customValidators.password),
   ]),
 
-  forgotPassword: validate([
+  forgotPassword: validateExpress([
     body('email')
       .trim()
       .notEmpty()
@@ -292,7 +292,7 @@ const userValidations = {
       .normalizeEmail(),
   ]),
 
-  resetPassword: validate([
+  resetPassword: validateExpress([
     body('token').trim().notEmpty().withMessage('Reset token is required'),
 
     body('newPassword')
@@ -301,7 +301,7 @@ const userValidations = {
       .custom(customValidators.password),
   ]),
 
-  verifyEmail: validate([
+  verifyEmail: validateExpress([
     body('code')
       .trim()
       .notEmpty()
@@ -368,7 +368,7 @@ const userValidations = {
 
 // Project Validations
 const projectValidations = {
-  create: validate([
+  create: validateExpress([
     body('name')
       .trim()
       .notEmpty()
@@ -406,7 +406,7 @@ const projectValidations = {
       .custom(customValidators.dateRange),
   ]),
 
-  update: validate([
+  update: validateExpress([
     param('id').custom(customValidators.mongoId),
 
     body('name')
@@ -447,7 +447,7 @@ const projectValidations = {
       .custom(customValidators.dateRange),
   ]),
 
-  addMember: validate([
+  addMember: validateExpress([
     param('id').custom(customValidators.mongoId),
 
     body('userId')
@@ -461,7 +461,7 @@ const projectValidations = {
       ),
   ]),
 
-  removeMember: validate([
+  removeMember: validateExpress([
     param('id').custom(customValidators.mongoId),
 
     param('userId')
@@ -472,7 +472,7 @@ const projectValidations = {
 
 // Timesheet Validations
 const timesheetValidations = {
-  create: validate([
+  create: validateExpress([
     body('weekStartDate')
       .isISO8601()
       .withMessage('Week start date must be a valid date'),
@@ -516,7 +516,7 @@ const timesheetValidations = {
       ),
   ]),
 
-  update: validate([
+  update: validateExpress([
     param('id').custom(customValidators.mongoId),
 
     body('entries')
@@ -579,9 +579,9 @@ const timesheetValidations = {
       ),
   ]),
 
-  approve: validate([param('id').custom(customValidators.mongoId)]),
+  approve: validateExpress([param('id').custom(customValidators.mongoId)]),
 
-  reject: validate([
+  reject: validateExpress([
     param('id').custom(customValidators.mongoId),
 
     body('reason')
@@ -598,16 +598,40 @@ const timesheetValidations = {
   ]),
 };
 
+const validate = (schema, property = 'body') => {
+  return (req, res, next) => {
+    const data = req[property];
+    const { error, value } = schema.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true
+    });
+
+    if (error) {
+      const errorMessage = error.details
+        .map(detail => detail.message)
+        .join(', ');
+      
+      return next(new ValidationError(errorMessage));
+    }
+
+    // Replace the request data with validated data
+    req[property] = value;
+    next();
+  };
+};
+
 // Export all validation functions and constants
 module.exports = {
   VALIDATION,
   customValidators,
   validate,
+  validateExpress,
   validateSchema,
   validateRequest,
   formatValidationErrors,
   handleValidationErrors,
   userValidations,
   projectValidations,
-  timesheetValidations,
+  timesheetValidations
 };

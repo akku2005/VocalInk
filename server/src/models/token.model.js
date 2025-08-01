@@ -7,7 +7,7 @@ const tokenSchema = new mongoose.Schema(
     tokenHash: { type: String, required: true, unique: true },
     type: {
       type: String,
-      enum: ['auth', 'refresh', 'verification', 'reset'],
+      enum: ['auth', 'refresh', 'verification', 'reset', 'access'],
       required: true,
     },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -35,6 +35,37 @@ tokenSchema.statics.revokeAllUserTokens = function (userId) {
 
 tokenSchema.statics.revokeAllUserTokensByType = function (userId, type) {
   return this.updateMany({ user: userId, type }, { revoked: true });
+};
+
+// Add method to blacklist access tokens
+tokenSchema.statics.blacklistAccessToken = async function (tokenHash, userId) {
+  return this.create({
+    tokenHash,
+    type: 'access',
+    user: userId,
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    revoked: true,
+  });
+};
+
+// Add method to check if access token is blacklisted
+tokenSchema.statics.isAccessTokenBlacklisted = async function (tokenHash) {
+  const blacklistedToken = await this.findOne({
+    tokenHash,
+    type: 'access',
+    revoked: true,
+  });
+  return !!blacklistedToken;
+};
+
+// Add method to clean up expired blacklisted tokens
+tokenSchema.statics.cleanupExpiredBlacklistedTokens = async function () {
+  const result = await this.deleteMany({
+    type: 'access',
+    revoked: true,
+    expiresAt: { $lt: new Date() },
+  });
+  return result.deletedCount;
 };
 
 tokenSchema.statics.generateVerificationToken = async function (user, code) {

@@ -98,7 +98,7 @@ const sensitiveOperationLimiter = rateLimit({
   },
   skip: (req) => {
     // Skip rate limiting for whitelisted IPs
-    const whitelistedIPs = process.env.RATE_LIMIT_WHITELIST?.split(',') || [];
+    const whitelistedIPs = process.env.WHITELISTED_IPS?.split(',') || [];
     return whitelistedIPs.includes(getClientIp(req));
   },
 });
@@ -739,7 +739,7 @@ const createRateLimit = (options) => {
     windowMs = 15 * 60 * 1000, // 15 minutes
     max = 100,
     message = 'Too many requests from this IP, please try again later',
-    keyGenerator = (req) => req.ip,
+    keyGenerator = (req) => getClientIp(req),
     skip = (req) => false,
     handler = (req, res) => {
       res.status(StatusCodes.TOO_MANY_REQUESTS).json({

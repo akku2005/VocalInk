@@ -1,8 +1,13 @@
 const { StatusCodes } = require('http-status-codes');
-
-const Badge = require('../models/badge.model');
-const User = require('../models/user.model');
-const Notification = require('../models/notification.model');
+const BadgeService = require('../services/BadgeService');
+const {
+  createBadgeSchema,
+  updateBadgeSchema,
+  claimBadgeSchema,
+  searchBadgesSchema,
+  filterBadgesSchema,
+  reviewClaimSchema
+} = require('../validations/badgeSchema');
 const {
   ValidationError,
   NotFoundError,
@@ -10,68 +15,43 @@ const {
 } = require('../utils/errors');
 const logger = require('../utils/logger');
 
-// Get all badges
+// Get all badges with advanced filtering
 exports.getAllBadges = async (req, res) => {
   try {
-    const { category, rarity, limit = 50, page = 1 } = req.query;
-
-    let query = { isActive: true };
-
-    if (category) {
-      query.category = category;
+    const { error, value } = filterBadgesSchema.validate(req.query);
+    if (error) {
+      throw new ValidationError(error.details[0].message);
     }
 
-    if (rarity) {
-      query.rarity = rarity;
-    }
-
-    const badges = await Badge.find(query)
-      .sort({ rarity: 1, name: 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .exec();
-
-    const total = await Badge.countDocuments(query);
+    const result = await BadgeService.getAllBadges(value);
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: {
-        badges,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalBadges: total,
-          hasNext: page * limit < total,
-          hasPrev: page > 1,
-        },
-      },
+      data: result,
     });
   } catch (error) {
     logger.error('Error in getAllBadges:', error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: 'An error occurred while fetching badges',
-    });
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while fetching badges',
+      });
+    }
   }
 };
 
-// Get badge by ID
+// Get badge by ID with enhanced details
 exports.getBadgeById = async (req, res) => {
   try {
-    const badge = await Badge.findById(req.params.id);
+    const { id } = req.params;
+    const userId = req.user?.id;
 
-    if (!badge) {
-      throw new NotFoundError('Badge not found');
-    }
-
-    // Get users who have earned this badge
-    const earnedUsers = await User.find({ badges: badge._id })
-      .select('name email avatar')
-      .limit(10);
-
-    const badgeData = badge.toObject();
-    badgeData.earnedUsers = earnedUsers;
-    badgeData.earnedCount = earnedUsers.length;
+    const badgeData = await BadgeService.getBadgeById(id, userId);
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -93,38 +73,93 @@ exports.getBadgeById = async (req, res) => {
   }
 };
 
+// Search badges
+exports.searchBadges = async (req, res) => {
+  try {
+    const { error, value } = searchBadgesSchema.validate(req.query);
+    if (error) {
+      throw new ValidationError(error.details[0].message);
+    }
+
+    const badges = await BadgeService.searchBadges(value.query, value);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        query: value.query,
+        badges,
+        count: badges.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error in searchBadges:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while searching badges',
+      });
+    }
+  }
+};
+
+// Get popular badges
+exports.getPopularBadges = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const badges = await BadgeService.getPopularBadges(parseInt(limit));
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        badges,
+        count: badges.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error in getPopularBadges:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'An error occurred while fetching popular badges',
+    });
+  }
+};
+
+// Get rare badges
+exports.getRareBadges = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const badges = await BadgeService.getRareBadges(parseInt(limit));
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        badges,
+        count: badges.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error in getRareBadges:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'An error occurred while fetching rare badges',
+    });
+  }
+};
+
 // Create new badge (admin only)
 exports.createBadge = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      icon,
-      color,
-      rarity,
-      category,
-      criteria,
-      requirements,
-      xpReward,
-    } = req.body;
-
-    // Check if badge with same name already exists
-    const existingBadge = await Badge.findOne({ name });
-    if (existingBadge) {
-      throw new ConflictError('Badge with this name already exists');
+    const { error, value } = createBadgeSchema.validate(req.body);
+    if (error) {
+      throw new ValidationError(error.details[0].message);
     }
 
-    const badge = await Badge.create({
-      name,
-      description,
-      icon,
-      color,
-      rarity,
-      category,
-      criteria,
-      requirements,
-      xpReward,
-    });
+    const badge = await BadgeService.createBadge(value, req.user.id);
 
     res.status(StatusCodes.CREATED).json({
       success: true,
@@ -151,16 +186,12 @@ exports.createBadge = async (req, res) => {
 exports.updateBadge = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-
-    const badge = await Badge.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!badge) {
-      throw new NotFoundError('Badge not found');
+    const { error, value } = updateBadgeSchema.validate(req.body);
+    if (error) {
+      throw new ValidationError(error.details[0].message);
     }
+
+    const badge = await BadgeService.updateBadge(id, value, req.user.id);
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -230,49 +261,38 @@ exports.claimBadge = async (req, res) => {
     const { badgeId } = req.params;
     const userId = req.user.id;
 
-    const badge = await Badge.findById(badgeId);
-    if (!badge) {
-      throw new NotFoundError('Badge not found');
+    const { error } = claimBadgeSchema.validate({ badgeId });
+    if (error) {
+      throw new ValidationError(error.details[0].message);
     }
 
-    if (!badge.isActive) {
-      throw new ValidationError('This badge is not available for claiming');
+    // Get request information for security
+    const requestInfo = {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      deviceFingerprint: req.headers['x-device-fingerprint'],
+      location: req.headers['x-user-location'] ? JSON.parse(req.headers['x-user-location']) : null,
+      sessionId: req.session?.id
+    };
+
+    const claim = await BadgeService.initiateBadgeClaim(badgeId, userId, requestInfo);
+
+    let responseData = {
+      claim,
+      message: 'Badge claim initiated successfully'
+    };
+
+    // If claim was automatically approved, include badge details
+    if (claim.status === 'approved') {
+      const badge = await Badge.findById(badgeId);
+      responseData.message = `Congratulations! You earned the "${badge.name}" badge!`;
+      responseData.badge = badge;
+      responseData.xpGained = claim.rewards.xpAwarded;
     }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new NotFoundError('User not found');
-    }
-
-    // Check if user already has this badge
-    if (user.badges.includes(badgeId)) {
-      throw new ConflictError('You have already earned this badge');
-    }
-
-    // Check if user is eligible for this badge
-    const isEligible = await Badge.isUserEligibleForBadge(user, badge);
-    if (!isEligible) {
-      throw new ValidationError('You are not eligible for this badge yet');
-    }
-
-    // Award badge to user
-    user.badges.push(badgeId);
-    user.xp += badge.xpReward;
-    user.level = Math.floor(user.xp / 100) + 1;
-    await user.save();
-
-    // Create notification
-    await Notification.createBadgeNotification(userId, badgeId);
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: `Congratulations! You earned the "${badge.name}" badge!`,
-      data: {
-        badge,
-        xpGained: badge.xpReward,
-        newTotalXP: user.xp,
-        newLevel: user.level,
-      },
+      ...responseData
     });
   } catch (error) {
     logger.error('Error in claimBadge:', error);
@@ -295,7 +315,7 @@ exports.getEligibleBadges = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const eligibleBadges = await Badge.checkUserEligibility(userId);
+    const eligibleBadges = await BadgeService.getEligibleBadges(userId);
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -310,6 +330,34 @@ exports.getEligibleBadges = async (req, res) => {
       success: false,
       message: 'An error occurred while checking eligible badges',
     });
+  }
+};
+
+// Get user's badge collection
+exports.getUserBadges = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user.id;
+    const { earned, available } = req.query;
+
+    const result = await BadgeService.getUserBadges(userId, { earned, available });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    logger.error('Error in getUserBadges:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while fetching user badges',
+      });
+    }
   }
 };
 
@@ -341,13 +389,13 @@ exports.getBadgesByCategory = async (req, res) => {
 // Get badge statistics
 exports.getBadgeStats = async (req, res) => {
   try {
-    const totalBadges = await Badge.countDocuments({ isActive: true });
+    const totalBadges = await Badge.countDocuments({ status: 'active' });
     const badgesByCategory = await Badge.aggregate([
-      { $match: { isActive: true } },
+      { $match: { status: 'active' } },
       { $group: { _id: '$category', count: { $sum: 1 } } },
     ]);
     const badgesByRarity = await Badge.aggregate([
-      { $match: { isActive: true } },
+      { $match: { status: 'active' } },
       { $group: { _id: '$rarity', count: { $sum: 1 } } },
     ]);
 
@@ -364,6 +412,25 @@ exports.getBadgeStats = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: 'An error occurred while fetching badge statistics',
+    });
+  }
+};
+
+// Get badge analytics
+exports.getBadgeAnalytics = async (req, res) => {
+  try {
+    const { timeframe = '30d' } = req.query;
+    const analytics = await BadgeService.getBadgeAnalytics(timeframe);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: analytics,
+    });
+  } catch (error) {
+    logger.error('Error in getBadgeAnalytics:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'An error occurred while fetching badge analytics',
     });
   }
 };
@@ -390,7 +457,7 @@ exports.awardBadgeToUser = async (req, res) => {
 
     // Award badge to user
     user.badges.push(badgeId);
-    user.xp += badge.xpReward;
+    user.xp += badge.rewards.xpReward;
     user.level = Math.floor(user.xp / 100) + 1;
     await user.save();
 
@@ -407,7 +474,7 @@ exports.awardBadgeToUser = async (req, res) => {
           email: user.email,
         },
         badge,
-        xpGained: badge.xpReward,
+        xpGained: badge.rewards.xpReward,
         newTotalXP: user.xp,
         newLevel: user.level,
       },
@@ -425,5 +492,95 @@ exports.awardBadgeToUser = async (req, res) => {
         message: 'An error occurred while awarding badge',
       });
     }
+  }
+};
+
+// Get pending claims (admin only)
+exports.getPendingClaims = async (req, res) => {
+  try {
+    const { riskLevel, limit = 50 } = req.query;
+    const BadgeClaim = require('../models/badgeClaim.model');
+    
+    const claims = await BadgeClaim.getPendingClaims({ riskLevel, limit: parseInt(limit) });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        claims,
+        count: claims.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error in getPendingClaims:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'An error occurred while fetching pending claims',
+    });
+  }
+};
+
+// Review claim (admin only)
+exports.reviewClaim = async (req, res) => {
+  try {
+    const { claimId } = req.params;
+    const { error, value } = reviewClaimSchema.validate(req.body);
+    if (error) {
+      throw new ValidationError(error.details[0].message);
+    }
+
+    const claim = await BadgeService.reviewClaim(
+      claimId,
+      value.decision,
+      req.user.id,
+      value.notes
+    );
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: `Claim ${value.decision}d successfully`,
+      data: claim,
+    });
+  } catch (error) {
+    logger.error('Error in reviewClaim:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while reviewing claim',
+      });
+    }
+  }
+};
+
+// Get user's claim history
+exports.getUserClaimHistory = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user.id;
+    const { status, limit = 50, page = 1 } = req.query;
+    const BadgeClaim = require('../models/badgeClaim.model');
+    
+    const claims = await BadgeClaim.getUserClaims(userId, {
+      status,
+      limit: parseInt(limit),
+      skip: (parseInt(page) - 1) * parseInt(limit)
+    });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        claims,
+        count: claims.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error in getUserClaimHistory:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'An error occurred while fetching claim history',
+    });
   }
 };

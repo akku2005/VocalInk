@@ -3,6 +3,8 @@ const { StatusCodes } = require('http-status-codes');
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const JWTService = require('../services/JWTService');
 const User = require('../models/user.model');
+const Token = require('../models/token.model');
+const crypto = require('crypto');
 
 // Protect routes
 const protect = async (req, res, next) => {
@@ -15,6 +17,14 @@ const protect = async (req, res, next) => {
 
     if (!token) {
       throw new UnauthorizedError('Not authorized to access this route');
+    }
+
+    // Check if token is blacklisted
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const isBlacklisted = await Token.isAccessTokenBlacklisted(tokenHash);
+    
+    if (isBlacklisted) {
+      throw new UnauthorizedError('Token has been revoked');
     }
 
     const decoded = await JWTService.verifyAccessToken(token);
