@@ -1025,6 +1025,13 @@ class AuthController {
       user.passwordChangedAt = new Date();
       await user.save();
 
+      // Blacklist current access token
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        await Token.blacklistAccessToken(tokenHash, user._id);
+      }
+
       // Revoke all user sessions
       await TokenService.revokeAllUserTokens(user._id, 'Password changed');
 
@@ -1038,7 +1045,7 @@ class AuthController {
 
       res.status(200).json({
         success: true,
-        message: 'Password changed successfully',
+        message: 'Password changed successfully. Please log in again.',
       });
     } catch (error) {
       logger.error('Error in change password:', {
@@ -1058,9 +1065,11 @@ class AuthController {
     try {
       const token = req.headers.authorization?.split(' ')[1];
       if (token) {
-        // For JWT tokens, we don't need to store them in DB for revocation
-        // The token will expire naturally, but we can log the logout
-        logger.info('User logged out', {
+        // Blacklist the access token
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        await Token.blacklistAccessToken(tokenHash, req.user._id);
+        
+        logger.info('User logged out and token blacklisted', {
           userId: req.user._id,
           email: req.user.email,
         });
@@ -1093,6 +1102,13 @@ class AuthController {
     try {
       // Revoke all refresh tokens for the user
       await JWTService.revokeAllRefreshTokens(req.user._id);
+
+      // Blacklist all access tokens for the user
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        await Token.blacklistAccessToken(tokenHash, req.user._id);
+      }
 
       // Log security event
       await req.user.logSecurityEvent('logout_all', {

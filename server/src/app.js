@@ -9,6 +9,7 @@ const swaggerDocument = require('../swagger.json');
 const { connectDB } = require('./config/connectDB');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const apiRouter = require('./routes');
+const { cleanupExpiredBlacklistedTokens } = require('./utils/cleanupTokens');
 
 // Optional: Use logger if available
 let logger = console;
@@ -24,6 +25,20 @@ const app = express();
 connectDB()
   .then(() => {
     logger.success('Application initialized successfully');
+    
+    // Schedule cleanup of expired blacklisted tokens (run daily at 2 AM)
+    setInterval(async () => {
+      try {
+        await cleanupExpiredBlacklistedTokens();
+      } catch (error) {
+        logger.error('Scheduled token cleanup failed:', error);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 hours
+    
+    // Run initial cleanup
+    cleanupExpiredBlacklistedTokens().catch(error => {
+      logger.error('Initial token cleanup failed:', error);
+    });
   })
   .catch((err) => {
     logger.error('Failed to initialize application:', err.message);
