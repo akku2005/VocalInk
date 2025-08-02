@@ -9,6 +9,32 @@ module.exports = {
     pass: process.env.EMAIL_PASS || 'password',
     from: process.env.EMAIL_FROM || 'no-reply@example.com',
   },
+  elevenlabs: {
+    apiKey: process.env.ELEVENLABS_API_KEY,
+    baseUrl: 'https://api.elevenlabs.io/v1',
+    defaultVoiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel voice
+    defaultSettings: {
+      stability: 0.5,
+      similarityBoost: 0.5,
+      style: 0.0,
+      useSpeakerBoost: true
+    }
+  },
+  googleCloud: {
+    projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+    credentials: process.env.GOOGLE_CLOUD_CREDENTIALS ? JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS) : null,
+    defaultVoice: {
+      languageCode: 'en-US',
+      name: 'en-US-Standard-A',
+      ssmlGender: 'FEMALE'
+    },
+    defaultSettings: {
+      speakingRate: 1.0,
+      pitch: 0.0,
+      volumeGainDb: 0.0,
+      effectsProfileId: []
+    }
+  },
   jwt: {
     secret: process.env.JWT_SECRET || 'your_jwt_secret',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'your_jwt_refresh_secret',
