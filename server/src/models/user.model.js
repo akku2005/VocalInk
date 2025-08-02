@@ -144,6 +144,22 @@ const userSchema = new mongoose.Schema(
     lastLoginAt: { type: Date },
     lastActiveAt: { type: Date },
 
+    // AI preferences
+    aiPreferences: {
+      preferredVoice: { type: String, default: 'default' },
+      autoSummarize: { type: Boolean, default: true },
+      speechToText: { type: Boolean, default: false },
+      language: { type: String, default: 'en' }
+    },
+    
+    // AI usage tracking
+    aiUsage: {
+      ttsGenerated: { type: Number, default: 0 },
+      summariesGenerated: { type: Number, default: 0 },
+      transcriptionsCreated: { type: Number, default: 0 },
+      lastAIFeature: { type: Date }
+    },
+    
     // Preferences
     emailNotifications: { type: Boolean, default: true },
     pushNotifications: { type: Boolean, default: true },
