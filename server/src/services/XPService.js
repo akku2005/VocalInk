@@ -80,7 +80,17 @@ class XPService {
       // Get user
       const user = await User.findById(userId);
       if (!user) {
-        throw new Error('User not found');
+        logger.warn(`User not found for XP award: ${userId}`);
+        return {
+          success: false,
+          error: 'User not found',
+          xpAwarded: 0,
+          newTotalXP: 0,
+          newLevel: 1,
+          levelUp: false,
+          transaction: null,
+          fraudFlagged: false,
+        };
       }
 
       // Validate action

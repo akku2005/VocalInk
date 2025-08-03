@@ -21,29 +21,33 @@ dotenv.config();
 
 const app = express();
 
-// Connect to MongoDB
-connectDB()
-  .then(() => {
-    logger.success('Application initialized successfully');
-    
-    // Schedule cleanup of expired blacklisted tokens (run daily at 2 AM)
-    setInterval(async () => {
-      try {
-        await cleanupExpiredBlacklistedTokens();
-      } catch (error) {
-        logger.error('Scheduled token cleanup failed:', error);
-      }
-    }, 24 * 60 * 60 * 1000); // 24 hours
-    
-    // Run initial cleanup
-    cleanupExpiredBlacklistedTokens().catch(error => {
-      logger.error('Initial token cleanup failed:', error);
+// Connect to MongoDB (skip in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  connectDB()
+    .then(() => {
+      logger.success('Application initialized successfully');
+      
+      // Schedule cleanup of expired blacklisted tokens (run daily at 2 AM)
+      setInterval(async () => {
+        try {
+          await cleanupExpiredBlacklistedTokens();
+        } catch (error) {
+          logger.error('Scheduled token cleanup failed:', error);
+        }
+      }, 24 * 60 * 60 * 1000); // 24 hours
+      
+      // Run initial cleanup
+      cleanupExpiredBlacklistedTokens().catch(error => {
+        logger.error('Initial token cleanup failed:', error);
+      });
+    })
+    .catch((err) => {
+      logger.error('Failed to initialize application:', err.message);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    logger.error('Failed to initialize application:', err.message);
-    process.exit(1);
-  });
+} else {
+  logger.info('Test environment - skipping database connection');
+}
 
 // Middleware
 app.use(cors());

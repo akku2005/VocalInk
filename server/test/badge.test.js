@@ -4,7 +4,7 @@ const app = require('../src/app');
 const Badge = require('../src/models/badge.model');
 const BadgeClaim = require('../src/models/badgeClaim.model');
 const User = require('../src/models/user.model');
-const { generateToken } = require('../src/services/JWTService');
+const JWTService = require('../src/services/JWTService');
 
 describe('Badge API', () => {
   let testUser, adminUser, testBadge, authToken, adminToken;
@@ -15,19 +15,21 @@ describe('Badge API', () => {
       name: 'Test User',
       email: 'test@example.com',
       password: 'password123',
-      role: 'user'
+      role: 'reader',
+      isVerified: true // Ensure user is verified for tests
     });
 
     adminUser = await User.create({
       name: 'Admin User',
       email: 'admin@example.com',
       password: 'password123',
-      role: 'admin'
+      role: 'admin',
+      isVerified: true // Ensure user is verified for tests
     });
 
     // Generate tokens
-    authToken = generateToken(testUser);
-    adminToken = generateToken(adminUser);
+    authToken = JWTService.generateAccessToken({ userId: testUser._id });
+    adminToken = JWTService.generateAccessToken({ userId: adminUser._id });
 
     // Create test badge
     testBadge = await Badge.create({
@@ -48,10 +50,7 @@ describe('Badge API', () => {
   });
 
   afterAll(async () => {
-    await User.deleteMany({});
-    await Badge.deleteMany({});
-    await BadgeClaim.deleteMany({});
-    await mongoose.connection.close();
+    // Cleanup is handled in setup.js
   });
 
   beforeEach(async () => {

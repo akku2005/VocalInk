@@ -12,15 +12,8 @@ describe('XP System Tests', () => {
   let authToken;
 
   beforeAll(async () => {
-    // Check if already connected to avoid multiple connections
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/vocalink');
-    }
-    
-    // Clear test data
-    await User.deleteMany({});
-    await XPTransaction.deleteMany({});
-    await Badge.deleteMany({});
+    // Use shared MongoDB connection from setup.js
+    // The connection is already established in setup.js
   });
 
   beforeEach(async () => {
@@ -30,6 +23,7 @@ describe('XP System Tests', () => {
       email: 'test@example.com',
       password: 'password123',
       role: 'writer',
+      isVerified: true // Ensure user is verified for tests
     });
 
     // Generate auth token directly instead of using API
@@ -45,11 +39,7 @@ describe('XP System Tests', () => {
   });
 
   afterAll(async () => {
-    // Don't close the connection as the main server is using it
-    // Just clean up test data
-    await User.deleteMany({});
-    await XPTransaction.deleteMany({});
-    await Badge.deleteMany({});
+    // Cleanup is handled in setup.js
   });
 
   describe('XP Service Tests', () => {

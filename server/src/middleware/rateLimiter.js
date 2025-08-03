@@ -12,6 +12,11 @@ function getClientIp(req) {
 
 // Common rate limiter configuration
 const createLimiter = (options) => {
+  // Disable rate limiting in test environment
+  if (process.env.NODE_ENV === 'test') {
+    return (req, res, next) => next();
+  }
+  
   return rateLimit({
     windowMs: options.windowMs,
     max: options.max,
