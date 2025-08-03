@@ -14,7 +14,6 @@ const qrcode = require('qrcode');
 const User = require('../models/user.model');
 const Token = require('../models/token.model');
 const AuditLog = require('../models/auditlog.model');
-const { sendEmail } = require('../services/EmailService');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const config = require('../config');
@@ -36,7 +35,7 @@ const {
 const toBase64 = (str) => Buffer.from(str, 'utf-8').toString('base64');
 
 // Create EmailService instance
-const emailService = new EmailService();
+const emailService = EmailService.getInstance();
 
 // Rate Limiters
 const loginLimiter = rateLimit({
@@ -1095,7 +1094,7 @@ class AuthController {
       }
 
       // Revoke all user sessions
-      await TokenService.revokeAllUserTokens(user._id, 'Password changed');
+      await JWTService.revokeAllRefreshTokens(user._id);
 
       // Send security alert email
       await emailService.sendSecurityAlertEmail(user, {

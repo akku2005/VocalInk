@@ -9,6 +9,9 @@ const EmailService = require('../services/EmailService');
 const User = require('../models/user.model');
 const XPService = require('../services/XPService');
 
+// Get singleton email service instance
+const emailService = EmailService.getInstance();
+
 exports.createBlog = async (req, res) => {
   try {
     const blog = new Blog({ ...req.body, author: req.user.id });
@@ -183,7 +186,6 @@ exports.likeBlog = async (req, res) => {
       action = 'liked';
       // Email notification to blog author
       if (blog.author && blog.author.emailNotifications !== false && blog.author._id.toString() !== userId) {
-        const emailService = new EmailService();
         const subject = `Your blog was liked: ${blog.title}`;
         const html = `<p>Hi ${blog.author.name},</p>
           <p>Your blog <strong>${blog.title}</strong> was liked by a user.</p>`;
@@ -219,7 +221,6 @@ exports.bookmarkBlog = async (req, res) => {
       action = 'bookmarked';
       // Email notification to blog author
       if (blog.author && blog.author.emailNotifications !== false && blog.author._id.toString() !== userId) {
-        const emailService = new EmailService();
         const subject = `Your blog was bookmarked: ${blog.title}`;
         const html = `<p>Hi ${blog.author.name},</p>
           <p>Your blog <strong>${blog.title}</strong> was bookmarked by a user.</p>`;
@@ -261,7 +262,6 @@ exports.addBlogComment = async (req, res) => {
     // Email notification to blog author
     const blog = await Blog.findById(req.params.id).populate('author');
     if (blog && blog.author && blog.author.emailNotifications !== false) {
-      const emailService = new EmailService();
       const subject = `New comment on your blog: ${blog.title}`;
       const html = `<p>Hi ${blog.author.name},</p>
         <p>You have a new comment on your blog <strong>${blog.title}</strong>:</p>
