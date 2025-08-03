@@ -22,7 +22,19 @@ module.exports = {
   },
   googleCloud: {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-    credentials: process.env.GOOGLE_CLOUD_CREDENTIALS ? JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS) : null,
+    credentials: (() => {
+      try {
+        // Only try to parse if credentials are provided and look like JSON
+        if (process.env.GOOGLE_CLOUD_CREDENTIALS && process.env.GOOGLE_CLOUD_CREDENTIALS.trim().startsWith('{')) {
+          return JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS);
+        }
+        return null;
+      } catch (error) {
+        console.warn('⚠️  Google Cloud credentials not properly configured. Google Cloud TTS will be disabled.');
+        console.warn('   To enable Google Cloud TTS, set GOOGLE_CLOUD_CREDENTIALS with valid service account JSON.');
+        return null;
+      }
+    })(),
     defaultVoice: {
       languageCode: 'en-US',
       name: 'en-US-Standard-A',

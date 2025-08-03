@@ -15,11 +15,19 @@ class TTSService {
     this.googleCloudConfig = config.googleCloud;
     
     // Initialize Google Cloud TTS client
-    if (this.googleCloudConfig.credentials) {
-      this.googleCloudClient = new textToSpeech.TextToSpeechClient({
-        projectId: this.googleCloudConfig.projectId,
-        credentials: this.googleCloudConfig.credentials
-      });
+    if (this.googleCloudConfig.credentials && this.googleCloudConfig.projectId) {
+      try {
+        this.googleCloudClient = new textToSpeech.TextToSpeechClient({
+          projectId: this.googleCloudConfig.projectId,
+          credentials: this.googleCloudConfig.credentials
+        });
+        logger.info('✅ Google Cloud TTS client initialized successfully');
+      } catch (error) {
+        logger.warn('⚠️  Failed to initialize Google Cloud TTS client:', error.message);
+        this.googleCloudClient = null;
+      }
+    } else {
+      logger.info('ℹ️  Google Cloud TTS not configured - will use fallback providers');
     }
   }
 
@@ -334,7 +342,7 @@ class TTSService {
     } = options;
 
     if (!this.googleCloudClient) {
-      throw new Error('Google Cloud TTS not configured. Please check your credentials.');
+      throw new Error('Google Cloud TTS not configured. Please set up GOOGLE_CLOUD_PROJECT_ID and GOOGLE_CLOUD_CREDENTIALS environment variables.');
     }
 
     try {
@@ -430,7 +438,7 @@ class TTSService {
    */
   async getGoogleCloudVoices() {
     if (!this.googleCloudClient) {
-      throw new Error('Google Cloud TTS not configured');
+      throw new Error('Google Cloud TTS not configured. Please set up GOOGLE_CLOUD_PROJECT_ID and GOOGLE_CLOUD_CREDENTIALS environment variables.');
     }
 
     try {

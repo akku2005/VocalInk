@@ -17,17 +17,16 @@ let authToken;
 
 describe('Blog Series Management API', () => {
   beforeAll(async () => {
-    // Start in-memory MongoDB
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri);
+    // Use shared MongoDB connection from setup.js
+    // The connection is already established in setup.js
 
     // Create test users
     testUser = new User({
       name: 'Test Author',
       email: 'author@test.com',
       password: 'password123',
-      role: 'writer'
+      role: 'writer',
+      isVerified: true // Ensure user is verified for tests
     });
     await testUser.save();
 
@@ -35,7 +34,8 @@ describe('Blog Series Management API', () => {
       name: 'Test Collaborator',
       email: 'collaborator@test.com',
       password: 'password123',
-      role: 'writer'
+      role: 'writer',
+      isVerified: true // Ensure user is verified for tests
     });
     await testUser2.save();
 
@@ -54,8 +54,7 @@ describe('Blog Series Management API', () => {
   });
 
   afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
+    // Cleanup is handled in setup.js
   });
 
   beforeEach(async () => {
