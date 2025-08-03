@@ -3,8 +3,11 @@ const { body, validationResult } = require('express-validator');
 
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
-const { sendEmail } = require('../utils/emailService');
+const EmailService = require('../services/EmailService');
 const logger = require('../utils/logger');
+
+// Get singleton email service instance
+const emailService = EmailService.getInstance();
 
 const updateUserValidators = [
   body('name')
@@ -445,9 +448,7 @@ const changePassword = async (req, res, next) => {
 
     // Send password changed email (optional)
     try {
-      await sendEmail(user.email, 'passwordChanged', {
-        name: user.name || user.firstName || user.email,
-      });
+      await emailService.sendPasswordChangeNotification(user.email);
     } catch (e) {
       console.error('Password change email failed:', e.message);
     }

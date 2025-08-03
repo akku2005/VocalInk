@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 
 class AbuseReportService {
   constructor() {
-    this.emailService = new EmailService();
+    this.emailService = EmailService.getInstance();
     this.fraudThresholds = {
       low: 0.3,
       medium: 0.6,

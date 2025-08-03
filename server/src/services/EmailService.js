@@ -5,10 +5,22 @@ const config = require('../config');
 
 class EmailService {
   constructor() {
+    // Prevent multiple instances
+    if (EmailService.instance) {
+      return EmailService.instance;
+    }
+    
+    this.initialized = false;
     this.initializeTransporter();
+    EmailService.instance = this;
   }
 
   async initializeTransporter() {
+    // Prevent multiple initializations
+    if (this.initialized) {
+      return;
+    }
+
     try {
       // Check for required environment variables
       if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -28,6 +40,7 @@ class EmailService {
             return true;
           },
         };
+        this.initialized = true;
         return;
       }
 
@@ -47,6 +60,7 @@ class EmailService {
 
       // Verify connection
       await this.verifyConnection();
+      this.initialized = true;
     } catch (error) {
       logger.error('Failed to initialize email service:', error);
       throw error;
@@ -63,6 +77,15 @@ class EmailService {
     }
   }
 
+  // Static method to get singleton instance
+  static getInstance() {
+    if (!EmailService.instance) {
+      EmailService.instance = new EmailService();
+    }
+    return EmailService.instance;
+  }
+
+  // Static method to create transporter (for backward compatibility)
   static async createTransporter() {
     if (
       !config.smtp.host ||
@@ -84,6 +107,7 @@ class EmailService {
     });
   }
 
+  // Static method for sending verification email (for backward compatibility)
   static async sendVerificationEmail(email, code) {
     try {
       const transporter = await this.createTransporter();
@@ -368,5 +392,8 @@ class EmailService {
     }
   }
 }
+
+// Create singleton instance
+const emailServiceInstance = new EmailService();
 
 module.exports = EmailService;
