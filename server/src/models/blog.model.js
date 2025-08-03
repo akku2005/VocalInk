@@ -20,7 +20,30 @@ const blogSchema = new mongoose.Schema(
     },
     mood: { type: String },
     language: { type: String, default: 'en' },
+    
+    // AI-generated fields
+    aiSummary: { type: String },
+    keyPoints: [{ type: String }],
+    readingTime: { type: Number }, // in minutes
+    sentiment: { type: String, enum: ['positive', 'negative', 'neutral'] },
+    topics: [{ type: String }],
+    seoScore: { type: Number, min: 0, max: 100 },
+    aiSuggestions: [{ type: String }],
+    
+    // Enhanced TTS
     ttsUrl: { type: String },
+    ttsOptions: {
+      voice: { type: String, default: 'default' },
+      speed: { type: Number, default: 1.0 },
+      pitch: { type: Number, default: 1.0 },
+      language: { type: String, default: 'en' }
+    },
+    
+    // Audio metadata
+    audioDuration: { type: Number }, // in seconds
+    audioQuality: { type: String, enum: ['low', 'medium', 'high'] },
+    
+    // Engagement metrics
     likes: { type: Number, default: 0 },
     bookmarks: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
