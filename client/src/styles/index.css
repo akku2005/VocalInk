@@ -1,4 +1,103 @@
 @import "tailwindcss";
+@import "@fontsource/poppins/400.css"; 
+@import '@fontsource/dancing-script/400.css'; 
 *{
-font-family:'Times New Roman', Times, serif;
+font-family: "Poppins", sans-serif;
+font-weight: 400;
+}
+h1 {
+  font-weight: 700;
+  font-size: 2.5rem; 
+}
+h2{
+  font-weight: 600;
+  font-size: 1.4rem; 
+}
+h3{
+  font-weight: 600;
+  font-size: 1.6rem; 
+  font-family: 'Dancing Script', cursive;
+}
+h4{
+  font-size: 1.1rem; 
+  font-weight: 500;
+}
+h5{
+  font-size: 1rem; 
+  font-weight: 500;
+}
+p{
+   font-size: 1.2rem; 
+}
+a{
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+input{
+  font-size: 0.88rem;
+  
+}
+button{
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+span{
+  font-size: 0.95rem;
+}
+:root {
+   --headings-color:#2e291f;
+  --sub-heading-text:#443a2d;
+  --paragraph-text-color: #686052;
+  --links-color:  #ca7308;
+  --links-hover-color: #cc8743;
+  --btn-bg-color: #F0E5D5;
+  --btn-bg-color2: #e4d1b4;
+   --btn-hover-color: #E8D7C1;
+   --btn-hover-color2: #e9c89e;
+   --btn-text-color: #362e24;
+
+    --navbar-bg-color: #EFEAE366;
+    --nav-logo-text-color: #2e291f;
+     --nav-links-color: #2e291f;
+     --nav-links-hover-color:#C6AD8F;
+      --nav-searchbar: #EFEAE3;
+       --nav-searchbar-text: #5A4A38;
+       --navbar-searchbar-placeholder: 	#A89C8B;
+       --navbar-searchbar-focus-ring: #C6AD8F;
+
+        --login-btn-bg-color: #C6AD8F;
+       
+}
+
+.dark {
+  --headings-color: rgb(248, 248, 248);
+  --sub-heading-text:#332f28;
+   --links-color: #cc8743;
+   --links-hover-color: #532e00;
+   --paragraph-text-color: #726b5e;
+   --btn-bg-color: #F0E5D5;
+    --btn-bg-color2: #e9d0aa;
+   --btn-hover-color: #E8D7C1;
+    --btn-text-color: #362e24;
+
+    --navbar-bg-color: #EFEAE366;
+    --nav-logo-text-color: #E3D3B3;
+    --nav-links-color: #d8a362;
+    --nav-links-hover-color: #cca35c;
+    --nav-searchbar: #493f34;
+    --nav-searchbar-text: #E3D3B3;
+    --navbar-placeholder-text: 	#C6AD8F;
+     --navbar-searchbar-focus-ring: #A68C6D;
+
+    --login-btn-bg-color: #C6AD8F;
+   
+}
+
+body {
+ 
+  transition: all 0.3s ease;
+}
+
+.custom-hover-link:hover {
+  color: var(--links-hover-color);
 }
