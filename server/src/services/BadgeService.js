@@ -284,6 +284,44 @@ class BadgeService {
   }
 
   /**
+   * Get user's overall badge progress
+   */
+  async getUserBadgeProgress(userId) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const allBadges = await Badge.find({ status: 'active' });
+    const userBadgeIds = user.badges.map(b => b.toString());
+    
+    const progressData = {
+      totalBadges: allBadges.length,
+      earnedBadges: user.badges.length,
+      availableBadges: allBadges.length - user.badges.length,
+      completionPercentage: Math.round((user.badges.length / allBadges.length) * 100),
+      badges: []
+    };
+
+    // Get progress for each badge
+    for (const badge of allBadges) {
+      const badgeProgress = await this.getUserBadgeProgress(user, badge);
+      progressData.badges.push({
+        badgeId: badge._id,
+        badgeKey: badge.badgeKey,
+        name: badge.name,
+        category: badge.category,
+        rarity: badge.rarity,
+        earned: userBadgeIds.includes(badge._id.toString()),
+        progress: badgeProgress.progress,
+        requirements: badgeProgress.requirements
+      });
+    }
+
+    return progressData;
+  }
+
+  /**
    * Get user's eligible badges
    */
   async getEligibleBadges(userId) {
@@ -673,6 +711,32 @@ class BadgeService {
     return await Badge.find(searchQuery)
       .sort({ 'analytics.popularityScore': -1 })
       .limit(limit);
+  }
+
+  /**
+   * Get badge statistics
+   */
+  async getBadgeStats() {
+    try {
+      const totalBadges = await Badge.countDocuments({ status: 'active' });
+      const badgesByCategory = await Badge.aggregate([
+        { $match: { status: 'active' } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+      ]);
+      const badgesByRarity = await Badge.aggregate([
+        { $match: { status: 'active' } },
+        { $group: { _id: '$rarity', count: { $sum: 1 } } },
+      ]);
+
+      return {
+        totalBadges,
+        byCategory: badgesByCategory,
+        byRarity: badgesByRarity,
+      };
+    } catch (error) {
+      logger.error('Error getting badge stats:', error);
+      throw error;
+    }
   }
 }
 

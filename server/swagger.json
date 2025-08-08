@@ -5855,7 +5855,7 @@
             },
             "hasPrev": {
               "type": "boolean",
-              "description": "Has previous page"
+              "description": "Has previous page"    
             }
           }
         }

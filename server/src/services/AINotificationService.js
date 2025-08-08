@@ -5,7 +5,7 @@ const EmailService = require('./EmailService');
 
 class AINotificationService {
   constructor() {
-    this.emailService = EmailService.getInstance();
+    this.emailService = EmailService;
     
     // User engagement patterns cache
     this.userEngagementCache = new Map();

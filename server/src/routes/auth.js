@@ -7,21 +7,26 @@ const Joi = require('joi');
 const authController = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 const { auditLogger } = require('../middleware/auditLogger');
-const { smartRateLimit } = require('../middleware/rateLimiter');
+const { 
+  smartRateLimit,
+  loginLimiter,
+  registerLimiter,
+  passwordResetLimiter,
+  verificationLimiter,
+  adminApiLimiter,
+} = require('../middleware/rateLimiter');
 const { validate, validateRequest } = require('../middleware/validators');
-const { registerSchema, loginSchema } = require('../validations/authSchema');
-const verifyEmailSchema = Joi.object({
-  email: Joi.string().email().required(),
-  code: Joi.string().required(),
-});
-const forgotPasswordSchema = Joi.object({
-  email: Joi.string().email().required(),
-});
-const resetPasswordSchema = Joi.object({
-  token: Joi.string().required(),
-  code: Joi.string().required(),
-  newPassword: Joi.string().min(6).required(),
-});
+const { 
+  registerSchema, 
+  loginSchema, 
+  verifyEmailSchema,
+  resendVerificationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  changePasswordSchema,
+  twoFactorSetupSchema,
+  twoFactorVerificationSchema
+} = require('../validations/authSchema');
 
 // Helper to wrap controller methods
 function routeHandler(fn) {
@@ -43,7 +48,7 @@ function routeHandler(fn) {
  *       properties:
  *         name:
  *           type: string
- *           description: User's full name
+ *           description: User's full name (2-50 characters, letters only)
  *         email:
  *           type: string
  *           format: email
@@ -51,12 +56,15 @@ function routeHandler(fn) {
  *         password:
  *           type: string
  *           format: password
- *           description: User's password
+ *           description: User's password (min 8 chars, must contain uppercase, lowercase, number, and special character)
  *         role:
  *           type: string
- *           enum: [user, admin]
- *           default: user
+ *           enum: [reader, writer, admin]
+ *           default: reader
  *           description: User's role
+ *         skipVerification:
+ *           type: boolean
+ *           description: Skip email verification (development only)
  *     LoginUser:
  *       type: object
  *       required:
@@ -71,6 +79,31 @@ function routeHandler(fn) {
  *           type: string
  *           format: password
  *           description: User's password
+ *         twoFactorToken:
+ *           type: string
+ *           description: Two-factor authentication code (if 2FA is enabled)
+ *     VerifyEmail:
+ *       type: object
+ *       required:
+ *         - email
+ *         - code
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User's email address
+ *         code:
+ *           type: string
+ *           description: 6-digit verification code
+ *     ResendVerification:
+ *       type: object
+ *       required:
+ *         - email
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Email address to resend verification to
  *     ForgotPassword:
  *       type: object
  *       required:
@@ -84,48 +117,66 @@ function routeHandler(fn) {
  *       type: object
  *       required:
  *         - token
+ *         - code
  *         - newPassword
  *       properties:
  *         token:
  *           type: string
  *           description: Reset password token
+ *         code:
+ *           type: string
+ *           description: 6-digit reset code
  *         newPassword:
  *           type: string
  *           format: password
- *           description: New password
- *     VerifyEmail:
+ *           description: New password (min 8 chars, must contain uppercase, lowercase, number, and special character)
+ *     ChangePassword:
  *       type: object
  *       required:
- *         - email
- *         - code
+ *         - currentPassword
+ *         - newPassword
  *       properties:
- *         email:
+ *         currentPassword:
  *           type: string
- *           format: email
- *           description: User's email address
- *         code:
+ *           format: password
+ *           description: Current password
+ *         newPassword:
  *           type: string
- *           description: Email verification numerical code
- *     ResendVerificationCode:
- *       type: object
- *       required:
- *         - email
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *           description: Email address to resend verification to
+ *           format: password
+ *           description: New password (min 8 chars, must contain uppercase, lowercase, number, and special character)
  *     AuthResponse:
  *       type: object
  *       properties:
  *         success:
  *           type: boolean
  *           example: true
- *         token:
+ *         message:
  *           type: string
- *           description: JWT token
+ *           description: Response message
  *         user:
- *           $ref: '#/components/schemas/User' # Assuming User schema is defined elsewhere
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: string
+ *             email:
+ *               type: string
+ *             name:
+ *               type: string
+ *             role:
+ *               type: string
+ *             isVerified:
+ *               type: boolean
+ *             twoFactorEnabled:
+ *               type: boolean
+ *         accessToken:
+ *           type: string
+ *           description: JWT access token
+ *         refreshToken:
+ *           type: string
+ *           description: JWT refresh token
+ *         deviceFingerprint:
+ *           type: string
+ *           description: Device fingerprint for security
  */
 
 /**
@@ -140,20 +191,7 @@ function routeHandler(fn) {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - name
- *               - email
- *               - password
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 minLength: 8
+ *             $ref: '#/components/schemas/RegisterUser'
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -167,109 +205,193 @@ function routeHandler(fn) {
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: 'User registered successfully. Please check your email for verification code.'
- *                 data:
- *                   type: object
- *                   properties:
- *                     user:
- *                       $ref: '#/components/schemas/User'
- *                     verificationToken:
- *                       type: string
- *                       description: Email verification token
+ *                   example: 'Registration successful. Please check your email for verification code.'
+ *                 userId:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 isVerified:
+ *                   type: boolean
  *       400:
- *         description: Invalid input
+ *         description: Validation error
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                 details:
+ *                   type: array
+ *                   items:
+ *                     type: string
  *       409:
- *         description: Email already in use
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Email already registered
  *       500:
  *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginUser'
+ *     responses:
+ *       200:
+ *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials or unverified email
+ *       423:
+ *         description: Account locked
+ *       500:
+ *         description: Server error
  */
-// Input validation middleware
-const registerValidation = [
-  body('name')
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Name must be between 2 and 50 characters'),
-  body('email').trim().isEmail().withMessage('Please enter a valid email'),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/)
-    .withMessage(
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    ),
-  body('role').optional().isIn(['user', 'admin']).withMessage('Invalid role'),
-];
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   post:
+ *     summary: Verify email address
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/VerifyEmail'
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Invalid verification code or already verified
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/auth/resend-verification:
+ *   post:
+ *     summary: Resend verification code
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResendVerification'
+ *     responses:
+ *       200:
+ *         description: Verification code sent successfully
+ *       400:
+ *         description: Email already verified
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 
 function validateJoi(schema) {
   return (req, res, next) => {
     const { error } = schema.validate(req.body);
     if (error) {
-      return res
-        .status(400)
-        .json({ success: false, message: error.details[0].message });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validation failed',
+        details: error.details.map(detail => detail.message)
+      });
     }
     next();
   };
 }
 
-// Routes
+// Routes with enhanced validation and security
 router.post(
   '/register',
-  smartRateLimit,
+  registerLimiter,
   validateJoi(registerSchema),
   authController.register
 );
+
 router.post(
   '/login',
-  smartRateLimit,
+  loginLimiter,
   validateJoi(loginSchema),
   authController.login
 );
+
 router.post(
   '/verify-email',
-  smartRateLimit,
+  verificationLimiter,
   validateJoi(verifyEmailSchema),
   authController.verifyEmail
 );
+
 router.post(
   '/resend-verification',
-  smartRateLimit,
+  verificationLimiter,
+  validateJoi(resendVerificationSchema),
   authController.resendVerificationCode
 );
+
 router.post(
   '/forgot-password',
-  smartRateLimit,
+  passwordResetLimiter,
   validateJoi(forgotPasswordSchema),
   authController.forgotPassword
 );
+
 router.post(
   '/reset-password',
-  smartRateLimit,
+  passwordResetLimiter,
   validateJoi(resetPasswordSchema),
   authController.resetPassword
 );
-router.post('/change-password', protect, authController.changePassword);
+
+router.post(
+  '/change-password', 
+  protect, 
+  validateJoi(changePasswordSchema),
+  authController.changePassword
+);
+
 router.post('/logout', protect, authController.logout);
 router.post('/logout-all', protect, authController.logoutAll);
 router.get('/me', protect, authController.getCurrentUser);
 router.post('/refresh-token', authController.refreshToken);
 router.get('/sessions', protect, authController.getUserSessions);
 
-// 2FA routes
+// 2FA routes with enhanced validation
 router.post('/2fa/setup', protect, authController.generate2FASetup);
-router.post('/2fa/verify', protect, authController.verify2FASetup);
+router.post(
+  '/2fa/verify', 
+  protect, 
+  validateJoi(twoFactorVerificationSchema),
+  authController.verify2FASetup
+);
 router.post('/2fa/disable', protect, authController.disable2FA);
 
 // Admin-only routes
@@ -304,6 +426,7 @@ router.get(
   '/admin/users',
   protect,
   authorize('admin'),
+  adminApiLimiter,
   auditLogger('ADMIN_ACCESS'),
   (req, res) => {
     res.status(StatusCodes.OK).json({

@@ -1,354 +1,431 @@
-const { v4: uuidv4 } = require('uuid');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
+const slowDown = require('express-slow-down');
+const { StatusCodes } = require('http-status-codes');
 const logger = require('../utils/logger');
 
-/**
- * Security Headers Middleware
- * Sets essential security headers to protect against common attacks
- */
-const securityHeaders = (req, res, next) => {
-  // Content Security Policy
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; " +
-    "img-src 'self' data: https:; " +
-    "connect-src 'self' https://api.example.com; " +
-    "frame-ancestors 'none';"
-  );
+// Enhanced security headers configuration
+const securityHeaders = helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      manifestSrc: ["'self'"],
+      mediaSrc: ["'self'"],
+      workerSrc: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: "deny" },
+  hidePoweredBy: true,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  ieNoOpen: true,
+  noSniff: true,
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+});
 
-  // XSS Protection
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  
-  // Content Type Options
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  // Frame Options
-  res.setHeader('X-Frame-Options', 'DENY');
-  
-  // Strict Transport Security
-  res.setHeader(
-    'Strict-Transport-Security',
-    'max-age=31536000; includeSubDomains; preload'
-  );
-  
-  // Referrer Policy
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
-  // Permissions Policy
-  res.setHeader(
-    'Permissions-Policy',
-    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
-  );
-  
-  // Remove sensitive headers
-  res.removeHeader('X-Powered-By');
-  res.removeHeader('Server');
-  
+// Enhanced rate limiting for different endpoints
+const createRateLimit = (options) => {
+  return rateLimit({
+    windowMs: options.windowMs || 15 * 60 * 1000, // 15 minutes
+    max: options.max || 100,
+    message: {
+      success: false,
+      message: options.message || 'Too many requests from this IP, please try again later.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      // Use IP + user agent + user ID for better rate limiting
+      const userKey = req.user ? req.user.id : 'anonymous';
+      return `${ipKeyGenerator(req)}-${req.headers['user-agent'] || 'unknown'}-${userKey}`;
+    },
+    handler: (req, res) => {
+      logger.warn('Rate limit exceeded', {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        userId: req.user?.id || 'anonymous',
+        url: req.originalUrl,
+        method: req.method,
+        rateLimitInfo: req.rateLimit,
+      });
+      res.status(StatusCodes.TOO_MANY_REQUESTS).json({
+        success: false,
+        message: 'Too many requests from this IP, please try again later.',
+        retryAfter: Math.ceil(options.windowMs / 1000),
+        requiresCaptcha: req.rateLimit.current >= 3,
+      });
+    },
+  });
+};
+
+// Tier-based rate limiting
+const tierRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: (req) => {
+    const user = req.user;
+    if (!user) return parseInt(process.env.ANONYMOUS_RATE_LIMIT_MAX) || 50;
+    
+    switch (user.role) {
+      case 'admin': return parseInt(process.env.ADMIN_RATE_LIMIT_MAX) || 500;
+      case 'writer': return parseInt(process.env.WRITER_RATE_LIMIT_MAX) || 200;
+      case 'reader': return parseInt(process.env.READER_RATE_LIMIT_MAX) || 100;
+      default: return parseInt(process.env.ANONYMOUS_RATE_LIMIT_MAX) || 50;
+    }
+  },
+  keyGenerator: (req) => (req.user ? req.user.id : ipKeyGenerator(req)),
+  handler: (req, res) => {
+    logger.warn('Tier rate limit exceeded', {
+      ip: req.ip,
+      userId: req.user?.id || 'anonymous',
+      role: req.user?.role || 'anonymous',
+      url: req.originalUrl,
+      method: req.method,
+    });
+    res.status(StatusCodes.TOO_MANY_REQUESTS).json({
+      success: false,
+      message: 'Rate limit exceeded for your tier. Please try again later.',
+      retryAfter: Math.ceil(15 * 60 / 1000),
+    });
+  },
+});
+
+// Specific rate limiters for different endpoints
+const authRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per 15 minutes
+  message: 'Too many authentication attempts, please try again later.',
+});
+
+const sensitiveRateLimit = createRateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 attempts per hour
+  message: 'Too many sensitive operations, please try again later.',
+});
+
+const generalRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes
+  message: 'Too many requests, please try again later.',
+});
+
+// Speed limiting for brute force protection
+const speedLimiter = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 50, // Allow 50 requests per 15 minutes without delay
+  // New behavior per express-slow-down v2 warning
+  delayMs: () => 500,
+  maxDelayMs: 20000, // Maximum delay of 20 seconds
+});
+
+// Enhanced request sanitization middleware
+const sanitizeRequest = (req, res, next) => {
+  // Sanitize request body
+  if (req.body) {
+    Object.keys(req.body).forEach(key => {
+      if (typeof req.body[key] === 'string') {
+        // Enhanced XSS protection
+        req.body[key] = req.body[key]
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/javascript:/gi, '')
+          .replace(/vbscript:/gi, '')
+          .replace(/data:/gi, '')
+          .replace(/on\w+\s*=/gi, '')
+          .replace(/expression\s*\(/gi, '')
+          .replace(/url\s*\(/gi, '')
+          .replace(/eval\s*\(/gi, '')
+          .replace(/document\./gi, '')
+          .replace(/window\./gi, '')
+          .replace(/alert\s*\(/gi, '')
+          .replace(/confirm\s*\(/gi, '')
+          .replace(/prompt\s*\(/gi, '')
+          .trim();
+      }
+    });
+  }
+
+  // Sanitize query parameters
+  if (req.query) {
+    Object.keys(req.query).forEach(key => {
+      if (typeof req.query[key] === 'string') {
+        req.query[key] = req.query[key]
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/javascript:/gi, '')
+          .replace(/vbscript:/gi, '')
+          .replace(/data:/gi, '')
+          .replace(/on\w+\s*=/gi, '')
+          .replace(/expression\s*\(/gi, '')
+          .replace(/url\s*\(/gi, '')
+          .replace(/eval\s*\(/gi, '')
+          .replace(/document\./gi, '')
+          .replace(/window\./gi, '')
+          .replace(/alert\s*\(/gi, '')
+          .replace(/confirm\s*\(/gi, '')
+          .replace(/prompt\s*\(/gi, '')
+          .trim();
+      }
+    });
+  }
+
+  // Sanitize URL parameters
+  if (req.params) {
+    Object.keys(req.params).forEach(key => {
+      if (typeof req.params[key] === 'string') {
+        req.params[key] = req.params[key]
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/javascript:/gi, '')
+          .replace(/vbscript:/gi, '')
+          .replace(/data:/gi, '')
+          .replace(/on\w+\s*=/gi, '')
+          .replace(/expression\s*\(/gi, '')
+          .replace(/url\s*\(/gi, '')
+          .replace(/eval\s*\(/gi, '')
+          .replace(/document\./gi, '')
+          .replace(/window\./gi, '')
+          .replace(/alert\s*\(/gi, '')
+          .replace(/confirm\s*\(/gi, '')
+          .replace(/prompt\s*\(/gi, '')
+          .trim();
+      }
+    });
+  }
+
   next();
 };
 
-/**
- * CORS Configuration Middleware
- * Handles Cross-Origin Resource Sharing
- */
-const corsConfig = (req, res, next) => {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'https://yourdomain.com'
+// Enhanced security monitoring middleware
+const securityMonitor = (req, res, next) => {
+  const suspiciousPatterns = [
+    /<script/i,
+    /javascript:/i,
+    /vbscript:/i,
+    /data:/i,
+    /on\w+\s*=/i,
+    /expression\s*\(/i,
+    /url\s*\(/i,
+    /eval\s*\(/i,
+    /document\./i,
+    /window\./i,
+    /alert\s*\(/i,
+    /confirm\s*\(/i,
+    /prompt\s*\(/i,
+    /union\s+select/i,
+    /drop\s+table/i,
+    /insert\s+into/i,
+    /delete\s+from/i,
+    /update\s+set/i,
+    /exec\s*\(/i,
+    /system\s*\(/i,
+    /shell\s*\(/i,
+    /cmd\s*\(/i,
+    /powershell/i,
+    /\.\.\/\.\./i, // Directory traversal
+    /%2e%2e/i, // URL encoded directory traversal
+    /\.\.%2f/i, // URL encoded directory traversal
+    /%2e%2e%2f/i, // URL encoded directory traversal
   ];
 
-  const origin = req.headers.origin;
-  
-  if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  const requestString = JSON.stringify({
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    headers: req.headers,
+  }).toLowerCase();
+
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(requestString)) {
+      logger.warn('Suspicious request detected', {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        userId: req.user?.id || 'anonymous',
+        url: req.originalUrl,
+        method: req.method,
+        pattern: pattern.source,
+        requestData: {
+          body: req.body,
+          query: req.query,
+          params: req.params,
+        },
+      });
+      
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Suspicious request detected',
+        code: 'SUSPICIOUS_REQUEST',
+      });
+    }
   }
+
+  next();
+};
+
+// Enhanced device fingerprinting middleware
+const deviceFingerprint = (req, res, next) => {
+  const crypto = require('crypto');
   
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader(
-    'Access-Control-Allow-Methods',
-    'GET, POST, PUT, DELETE, PATCH, OPTIONS'
-  );
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Requested-With, X-Request-ID'
-  );
-  res.setHeader(
-    'Access-Control-Expose-Headers',
-    'X-Total-Count, X-Request-ID, X-Rate-Limit-Remaining'
-  );
-  res.setHeader('Access-Control-Max-Age', '86400');
+  const fingerprint = {
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    acceptLanguage: req.headers['accept-language'],
+    acceptEncoding: req.headers['accept-encoding'],
+    referer: req.headers['referer'],
+    timestamp: new Date().toISOString(),
+    // Add additional fingerprinting data
+    xForwardedFor: req.headers['x-forwarded-for'],
+    xRealIp: req.headers['x-real-ip'],
+    xForwardedProto: req.headers['x-forwarded-proto'],
+    host: req.headers['host'],
+    connection: req.headers['connection'],
+  };
+
+  // Create a hash of the fingerprint
+  const fingerprintString = JSON.stringify(fingerprint);
+  const fingerprintHash = require('crypto').createHash('sha256').update(fingerprintString).digest('hex');
   
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+  req.deviceFingerprint = fingerprintHash;
+  req.deviceFingerprintData = fingerprint;
   
   next();
 };
 
-/**
- * Request ID Middleware
- * Adds unique request ID for tracking
- */
-const requestId = (req, res, next) => {
-  const requestId = req.headers['x-request-id'] || uuidv4();
-  req.requestId = requestId;
-  res.setHeader('X-Request-ID', requestId);
-  next();
-};
-
-/**
- * Request Logger Middleware
- * Logs incoming requests with detailed information
- */
+// Enhanced request logging middleware
 const requestLogger = (req, res, next) => {
   const start = Date.now();
   
-  // Log request start
-  logger.info('Request started', {
-    requestId: req.requestId,
-    method: req.method,
-    path: req.path,
-    query: req.query,
-    ip: req.ip,
-    userAgent: req.headers['user-agent'],
-    userId: req.user?.id,
-    timestamp: new Date().toISOString()
-  });
-  
-  // Log response completion
   res.on('finish', () => {
     const duration = Date.now() - start;
-    const logLevel = res.statusCode >= 400 ? 'warn' : 'info';
-    
-    logger[logLevel]('Request completed', {
-      requestId: req.requestId,
+    const logData = {
       method: req.method,
-      path: req.path,
-      statusCode: res.statusCode,
+      url: req.originalUrl,
+      status: res.statusCode,
       duration: `${duration}ms`,
       ip: req.ip,
-      userId: req.user?.id,
-      userAgent: req.headers['user-agent']
-    });
-  });
-  
-  next();
-};
+      userAgent: req.headers['user-agent'],
+      userId: req.user?.id || 'anonymous',
+      userRole: req.user?.role || 'anonymous',
+      contentLength: res.get('content-length'),
+      deviceFingerprint: req.deviceFingerprint,
+      timestamp: new Date().toISOString(),
+    };
 
-/**
- * Performance Monitor Middleware
- * Monitors request performance and logs slow requests
- */
-const performanceMonitor = (req, res, next) => {
-  const start = process.hrtime();
-  
-  res.on('finish', () => {
-    const [seconds, nanoseconds] = process.hrtime(start);
-    const duration = seconds * 1000 + nanoseconds / 1000000;
-    
-    // Log slow requests (> 1 second)
-    if (duration > 1000) {
-      logger.warn('Slow request detected', {
-        requestId: req.requestId,
-        path: req.path,
-        method: req.method,
-        duration: `${duration.toFixed(2)}ms`,
-        userId: req.user?.id,
-        ip: req.ip
-      });
-    }
-    
-    // Log very slow requests (> 5 seconds)
-    if (duration > 5000) {
-      logger.error('Very slow request detected', {
-        requestId: req.requestId,
-        path: req.path,
-        method: req.method,
-        duration: `${duration.toFixed(2)}ms`,
-        userId: req.user?.id,
-        ip: req.ip
-      });
+    if (res.statusCode >= 400) {
+      logger.warn('Request completed with error', logData);
+    } else {
+      logger.info('Request completed', logData);
     }
   });
-  
+
   next();
 };
 
-/**
- * IP Filtering Middleware
- * Blocks requests from blacklisted IPs
- */
-const ipFilter = (req, res, next) => {
-  const blacklistedIPs = process.env.BLACKLISTED_IPS?.split(',') || [];
-  const clientIP = req.ip;
-  
-  if (blacklistedIPs.includes(clientIP)) {
-    logger.warn('Request blocked from blacklisted IP', {
-      ip: clientIP,
-      path: req.path,
-      method: req.method
-    });
-    
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied'
-    });
-  }
-  
-  next();
-};
-
-/**
- * Request Size Limiter
- * Limits request body size to prevent abuse
- */
-const requestSizeLimiter = (req, res, next) => {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  
-  if (req.headers['content-length'] && parseInt(req.headers['content-length']) > maxSize) {
-    logger.warn('Request size limit exceeded', {
-      requestId: req.requestId,
-      size: req.headers['content-length'],
-      maxSize,
-      path: req.path
-    });
-    
-    return res.status(413).json({
-      success: false,
-      message: 'Request entity too large'
-    });
-  }
-  
-  next();
-};
-
-/**
- * Method Filtering Middleware
- * Only allows specific HTTP methods
- */
-const methodFilter = (allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']) => {
-  return (req, res, next) => {
-    if (!allowedMethods.includes(req.method)) {
-      logger.warn('Method not allowed', {
-        requestId: req.requestId,
-        method: req.method,
-        path: req.path,
-        allowedMethods
-      });
-      
-      return res.status(405).json({
-        success: false,
-        message: `Method ${req.method} not allowed`
-      });
-    }
-    
-    next();
+// Enhanced error handling middleware
+const errorHandler = (err, req, res, next) => {
+  const errorLog = {
+    timestamp: new Date().toISOString(),
+    error: {
+      name: err.name,
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      code: err.code,
+    },
+    request: {
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      userId: req.user?.id || 'anonymous',
+      userRole: req.user?.role || 'anonymous',
+    },
+    context: {
+      environment: process.env.NODE_ENV,
+      version: process.env.APP_VERSION,
+    },
   };
+
+  logger.error('Unhandled error:', errorLog);
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+    success: false,
+    message: isDevelopment ? err.message : 'Internal server error',
+    ...(isDevelopment && { stack: err.stack }),
+  });
 };
 
-/**
- * User Agent Filtering
- * Blocks requests with suspicious user agents
- */
-const userAgentFilter = (req, res, next) => {
-  const userAgent = req.headers['user-agent'] || '';
-  const suspiciousPatterns = [
-    /bot/i,
-    /crawler/i,
-    /spider/i,
-    /scraper/i,
-    /curl/i,
-    /wget/i,
-    /python/i,
-    /java/i,
-    /perl/i
-  ];
-  
-  const isSuspicious = suspiciousPatterns.some(pattern => pattern.test(userAgent));
-  
-  if (isSuspicious && !req.user) {
-    logger.warn('Suspicious user agent detected', {
-      requestId: req.requestId,
-      userAgent,
-      path: req.path,
-      ip: req.ip
-    });
-    
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied'
-    });
-  }
-  
-  next();
-};
-
-/**
- * Rate Limiting Headers
- * Adds rate limiting information to response headers
- */
-const rateLimitHeaders = (req, res, next) => {
-  if (req.rateLimit) {
-    res.setHeader('X-Rate-Limit-Limit', req.rateLimit.limit);
-    res.setHeader('X-Rate-Limit-Remaining', req.rateLimit.remaining);
-    res.setHeader('X-Rate-Limit-Reset', req.rateLimit.resetTime);
-  }
-  
-  next();
-};
-
-/**
- * Security Context Middleware
- * Adds security context to request
- */
-const securityContext = (req, res, next) => {
-  req.securityContext = {
+// Not found handler
+const notFoundHandler = (req, res) => {
+  logger.warn('Route not found', {
+    method: req.method,
+    url: req.originalUrl,
     ip: req.ip,
-    userAgent: req.headers['user-agent'],
-    referer: req.headers.referer,
-    origin: req.headers.origin,
-    timestamp: new Date(),
-    requestId: req.requestId,
-    userId: req.user?.id,
-    userRole: req.user?.role
-  };
+    userAgent: req.get('User-Agent'),
+    userId: req.user?.id || 'anonymous',
+  });
   
-  next();
+  res.status(StatusCodes.NOT_FOUND).json({
+    success: false,
+    message: 'Route not found',
+    code: 'ROUTE_NOT_FOUND',
+  });
 };
 
-/**
- * Comprehensive Security Middleware
- * Combines all security features
- */
-const securityMiddleware = [
-  requestId,
-  securityHeaders,
-  corsConfig,
-  ipFilter,
-  userAgentFilter,
-  requestSizeLimiter,
-  requestLogger,
-  performanceMonitor,
-  rateLimitHeaders,
-  securityContext
-];
+// CSRF protection middleware
+const csrfProtection = (req, res, next) => {
+  // Skip CSRF for API endpoints that don't need it
+  if (req.path.startsWith('/api/') && req.method === 'GET') {
+    return next();
+  }
+
+  const csrfToken = req.headers['x-csrf-token'] || req.body._csrf;
+  const sessionToken = req.headers['x-session-token'];
+
+  // For API endpoints, we'll use a simpler token-based approach
+  if (req.path.startsWith('/api/')) {
+    // Validate API key or session token if present
+    if (sessionToken) {
+      // Validate session token here
+      // This is a simplified version - implement proper session validation
+      return next();
+    }
+  }
+
+  next();
+};
 
 module.exports = {
   securityHeaders,
-  corsConfig,
-  requestId,
+  authRateLimit,
+  sensitiveRateLimit,
+  generalRateLimit,
+  tierRateLimiter,
+  speedLimiter,
+  csrfProtection,
+  sanitizeRequest,
+  securityMonitor,
+  deviceFingerprint,
   requestLogger,
-  performanceMonitor,
-  ipFilter,
-  requestSizeLimiter,
-  methodFilter,
-  userAgentFilter,
-  rateLimitHeaders,
-  securityContext,
-  securityMiddleware
+  errorHandler,
+  notFoundHandler,
 }; 

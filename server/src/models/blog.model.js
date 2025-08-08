@@ -52,4 +52,21 @@ const blogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Database indexes for performance
+blogSchema.index({ author: 1, status: 1 });
+blogSchema.index({ status: 1, createdAt: -1 });
+blogSchema.index({ tags: 1 });
+blogSchema.index({ seriesId: 1 });
+blogSchema.index({ language: 1 });
+blogSchema.index({ sentiment: 1 });
+blogSchema.index({ likes: -1 });
+blogSchema.index({ bookmarks: -1 });
+blogSchema.index({ readingTime: 1 });
+blogSchema.index({ seoScore: -1 });
+blogSchema.index({ 'likedBy': 1 });
+blogSchema.index({ 'bookmarkedBy': 1 });
+// createdAt index already covered by status+createdAt composite
+blogSchema.index({ updatedAt: -1 });
+blogSchema.index({ title: 'text', content: 'text', summary: 'text' }); // Text search index
+
 module.exports = mongoose.model('Blog', blogSchema);

@@ -1,5 +1,8 @@
 const { StatusCodes } = require('http-status-codes');
 const BadgeService = require('../services/BadgeService');
+const Badge = require('../models/badge.model');
+const User = require('../models/user.model');
+const Notification = require('../models/notification.model');
 const {
   createBadgeSchema,
   updateBadgeSchema,
@@ -76,9 +79,21 @@ exports.getBadgeById = async (req, res) => {
 // Search badges
 exports.searchBadges = async (req, res) => {
   try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Query parameter is required'
+      });
+    }
+
     const { error, value } = searchBadgesSchema.validate(req.query);
     if (error) {
-      throw new ValidationError(error.details[0].message);
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message
+      });
     }
 
     const badges = await BadgeService.searchBadges(value.query, value);
@@ -86,7 +101,6 @@ exports.searchBadges = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       data: {
-        query: value.query,
         badges,
         count: badges.length,
       },
@@ -361,6 +375,33 @@ exports.getUserBadges = async (req, res) => {
   }
 };
 
+// Get user's badge progress
+exports.getUserBadgeProgress = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user.id;
+
+    const progress = await BadgeService.getUserBadgeProgress(userId);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: progress,
+    });
+  } catch (error) {
+    logger.error('Error in getUserBadgeProgress:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while fetching user badge progress',
+      });
+    }
+  }
+};
+
 // Get badges by category
 exports.getBadgesByCategory = async (req, res) => {
   try {
@@ -389,23 +430,11 @@ exports.getBadgesByCategory = async (req, res) => {
 // Get badge statistics
 exports.getBadgeStats = async (req, res) => {
   try {
-    const totalBadges = await Badge.countDocuments({ status: 'active' });
-    const badgesByCategory = await Badge.aggregate([
-      { $match: { status: 'active' } },
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-    ]);
-    const badgesByRarity = await Badge.aggregate([
-      { $match: { status: 'active' } },
-      { $group: { _id: '$rarity', count: { $sum: 1 } } },
-    ]);
+    const stats = await BadgeService.getBadgeStats();
 
     res.status(StatusCodes.OK).json({
       success: true,
-      data: {
-        totalBadges,
-        byCategory: badgesByCategory,
-        byRarity: badgesByRarity,
-      },
+      data: stats,
     });
   } catch (error) {
     logger.error('Error in getBadgeStats:', error);
