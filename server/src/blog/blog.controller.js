@@ -8,9 +8,10 @@ const logger = require('../utils/logger');
 const EmailService = require('../services/EmailService');
 const User = require('../models/user.model');
 const XPService = require('../services/XPService');
+const cacheService = require('../services/CacheService');
 
 // Get singleton email service instance
-const emailService = EmailService.getInstance();
+const emailService = EmailService;
 
 exports.createBlog = async (req, res) => {
   try {
@@ -43,19 +44,40 @@ exports.createBlog = async (req, res) => {
 
 exports.getBlogs = async (req, res) => {
   try {
-    const blogs = await Blog.find().populate('author', 'name');
+    const { page = 1, limit = 10, status = 'published', category, tag } = req.query;
+    const cacheKey = cacheService.generateKey('blogs', page, limit, status, category, tag);
+    
+    const blogs = await cacheService.cacheFunction(cacheKey, async () => {
+      const query = { status };
+      if (category) query.category = category;
+      if (tag) query.tags = tag;
+      
+      return await Blog.find(query)
+        .populate('author', 'name email avatar')
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
+    }, 300); // Cache for 5 minutes
+    
     res.json(blogs);
   } catch (err) {
+    logger.error('Get blogs failed:', err);
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.getBlogById = async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id).populate('author', 'name');
+    const cacheKey = cacheService.generateKey('blog', req.params.id);
+    
+    const blog = await cacheService.cacheFunction(cacheKey, async () => {
+      return await Blog.findById(req.params.id).populate('author', 'name email avatar');
+    }, 600); // Cache for 10 minutes
+    
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
     res.json(blog);
   } catch (err) {
+    logger.error('Get blog by ID failed:', err);
     res.status(500).json({ message: err.message });
   }
 };

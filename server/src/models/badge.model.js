@@ -9,7 +9,6 @@ const badgeSchema = new mongoose.Schema(
       type: String, 
       required: true, 
       unique: true,
-      index: true,
       validate: {
         validator: function(v) {
           return /^[a-z0-9_-]+$/.test(v);
@@ -32,14 +31,12 @@ const badgeSchema = new mongoose.Schema(
     rarity: {
       type: String,
       enum: ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'],
-      default: 'common',
-      index: true
+      default: 'common'
     },
     category: {
       type: String,
       enum: ['engagement', 'content', 'social', 'achievement', 'special', 'seasonal', 'community', 'expertise'],
-      default: 'achievement',
-      index: true
+      default: 'achievement'
     },
     subcategories: [{ type: String }],
     tags: [{ type: String }],
@@ -182,13 +179,7 @@ const badgeSchema = new mongoose.Schema(
   }
 );
 
-// Indexes for performance
-badgeSchema.index({ badgeKey: 1 });
-badgeSchema.index({ category: 1, rarity: 1 });
-badgeSchema.index({ status: 1, isActive: 1 });
-badgeSchema.index({ 'analytics.totalEarned': -1 });
-badgeSchema.index({ 'analytics.popularityScore': -1 });
-badgeSchema.index({ createdAt: -1 });
+// Indexes for performance (see consolidated list at bottom of file)
 
 // Virtual for total users who have earned this badge
 badgeSchema.virtual('earnedCount').get(function () {
@@ -440,10 +431,8 @@ badgeSchema.statics.evaluateVariable = async function (user, varDef) {
   return 0;
 };
 
-// Simple expression evaluator (basic implementation)
+// Secure expression evaluator (replaces unsafe eval)
 badgeSchema.statics.simpleExpressionEvaluator = function (expression, context) {
-  // This is a very basic implementation
-  // In production, use a proper expression parser like mathjs or similar
   try {
     // Replace variables with their values
     let evalExpression = expression;
@@ -451,14 +440,155 @@ badgeSchema.statics.simpleExpressionEvaluator = function (expression, context) {
       evalExpression = evalExpression.replace(new RegExp(varName, 'g'), value);
     }
     
-    // Basic safety check - only allow simple comparisons
-    if (!/^[0-9+\-*/().<>=!&\| ]+$/.test(evalExpression)) {
+    // Enhanced safety check - only allow safe mathematical expressions
+    const safePattern = /^[0-9+\-*/().<>=!&\| ]+$/;
+    if (!safePattern.test(evalExpression)) {
+      logger.warn('Unsafe expression detected:', { expression: evalExpression });
       return false;
     }
     
-    return eval(evalExpression);
+    // Additional security: check for dangerous patterns
+    const dangerousPatterns = [
+      /function\s*\(/,
+      /eval\s*\(/,
+      /setTimeout\s*\(/,
+      /setInterval\s*\(/,
+      /new\s+Function/,
+      /constructor/,
+      /prototype/,
+      /__proto__/,
+      /window/,
+      /document/,
+      /global/,
+      /process/,
+      /require\s*\(/,
+      /import\s*\(/,
+      /export\s*\(/
+    ];
+    
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(evalExpression)) {
+        logger.warn('Dangerous pattern detected in expression:', { expression: evalExpression });
+        return false;
+      }
+    }
+    
+    // Safe mathematical expression evaluation
+    return this.evaluateSafeExpression(evalExpression);
   } catch (error) {
-    console.error('Error evaluating expression:', error);
+    logger.error('Error evaluating expression:', error);
+    return false;
+  }
+};
+
+// Safe mathematical expression evaluator
+badgeSchema.statics.evaluateSafeExpression = function (expression) {
+  try {
+    // Remove all whitespace
+    const cleanExpr = expression.replace(/\s/g, '');
+    
+    // Validate expression structure
+    if (!this.isValidExpression(cleanExpr)) {
+      return false;
+    }
+    
+    // Evaluate using safe mathematical operations
+    return this.calculateExpression(cleanExpr);
+  } catch (error) {
+    logger.error('Safe expression evaluation failed:', error);
+    return false;
+  }
+};
+
+// Validate expression structure
+badgeSchema.statics.isValidExpression = function (expr) {
+  // Check for balanced parentheses
+  let parenCount = 0;
+  for (const char of expr) {
+    if (char === '(') parenCount++;
+    if (char === ')') parenCount--;
+    if (parenCount < 0) return false;
+  }
+  if (parenCount !== 0) return false;
+  
+  // Check for valid characters only
+  const validChars = /^[0-9+\-*/().<>=!&\|]+$/;
+  if (!validChars.test(expr)) return false;
+  
+  // Check for consecutive operators
+  const consecutiveOps = /[+\-*/]{2,}/;
+  if (consecutiveOps.test(expr)) return false;
+  
+  return true;
+};
+
+// Calculate mathematical expression safely
+badgeSchema.statics.calculateExpression = function (expr) {
+  try {
+    // Simple mathematical expression evaluator
+    // This is a basic implementation - in production, consider using mathjs library
+    
+    // Handle comparison operators
+    if (expr.includes('==')) {
+      const [left, right] = expr.split('==');
+      return this.calculateExpression(left) == this.calculateExpression(right);
+    }
+    if (expr.includes('!=')) {
+      const [left, right] = expr.split('!=');
+      return this.calculateExpression(left) != this.calculateExpression(right);
+    }
+    if (expr.includes('>=')) {
+      const [left, right] = expr.split('>=');
+      return this.calculateExpression(left) >= this.calculateExpression(right);
+    }
+    if (expr.includes('<=')) {
+      const [left, right] = expr.split('<=');
+      return this.calculateExpression(left) <= this.calculateExpression(right);
+    }
+    if (expr.includes('>')) {
+      const [left, right] = expr.split('>');
+      return this.calculateExpression(left) > this.calculateExpression(right);
+    }
+    if (expr.includes('<')) {
+      const [left, right] = expr.split('<');
+      return this.calculateExpression(left) < this.calculateExpression(right);
+    }
+    
+    // Handle logical operators
+    if (expr.includes('&&')) {
+      const [left, right] = expr.split('&&');
+      return this.calculateExpression(left) && this.calculateExpression(right);
+    }
+    if (expr.includes('||')) {
+      const [left, right] = expr.split('||');
+      return this.calculateExpression(left) || this.calculateExpression(right);
+    }
+    
+    // Handle basic arithmetic
+    if (expr.includes('+')) {
+      const [left, right] = expr.split('+');
+      return this.calculateExpression(left) + this.calculateExpression(right);
+    }
+    if (expr.includes('-')) {
+      const [left, right] = expr.split('-');
+      return this.calculateExpression(left) - this.calculateExpression(right);
+    }
+    if (expr.includes('*')) {
+      const [left, right] = expr.split('*');
+      return this.calculateExpression(left) * this.calculateExpression(right);
+    }
+    if (expr.includes('/')) {
+      const [left, right] = expr.split('/');
+      const rightVal = this.calculateExpression(right);
+      if (rightVal === 0) return false; // Prevent division by zero
+      return this.calculateExpression(left) / rightVal;
+    }
+    
+    // Base case: number
+    const num = parseFloat(expr);
+    return isNaN(num) ? false : num;
+  } catch (error) {
+    logger.error('Expression calculation failed:', error);
     return false;
   }
 };
@@ -529,5 +659,19 @@ badgeSchema.statics.generateBadgeHash = function (badgeId, userId, timestamp) {
   const data = `${badgeId}-${userId}-${timestamp}-${secret}`;
   return crypto.createHash('sha256').update(data).digest('hex');
 };
+
+// Consolidated database indexes for performance
+badgeSchema.index({ badgeKey: 1 }, { unique: true });
+badgeSchema.index({ name: 1 }, { unique: true });
+badgeSchema.index({ category: 1 });
+badgeSchema.index({ rarity: 1 });
+badgeSchema.index({ status: 1, isActive: 1 });
+badgeSchema.index({ createdAt: -1 });
+badgeSchema.index({ 'analytics.totalEarned': -1 });
+badgeSchema.index({ 'analytics.popularityScore': -1 });
+badgeSchema.index({ 'analytics.totalAttempts': -1 });
+badgeSchema.index({ 'requirements.xpRequired': 1 });
+badgeSchema.index({ 'requirements.blogsRequired': 1 });
+badgeSchema.index({ name: 'text', description: 'text' }); // Text search index
 
 module.exports = mongoose.model('Badge', badgeSchema);

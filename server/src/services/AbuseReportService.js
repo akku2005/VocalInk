@@ -1,12 +1,15 @@
 const AbuseReport = require('../models/abusereport.model');
 const User = require('../models/user.model');
+const Blog = require('../models/blog.model');
+const Comment = require('../models/comment.model');
+const Series = require('../models/series.model');
 const NotificationService = require('./NotificationService');
 const EmailService = require('./EmailService');
 const logger = require('../utils/logger');
 
 class AbuseReportService {
   constructor() {
-    this.emailService = EmailService.getInstance();
+    this.emailService = EmailService;
     this.fraudThresholds = {
       low: 0.3,
       medium: 0.6,
@@ -83,13 +86,13 @@ class AbuseReportService {
           target = await User.findById(targetId);
           break;
         case 'blog':
-          target = await this.model('Blog').findById(targetId);
+          target = await Blog.findById(targetId);
           break;
         case 'comment':
-          target = await this.model('Comment').findById(targetId);
+          target = await Comment.findById(targetId);
           break;
         case 'series':
-          target = await this.model('Series').findById(targetId);
+          target = await Series.findById(targetId);
           break;
         default:
           throw new Error(`Invalid target type: ${targetType}`);
@@ -115,11 +118,11 @@ class AbuseReportService {
       if (targetType === 'user') {
         return await User.findById(targetId);
       } else if (targetType === 'blog') {
-        const blog = await this.model('Blog').findById(targetId).populate('author');
+        const blog = await Blog.findById(targetId).populate('author');
         return blog?.author;
       } else if (targetType === 'comment') {
-        const comment = await this.model('Comment').findById(targetId).populate('author');
-        return comment?.author;
+        const comment = await Comment.findById(targetId).populate('userId');
+        return comment?.userId;
       }
       return null;
     } catch (error) {

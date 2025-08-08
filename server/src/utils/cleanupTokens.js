@@ -1,5 +1,6 @@
 const Token = require('../models/token.model');
 const logger = require('./logger');
+const mongoose = require('mongoose');
 
 /**
  * Clean up expired blacklisted tokens
@@ -7,11 +8,15 @@ const logger = require('./logger');
  */
 const cleanupExpiredBlacklistedTokens = async () => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      logger.warn('Skipping cleanup of expired blacklisted tokens: database not connected');
+      return 0;
+    }
     const deletedCount = await Token.cleanupExpiredBlacklistedTokens();
     logger.info(`Cleaned up ${deletedCount} expired blacklisted tokens`);
     return deletedCount;
   } catch (error) {
-    logger.error('Error cleaning up expired blacklisted tokens:', error);
+    logger.error('Error cleaning up expired blacklisted tokens:', { message: error.message, name: error.name, code: error.code });
     throw error;
   }
 };
@@ -21,13 +26,17 @@ const cleanupExpiredBlacklistedTokens = async () => {
  */
 const cleanupAllExpiredTokens = async () => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      logger.warn('Skipping cleanup of expired tokens: database not connected');
+      return 0;
+    }
     const result = await Token.deleteMany({
       expiresAt: { $lt: new Date() },
     });
     logger.info(`Cleaned up ${result.deletedCount} expired tokens`);
     return result.deletedCount;
   } catch (error) {
-    logger.error('Error cleaning up expired tokens:', error);
+    logger.error('Error cleaning up expired tokens:', { message: error.message, name: error.name, code: error.code });
     throw error;
   }
 };

@@ -26,10 +26,13 @@ describe('XP System Tests', () => {
       isVerified: true // Ensure user is verified for tests
     });
 
-    // Generate auth token directly instead of using API
-    const TokenService = require('../src/services/TokenService');
-    const token = await TokenService.generateAuthToken(testUser._id);
-    authToken = token;
+    // Generate auth token directly
+    const JWTService = require('../src/services/JWTService');
+    authToken = JWTService.generateAccessToken({
+      userId: testUser._id.toString(),
+      email: testUser.email,
+      role: testUser.role
+    });
   });
 
   afterEach(async () => {

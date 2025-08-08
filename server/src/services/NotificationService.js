@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 
 class NotificationService {
   constructor() {
-    this.emailService = EmailService.getInstance();
+    this.emailService = EmailService;
   }
 
   /**

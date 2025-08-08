@@ -101,6 +101,18 @@ router.get('/user/claims/:userId',
   badgeController.getUserClaimHistory
 );
 
+router.get('/user/progress', 
+  protect, 
+  cacheBadgeResponse(300), 
+  badgeController.getUserBadgeProgress
+);
+
+router.get('/user/progress/:userId', 
+  protect, 
+  cacheBadgeResponse(300), 
+  badgeController.getUserBadgeProgress
+);
+
 router.post('/:badgeId/claim', 
   protect,
   badgeClaimLimiter,

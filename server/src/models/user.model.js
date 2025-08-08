@@ -435,4 +435,25 @@ userSchema.statics.getLeaderboard = function (type = 'xp', limit = 50) {
     .limit(limit);
 };
 
+// Database indexes for performance
+// 'email' already has unique: true on the field
+userSchema.index({ role: 1 });
+userSchema.index({ xp: -1 });
+userSchema.index({ level: -1 });
+userSchema.index({ 'streaks.login.current': -1 });
+userSchema.index({ 'streaks.publishing.current': -1 });
+userSchema.index({ totalBlogs: -1 });
+userSchema.index({ totalLikes: -1 });
+userSchema.index({ totalComments: -1 });
+userSchema.index({ engagementScore: -1 });
+userSchema.index({ qualityScore: -1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ lastLoginAt: -1 });
+userSchema.index({ isVerified: 1 });
+userSchema.index({ isActive: 1 });
+userSchema.index({ 'socialLinks.platform': 1 });
+userSchema.index({ 'badges': 1 });
+userSchema.index({ 'followers': 1 });
+userSchema.index({ 'following': 1 });
+
 module.exports = mongoose.model('User', userSchema);

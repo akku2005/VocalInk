@@ -7,7 +7,7 @@ const EmailService = require('../services/EmailService');
 const logger = require('../utils/logger');
 
 // Get singleton email service instance
-const emailService = EmailService.getInstance();
+const emailService = EmailService;
 
 const updateUserValidators = [
   body('name')

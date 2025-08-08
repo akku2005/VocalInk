@@ -1,16 +1,33 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../utils/logger');
+const cacheService = require('../services/CacheService');
+let RedisStore;
+try { RedisStore = require('rate-limit-redis').default || require('rate-limit-redis'); } catch (e) { RedisStore = null; }
+
+const getStore = () => (RedisStore && cacheService.redisClient ? new RedisStore({
+  sendCommand: (...args) => cacheService.redisClient.sendCommand(args)
+}) : undefined);
+
+// Helper to generate a consistent key that includes a safe IPv6-aware IP
+const defaultKeyGenerator = (req) => {
+  const userKey = req.user ? req.user.id : 'anonymous';
+  const userAgent = req.get('User-Agent') || 'unknown';
+  return `${ipKeyGenerator(req)}:${userKey}:${userAgent}`;
+};
 
 // AI-specific rate limiters
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.AI_RATE_LIMIT_PER_HOUR || 100,
+  store: getStore(),
   message: {
     message: 'AI service rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000) // 1 hour in seconds
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('AI rate limit exceeded', {
       ip: req.ip,
@@ -29,12 +46,14 @@ const aiRateLimiter = rateLimit({
 const ttsRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.TTS_RATE_LIMIT_PER_HOUR || 50,
+  store: getStore(),
   message: {
     message: 'TTS generation rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('TTS rate limit exceeded', {
       ip: req.ip,
@@ -53,12 +72,14 @@ const ttsRateLimiter = rateLimit({
 const sttRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.STT_RATE_LIMIT_PER_HOUR || 30,
+  store: getStore(),
   message: {
     message: 'STT transcription rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('STT rate limit exceeded', {
       ip: req.ip,
@@ -77,12 +98,14 @@ const sttRateLimiter = rateLimit({
 const summaryRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.SUMMARY_RATE_LIMIT_PER_HOUR || 100,
+  store: getStore(),
   message: {
     message: 'Summary generation rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Summary rate limit exceeded', {
       ip: req.ip,
@@ -101,12 +124,14 @@ const summaryRateLimiter = rateLimit({
 const analysisRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.ANALYSIS_RATE_LIMIT_PER_HOUR || 200,
+  store: getStore(),
   message: {
     message: 'Content analysis rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Analysis rate limit exceeded', {
       ip: req.ip,
@@ -125,12 +150,14 @@ const analysisRateLimiter = rateLimit({
 const fileUploadRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.FILE_UPLOAD_RATE_LIMIT_PER_HOUR || 20,
+  store: getStore(),
   message: {
     message: 'File upload rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('File upload rate limit exceeded', {
       ip: req.ip,
@@ -151,12 +178,14 @@ const fileUploadRateLimiter = rateLimit({
 const recommendationRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.RECOMMENDATION_RATE_LIMIT_PER_HOUR || 150,
+  store: getStore(),
   message: {
     message: 'Recommendation service rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Recommendation rate limit exceeded', {
       ip: req.ip,
@@ -175,12 +204,14 @@ const recommendationRateLimiter = rateLimit({
 const searchRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.SEARCH_RATE_LIMIT_PER_HOUR || 300,
+  store: getStore(),
   message: {
     message: 'Search service rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Search rate limit exceeded', {
       ip: req.ip,
@@ -199,12 +230,14 @@ const searchRateLimiter = rateLimit({
 const notificationRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.NOTIFICATION_RATE_LIMIT_PER_HOUR || 100,
+  store: getStore(),
   message: {
     message: 'Notification service rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Notification rate limit exceeded', {
       ip: req.ip,
@@ -223,12 +256,14 @@ const notificationRateLimiter = rateLimit({
 const moderationRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.MODERATION_RATE_LIMIT_PER_HOUR || 200,
+  store: getStore(),
   message: {
     message: 'Moderation service rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Moderation rate limit exceeded', {
       ip: req.ip,
@@ -247,12 +282,14 @@ const moderationRateLimiter = rateLimit({
 const clusteringRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.CLUSTERING_RATE_LIMIT_PER_HOUR || 50,
+  store: getStore(),
   message: {
     message: 'Content clustering rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Clustering rate limit exceeded', {
       ip: req.ip,
@@ -271,12 +308,14 @@ const clusteringRateLimiter = rateLimit({
 const autoTaggingRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.AUTO_TAGGING_RATE_LIMIT_PER_HOUR || 80,
+  store: getStore(),
   message: {
     message: 'Auto-tagging service rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: defaultKeyGenerator,
   handler: (req, res) => {
     logger.warn('Auto-tagging rate limit exceeded', {
       ip: req.ip,

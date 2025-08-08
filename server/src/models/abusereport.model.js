@@ -5,7 +5,6 @@ const abuseReportSchema = new mongoose.Schema(
     // Core identification
     reportId: {
       type: String,
-      required: true,
       unique: true,
       index: true
     },
