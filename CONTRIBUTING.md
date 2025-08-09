@@ -12,7 +12,7 @@ Welcome! 🎉 We're excited that you're interested in contributing to **VocalInk
 
 2. **Clone your fork**
    ```bash
-   git clone https://github.com/<your-username>/VocalInk.git
+   git clone https://github.com/akku2005/VocalInk.git
    cd VocalInk
    ```
 
