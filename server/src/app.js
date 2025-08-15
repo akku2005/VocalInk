@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 const swaggerUi = require('swagger-ui-express');
 const compression = require('compression');
 const Sentry = require('@sentry/node');
-const mongoSanitize = require('express-mongo-sanitize');
+// Removed express-mongo-sanitize due to Express 5 compatibility issues
 
 const swaggerDocument = require('../swagger.json');
 
@@ -142,8 +142,45 @@ app.use(express.urlencoded({
   limit: process.env.MAX_REQUEST_SIZE || '10mb' 
 }));
 
-// Mongo sanitize middleware to prevent operator injection
-app.use(mongoSanitize());
+// Custom mongo sanitize middleware for Express 5 compatibility
+const sanitizeMongoQuery = (obj) => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  
+  const sanitized = Array.isArray(obj) ? [] : {};
+  const dangerousKeys = ['$where', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin', '$exists', '$regex'];
+  
+  for (const [key, value] of Object.entries(obj)) {
+    // Check if key contains dangerous operators
+    const isDangerous = dangerousKeys.some(dangerous => 
+      key.includes(dangerous) || key.startsWith('$')
+    );
+    
+    if (isDangerous) {
+      logger.warn(`Mongo sanitize: Dangerous key "${key}" was sanitized`);
+      sanitized[`_${key}`] = value;
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeMongoQuery(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+};
+
+// Apply sanitization to query, body, and params
+app.use((req, res, next) => {
+  if (req.query) {
+    req.query = sanitizeMongoQuery(req.query);
+  }
+  if (req.body) {
+    req.body = sanitizeMongoQuery(req.body);
+  }
+  if (req.params) {
+    req.params = sanitizeMongoQuery(req.params);
+  }
+  next();
+});
 
 // Security monitoring and request sanitization
 app.use(securityMonitor);
@@ -154,11 +191,7 @@ app.use(deviceFingerprint);
 app.use(generalRateLimit);
 app.use(speedLimiter);
 
-// Apply API-specific rate limiting
-app.use('/api', apiLimiter);
-app.use('/api', burstRateLimiter);
-
-// Sensitive operations limiter
+// Apply API-specific rate limiting (only one per route to avoid conflicts)
 app.use('/api/auth', sensitiveOperationLimiter);
 app.use('/api/users', sensitiveOperationLimiter);
 

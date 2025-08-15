@@ -8,7 +8,6 @@ const badgeSchema = new mongoose.Schema(
     badgeKey: { 
       type: String, 
       required: true, 
-      unique: true,
       validate: {
         validator: function(v) {
           return /^[a-z0-9_-]+$/.test(v);
@@ -16,7 +15,7 @@ const badgeSchema = new mongoose.Schema(
         message: 'Badge key must contain only lowercase letters, numbers, hyphens, and underscores'
       }
     },
-    name: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
     description: { type: String, required: true },
     longDescription: { type: String },
     
@@ -91,72 +90,36 @@ const badgeSchema = new mongoose.Schema(
       prerequisites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Badge' }],
       unlocks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Badge' }],
       
-      // Time-based constraints
-      availableFrom: { type: Date },
-      availableUntil: { type: Date },
-      seasonalStart: { type: String }, // e.g., "12-01" for December 1st
-      seasonalEnd: { type: String },
-      
-      // Geographic restrictions
-      geographicRestrictions: {
-        countries: [{ type: String }],
-        regions: [{ type: String }],
-        excludeCountries: [{ type: String }]
-      },
-      
-      // User cohort targeting
-      userCohorts: {
-        newUsers: { type: Boolean, default: false },
-        veteranUsers: { type: Boolean, default: false },
-        premiumUsers: { type: Boolean, default: false },
-        betaTesters: { type: Boolean, default: false }
+      // Dynamic reward system based on expression evaluation
+      rewards: {
+        xp: { type: Number, default: 0 },
+        bonus: { type: Number, default: 0 },
+        multipliers: [{ type: Number }]
       }
     },
-    
-    // Rewards and benefits
-    rewards: {
-      xpReward: { type: Number, default: 10 },
-      featureUnlocks: [{ type: String }],
-      specialPrivileges: [{ type: String }],
-      customEmojis: [{ type: String }],
-      profileBadges: [{ type: String }],
-      exclusiveContent: [{ type: String }]
+
+    // Eligibility exceptions and special conditions
+    exceptions: {
+      isExclusive: { type: Boolean, default: false },
+      isLimitedTime: { type: Boolean, default: false },
+      isInviteOnly: { type: Boolean, default: false },
+      startDate: { type: Date },
+      endDate: { type: Date }
     },
-    
-    // Visibility and display settings
-    visibility: {
-      isPublic: { type: Boolean, default: true },
-      showInLeaderboard: { type: Boolean, default: true },
-      allowSocialSharing: { type: Boolean, default: true },
-      showProgress: { type: Boolean, default: true },
-      isSecret: { type: Boolean, default: false },
-      revealOnEarn: { type: Boolean, default: false }
-    },
-    
-    // Lifecycle management
-    status: {
-      type: String,
-      enum: ['active', 'inactive', 'deprecated', 'archived'],
-      default: 'active',
-      index: true
-    },
-    version: { type: String, default: '1.0.0' },
-    deprecatedAt: { type: Date },
-    archivedAt: { type: Date },
-    
-    // Performance and analytics
+
+    // Analytics and performance tracking
     analytics: {
       totalEarned: { type: Number, default: 0 },
-      totalAttempts: { type: Number, default: 0 },
-      successRate: { type: Number, default: 0 },
-      averageTimeToEarn: { type: Number }, // in days
-      lastEarnedAt: { type: Date },
-      popularityScore: { type: Number, default: 0 }
+      popularityScore: { type: Number, default: 0 },
+      totalAttempts: { type: Number, default: 0 }
     },
-    
-    // Security and fraud prevention
-    security: {
-      requiresVerification: { type: Boolean, default: false },
+
+    // Moderation and status
+    status: { type: String, enum: ['active', 'inactive', 'deprecated'], default: 'active' },
+    isActive: { type: Boolean, default: true },
+
+    // Governance and constraints
+    governance: {
       maxClaimsPerUser: { type: Number, default: 1 },
       cooldownPeriod: { type: Number, default: 0 }, // in seconds
       fraudThreshold: { type: Number, default: 0.8 }, // 0-1 scale

@@ -20,7 +20,8 @@
     "health-check": "curl -f http://localhost:3000/health || exit 1",
     "backup": "node scripts/backup.js",
     "monitor": "node scripts/monitor.js",
-    "worker": "node scripts/worker.js"
+    "worker": "node scripts/worker.js",
+    "tts-worker": "node scripts/tts-worker.js"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -29,11 +30,15 @@
     ]
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/s3-request-presigner": "^3.864.0",
     "@elevenlabs/elevenlabs-js": "^2.7.0",
     "@google-cloud/text-to-speech": "^6.2.0",
     "@sentry/node": "^8.55.0",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
+    "bull": "^4.16.5",
+    "bullmq": "^5.58.0",
     "chalk": "^4.1.2",
     "compression": "^1.7.4",
     "compromise": "^14.14.4",
@@ -48,6 +53,7 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "http-status-codes": "^2.3.0",
+    "ioredis": "^5.7.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.18.0",
@@ -58,13 +64,11 @@
     "nodemailer": "^7.0.5",
     "qrcode": "^1.5.4",
     "rate-limit-redis": "^3.0.0",
+    "redis": "^4.7.1",
     "speakeasy": "^2.0.0",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0",
     "ws": "^8.18.3"
-  },
-  "optionalDependencies": {
-    "redis": "^4.7.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

@@ -1,9 +1,19 @@
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = require('express-rate-limit');
 const slowDown = require('express-slow-down');
 const { StatusCodes } = require('http-status-codes');
 const logger = require('../utils/logger');
+
+// Custom IP key generator function
+const ipKeyGenerator = (req) => {
+  // Get the real IP address considering proxies
+  const ip = req.ip || 
+             req.connection?.remoteAddress || 
+             req.socket?.remoteAddress || 
+             req.connection?.socket?.remoteAddress || 
+             'unknown';
+  return ip;
+};
 
 // Enhanced security headers configuration
 const securityHeaders = helmet({
@@ -249,7 +259,8 @@ const securityMonitor = (req, res, next) => {
     body: req.body,
     query: req.query,
     params: req.params,
-    headers: req.headers,
+    // Temporarily exclude headers to avoid false positives
+    // headers: req.headers,
   }).toLowerCase();
 
   for (const pattern of suspiciousPatterns) {

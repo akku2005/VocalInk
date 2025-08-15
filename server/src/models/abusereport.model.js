@@ -214,7 +214,7 @@ const abuseReportSchema = new mongoose.Schema(
     metadata: { type: mongoose.Schema.Types.Mixed },
     
     // Timestamps
-    createdAt: { type: Date, default: Date.now, index: true },
+    createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
     expiresAt: { type: Date } // For automatic cleanup
   },

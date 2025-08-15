@@ -7,30 +7,26 @@ const badgeClaimSchema = new mongoose.Schema(
     claimId: {
       type: String,
       required: true,
-      unique: true,
-      index: true
+      unique: true
     },
     
     // Badge and user references
     badgeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Badge',
-      required: true,
-      index: true
+      required: true
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true
+      required: true
     },
     
     // Claim status and lifecycle
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected', 'cancelled', 'under_review'],
-      default: 'pending',
-      index: true
+      default: 'pending'
     },
     
     // Claim details
@@ -58,7 +54,7 @@ const badgeClaimSchema = new mongoose.Schema(
         default: 'low'
       },
       automatedDecision: { type: Boolean, default: true },
-      manualReviewRequired: { type: Boolean, default: false }
+      reviewerNotes: { type: String }
     },
     
     // Security and verification
