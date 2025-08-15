@@ -1,7 +1,5 @@
 const Blog = require('../models/blog.model');
-const { exec } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const TTSService = require('../services/TTSService');
 const axios = require('axios');
 const Comment = require('../models/comment.model');
 const logger = require('../utils/logger');
@@ -12,6 +10,8 @@ const cacheService = require('../services/CacheService');
 
 // Get singleton email service instance
 const emailService = EmailService;
+
+const ttsService = new TTSService();
 
 exports.createBlog = async (req, res) => {
   try {
@@ -127,25 +127,51 @@ exports.generateTTS = async (req, res) => {
       logger.warn(`Unauthorized TTS attempt`, { user: req.user.id, blog: blog._id });
       return res.status(403).json({ message: 'Forbidden' });
     }
-    // Prepare TTS output path
-    const ttsDir = path.join(__dirname, '../../public/tts');
-    if (!fs.existsSync(ttsDir)) fs.mkdirSync(ttsDir, { recursive: true });
-    const audioFilename = `blog-${blog._id}.wav`;
-    const audioPath = path.join(ttsDir, audioFilename);
-    // Use espeak (must be installed on server)
-    const text = blog.content.replace(/\s+/g, ' ').slice(0, 4000); // espeak limit
-    const cmd = `espeak "${text.replace(/"/g, '')}" --stdout > "${audioPath}"`;
-    exec(cmd, async (err) => {
-      if (err) {
-        logger.error(`TTS generation failed`, { user: req.user.id, blog: blog._id, error: err.message });
-        return res.status(500).json({ message: 'TTS generation failed', error: err.message });
-      }
-      // Save URL in blog
-      blog.ttsUrl = `/tts/${audioFilename}`;
-      await blog.save();
-      logger.info(`TTS generated`, { user: req.user.id, blog: blog._id, ttsUrl: blog.ttsUrl });
-      res.json({ ttsUrl: blog.ttsUrl });
+    // Generate via unified TTS service (uses provider selection and fallbacks)
+    const content = blog.content || '';
+    const result = await ttsService.generateSpeech(content, {
+      provider: req.body?.provider || 'elevenlabs',
+      voice: req.body?.voice,
+      voiceId: req.body?.voiceId,
+      voiceName: req.body?.voiceName,
+      languageCode: req.body?.languageCode,
+      ssmlGender: req.body?.ssmlGender,
+      speakingRate: req.body?.speakingRate,
+      speed: req.body?.speed,
+      language: req.body?.language,
+      stability: req.body?.stability,
+      similarityBoost: req.body?.similarityBoost,
+      style: req.body?.style,
+      useSpeakerBoost: req.body?.useSpeakerBoost,
+      pitch: req.body?.pitch,
+      volumeGainDb: req.body?.volumeGainDb,
+      effectsProfileId: req.body?.effectsProfileId
     });
+
+    blog.ttsUrl = result.url;
+    blog.ttsOptions = {
+      provider: result.provider,
+      voice: req.body?.voice,
+      voiceId: req.body?.voiceId,
+      voiceName: req.body?.voiceName,
+      languageCode: req.body?.languageCode,
+      ssmlGender: req.body?.ssmlGender,
+      speed: req.body?.speed,
+      speakingRate: req.body?.speakingRate,
+      language: req.body?.language,
+      stability: req.body?.stability,
+      similarityBoost: req.body?.similarityBoost,
+      style: req.body?.style,
+      useSpeakerBoost: req.body?.useSpeakerBoost,
+      pitch: req.body?.pitch,
+      volumeGainDb: req.body?.volumeGainDb,
+      effectsProfileId: req.body?.effectsProfileId
+    };
+    blog.audioDuration = result.duration;
+    await blog.save();
+
+    logger.info(`TTS generated`, { user: req.user.id, blog: blog._id, ttsUrl: blog.ttsUrl, provider: result.provider });
+    res.json({ ttsUrl: blog.ttsUrl, provider: result.provider, duration: result.duration, metadata: result.metadata });
   } catch (err) {
     logger.error(`TTS generation error`, { user: req.user.id, blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });

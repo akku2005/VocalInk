@@ -1,9 +1,19 @@
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../utils/logger');
 const cacheService = require('../services/CacheService');
 let RedisStore;
 try { RedisStore = require('rate-limit-redis').default || require('rate-limit-redis'); } catch (e) { RedisStore = null; }
+
+// Custom IP key generator function
+const ipKeyGenerator = (req) => {
+  // Get the real IP address considering proxies
+  const ip = req.ip || 
+             req.connection?.remoteAddress || 
+             req.socket?.remoteAddress || 
+             req.connection?.socket?.remoteAddress || 
+             'unknown';
+  return ip;
+};
 
 // Custom function to get client IP (fallback)
 function getClientIp(req) {

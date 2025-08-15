@@ -1,5 +1,4 @@
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = require('express-rate-limit');
 const logger = require('../utils/logger');
 const cacheService = require('../services/CacheService');
 let RedisStore;
@@ -9,11 +8,20 @@ const getStore = () => (RedisStore && cacheService.redisClient ? new RedisStore(
   sendCommand: (...args) => cacheService.redisClient.sendCommand(args)
 }) : undefined);
 
+// Custom IP key generator function
+const getClientIp = (req) => {
+  return req.ip || 
+         req.connection?.remoteAddress || 
+         req.socket?.remoteAddress || 
+         req.connection?.socket?.remoteAddress || 
+         'unknown';
+};
+
 // Helper to generate a consistent key that includes a safe IPv6-aware IP
 const defaultKeyGenerator = (req) => {
   const userKey = req.user ? req.user.id : 'anonymous';
   const userAgent = req.get('User-Agent') || 'unknown';
-  return `${ipKeyGenerator(req)}:${userKey}:${userAgent}`;
+  return `${getClientIp(req)}:${userKey}:${userAgent}`;
 };
 
 // AI-specific rate limiters
@@ -172,15 +180,13 @@ const fileUploadRateLimiter = rateLimit({
   }
 });
 
-// ===== ENHANCED AI RATE LIMITERS =====
-
 // Recommendation rate limiter
 const recommendationRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.RECOMMENDATION_RATE_LIMIT_PER_HOUR || 150,
   store: getStore(),
   message: {
-    message: 'Recommendation service rate limit exceeded. Please try again later.',
+    message: 'Recommendation rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
@@ -194,7 +200,7 @@ const recommendationRateLimiter = rateLimit({
     });
     
     res.status(429).json({
-      message: 'Recommendation service rate limit exceeded. Please try again later.',
+      message: 'Recommendation rate limit exceeded. Please try again later.',
       retryAfter: Math.ceil(60 * 60 / 1000)
     });
   }
@@ -206,7 +212,7 @@ const searchRateLimiter = rateLimit({
   max: process.env.SEARCH_RATE_LIMIT_PER_HOUR || 300,
   store: getStore(),
   message: {
-    message: 'Search service rate limit exceeded. Please try again later.',
+    message: 'Search rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
@@ -220,7 +226,7 @@ const searchRateLimiter = rateLimit({
     });
     
     res.status(429).json({
-      message: 'Search service rate limit exceeded. Please try again later.',
+      message: 'Search rate limit exceeded. Please try again later.',
       retryAfter: Math.ceil(60 * 60 / 1000)
     });
   }
@@ -232,7 +238,7 @@ const notificationRateLimiter = rateLimit({
   max: process.env.NOTIFICATION_RATE_LIMIT_PER_HOUR || 100,
   store: getStore(),
   message: {
-    message: 'Notification service rate limit exceeded. Please try again later.',
+    message: 'Notification rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
@@ -246,7 +252,7 @@ const notificationRateLimiter = rateLimit({
     });
     
     res.status(429).json({
-      message: 'Notification service rate limit exceeded. Please try again later.',
+      message: 'Notification rate limit exceeded. Please try again later.',
       retryAfter: Math.ceil(60 * 60 / 1000)
     });
   }
@@ -258,7 +264,7 @@ const moderationRateLimiter = rateLimit({
   max: process.env.MODERATION_RATE_LIMIT_PER_HOUR || 200,
   store: getStore(),
   message: {
-    message: 'Moderation service rate limit exceeded. Please try again later.',
+    message: 'Content moderation rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
@@ -272,13 +278,13 @@ const moderationRateLimiter = rateLimit({
     });
     
     res.status(429).json({
-      message: 'Moderation service rate limit exceeded. Please try again later.',
+      message: 'Content moderation rate limit exceeded. Please try again later.',
       retryAfter: Math.ceil(60 * 60 / 1000)
     });
   }
 });
 
-// Content clustering rate limiter
+// Clustering rate limiter
 const clusteringRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: process.env.CLUSTERING_RATE_LIMIT_PER_HOUR || 50,
@@ -310,7 +316,7 @@ const autoTaggingRateLimiter = rateLimit({
   max: process.env.AUTO_TAGGING_RATE_LIMIT_PER_HOUR || 80,
   store: getStore(),
   message: {
-    message: 'Auto-tagging service rate limit exceeded. Please try again later.',
+    message: 'Auto-tagging rate limit exceeded. Please try again later.',
     retryAfter: Math.ceil(60 * 60 / 1000)
   },
   standardHeaders: true,
@@ -324,7 +330,7 @@ const autoTaggingRateLimiter = rateLimit({
     });
     
     res.status(429).json({
-      message: 'Auto-tagging service rate limit exceeded. Please try again later.',
+      message: 'Auto-tagging rate limit exceeded. Please try again later.',
       retryAfter: Math.ceil(60 * 60 / 1000)
     });
   }

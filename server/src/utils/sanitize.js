@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 // Sanitization utility for user input
 function sanitizeInput(input, maxLength = 255) {
   if (typeof input !== 'string') return input;

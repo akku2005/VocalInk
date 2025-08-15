@@ -191,11 +191,7 @@ app.use(deviceFingerprint);
 app.use(generalRateLimit);
 app.use(speedLimiter);
 
-// Apply API-specific rate limiting
-app.use('/api', apiLimiter);
-app.use('/api', burstRateLimiter);
-
-// Sensitive operations limiter
+// Apply API-specific rate limiting (only one per route to avoid conflicts)
 app.use('/api/auth', sensitiveOperationLimiter);
 app.use('/api/users', sensitiveOperationLimiter);
 

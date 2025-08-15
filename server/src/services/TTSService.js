@@ -6,6 +6,44 @@ const textToSpeech = require('@google-cloud/text-to-speech');
 const logger = require('../utils/logger');
 const config = require('../config');
 
+// Optional Backblaze B2 S3-compatible uploader (lazy-loaded)
+let b2Uploader = null;
+async function ensureB2Uploader() {
+  if (b2Uploader) return b2Uploader;
+  if (config.ttsStorage.provider === 'b2' && config.ttsStorage.b2.bucket) {
+    try {
+      const B2Uploader = require('./storage/B2S3Storage');
+      b2Uploader = new B2Uploader({
+        region: config.ttsStorage.b2.region,
+        endpoint: config.ttsStorage.b2.endpoint,
+        bucket: config.ttsStorage.b2.bucket,
+        keyId: config.ttsStorage.b2.keyId,
+        appKey: config.ttsStorage.b2.appKey,
+        public: config.ttsStorage.b2.public,
+        signedUrlTtlSeconds: config.ttsStorage.b2.signedUrlTtlSeconds,
+      });
+      logger.info('B2 uploader initialized');
+    } catch (error) {
+      logger.warn('B2 uploader not available. Falling back to local storage.', { message: error.message });
+    }
+  } else if (config.ttsStorage.provider === 'b2_native' && (config.ttsStorage.b2Native.keyId && config.ttsStorage.b2Native.appKey)) {
+    try {
+      const B2NativeStorage = require('./storage/B2NativeStorage');
+      b2Uploader = new B2NativeStorage({
+        keyId: config.ttsStorage.b2Native.keyId,
+        appKey: config.ttsStorage.b2Native.appKey,
+        bucketName: config.ttsStorage.b2Native.bucketName || config.ttsStorage.b2.bucket,
+        bucketId: config.ttsStorage.b2Native.bucketId,
+        signedUrlTtlSeconds: config.ttsStorage.b2Native.signedUrlTtlSeconds,
+      });
+      logger.info('B2 Native uploader initialized');
+    } catch (error) {
+      logger.warn('B2 Native uploader not available. Falling back to local storage.', { message: error.message });
+    }
+  }
+  return b2Uploader;
+}
+
 class TTSService {
   constructor() {
     this.audioDir = path.join(__dirname, '../../public/audio');
@@ -94,29 +132,40 @@ class TTSService {
         timeout: 30000 // 30 second timeout
       });
 
-      // Save audio file
+      // Save audio file locally
       await fs.writeFile(audioPath, response.data);
-      
-      const audioUrl = `/tts/${filename}`;
-      logger.info('ElevenLabs audio generated successfully', { 
-        audioUrl, 
-        voiceId, 
-        textLength: cleanText.length 
-      });
-      
+
+      let url = `/tts/${filename}`;
+      let storage = 'local';
+      let authToken = null;
+
+      // Optionally upload to B2 S3 or native
+      const uploader = await ensureB2Uploader();
+      if (uploader) {
+        try {
+          const objectKey = `tts/${filename}`;
+          const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
+          if (typeof uploadRes === 'string') {
+            url = uploadRes;
+          } else if (uploadRes && uploadRes.url) {
+            url = uploadRes.url;
+            authToken = uploadRes.token || null;
+          }
+          storage = 'b2';
+        } catch (e) {
+          logger.warn('B2 upload failed, serving locally', { message: e.message });
+        }
+      }
+
+      logger.info('ElevenLabs audio generated successfully', { url, storage, voiceId, textLength: cleanText.length });
+
       return {
-        url: audioUrl,
+        url,
         path: audioPath,
         provider: 'elevenlabs',
         voiceId,
         duration: this.estimateDuration(cleanText, 150),
-        metadata: {
-          modelId,
-          stability,
-          similarityBoost,
-          style,
-          useSpeakerBoost
-        }
+        metadata: { modelId, stability, similarityBoost, style, useSpeakerBoost, storage, authToken }
       };
     } catch (error) {
       logger.error('ElevenLabs TTS generation failed:', error);
@@ -255,14 +304,37 @@ class TTSService {
             return;
           }
           
-          const audioUrl = `/audio/${filename}`;
-          logger.info('eSpeak audio generated successfully', { audioUrl });
-          resolve({
-            url: audioUrl,
-            path: audioPath,
-            provider: 'espeak',
-            duration: this.estimateDuration(cleanText, speed)
-          });
+          (async () => {
+            let audioUrl = `/audio/${filename}`;
+            let storage = 'local';
+            let authToken = null;
+
+            const uploader = await ensureB2Uploader();
+            if (uploader) {
+              try {
+                const objectKey = `audio/${filename}`;
+                const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/wav');
+                if (typeof uploadRes === 'string') {
+                  audioUrl = uploadRes;
+                } else if (uploadRes && uploadRes.url) {
+                  audioUrl = uploadRes.url;
+                  authToken = uploadRes.token || null;
+                }
+                storage = 'b2';
+              } catch (e) {
+                logger.warn('B2 upload failed, serving locally', { message: e.message });
+              }
+            }
+
+            logger.info('eSpeak audio generated successfully', { url: audioUrl, storage });
+            resolve({
+              url: audioUrl,
+              path: audioPath,
+              provider: 'espeak',
+              duration: this.estimateDuration(cleanText, speed),
+              metadata: { storage, authToken }
+            });
+          })();
         });
       });
     } catch (error) {
@@ -311,16 +383,31 @@ class TTSService {
       });
 
       await fs.writeFile(audioPath, response.data);
-      
-      const audioUrl = `/audio/${filename}`;
-      logger.info('gTTS audio generated successfully', { audioUrl });
-      
-      return {
-        url: audioUrl,
-        path: audioPath,
-        provider: 'gtts',
-        duration: this.estimateDuration(cleanText, slow ? 100 : 150)
-      };
+
+      let audioUrl = `/audio/${filename}`;
+      let storage = 'local';
+      let authToken = null;
+
+      const uploader = await ensureB2Uploader();
+      if (uploader) {
+        try {
+          const objectKey = `audio/${filename}`;
+          const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
+          if (typeof uploadRes === 'string') {
+            audioUrl = uploadRes;
+          } else if (uploadRes && uploadRes.url) {
+            audioUrl = uploadRes.url;
+            authToken = uploadRes.token || null;
+          }
+          storage = 'b2';
+        } catch (e) {
+          logger.warn('B2 upload failed, serving locally', { message: e.message });
+        }
+      }
+
+      logger.info('gTTS audio generated successfully', { url: audioUrl, storage });
+
+      return { url: audioUrl, path: audioPath, provider: 'gtts', duration: this.estimateDuration(cleanText, 150), metadata: { storage, authToken } };
     } catch (error) {
       logger.error('gTTS service error:', error);
       throw error;

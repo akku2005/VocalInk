@@ -24,7 +24,6 @@ module.exports = {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
     credentials: (() => {
       try {
-        // Only try to parse if credentials are provided and look like JSON
         if (process.env.GOOGLE_CLOUD_CREDENTIALS && process.env.GOOGLE_CLOUD_CREDENTIALS.trim().startsWith('{')) {
           return JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS);
         }
@@ -45,6 +44,29 @@ module.exports = {
       pitch: 0.0,
       volumeGainDb: 0.0,
       effectsProfileId: []
+    }
+  },
+  ttsStorage: {
+    provider: process.env.TTS_STORAGE_PROVIDER || 'local', // 'local' | 'b2' (S3-compatible) | 'b2_native'
+    // Backblaze B2 S3-compatible config
+    b2: {
+      enabled: process.env.TTS_STORAGE_PROVIDER === 'b2',
+      region: process.env.B2_S3_REGION || 'us-east-005',
+      endpoint: process.env.B2_S3_ENDPOINT || 's3.us-east-005.backblazeb2.com',
+      bucket: process.env.B2_S3_BUCKET,
+      keyId: process.env.B2_S3_KEY_ID,
+      appKey: process.env.B2_S3_APP_KEY,
+      public: process.env.B2_S3_PUBLIC === 'true',
+      signedUrlTtlSeconds: parseInt(process.env.B2_SIGNED_URL_TTL || '3600', 10),
+    },
+    // Backblaze B2 Native API config (works with Application Keys and b2_authorize_account)
+    b2Native: {
+      enabled: process.env.TTS_STORAGE_PROVIDER === 'b2_native',
+      keyId: process.env.B2_NATIVE_KEY_ID,
+      appKey: process.env.B2_NATIVE_APP_KEY,
+      bucketName: process.env.B2_NATIVE_BUCKET,
+      bucketId: process.env.B2_NATIVE_BUCKET_ID, // optional; will be resolved if not provided
+      signedUrlTtlSeconds: parseInt(process.env.B2_NATIVE_SIGNED_URL_TTL || '3600', 10),
     }
   },
   jwt: {
