@@ -25,5 +25,13 @@ router.use('/abusereports', abuseReportRoutes);
 router.use('/ai', aiRoutes);
 router.use('/tts', ttsRoutes);
 router.use('/xp', xpRoutes);
+router.use('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'index is running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 module.exports = router;

@@ -9,7 +9,36 @@ const logger = require('../utils/logger');
 
 // Protect routes with enhanced security
 const protect = async (req, res, next) => {
+  console.log('outside try Protect route hit');
   try {
+    // Development-only authentication bypass
+    console.log('Protect route hit');
+
+    if (process.env.DEV_AUTH_BYPASS === 'true') {
+      const devUserId = process.env.DEV_AUTH_USER_ID || '000000000000000000000001';
+      const devUserRole = process.env.DEV_AUTH_ROLE || req.headers['x-dev-user-role'] || 'admin';
+      const devUserEmail = process.env.DEV_AUTH_EMAIL || 'devuser@example.com';
+
+      req.user = {
+        _id: devUserId,
+        id: devUserId,
+        email: devUserEmail,
+        role: devUserRole,
+        isVerified: true,
+      };
+
+      logger.warn('DEV_AUTH_BYPASS enabled - request authenticated as dev user', {
+        userId: devUserId,
+        email: devUserEmail,
+        role: devUserRole,
+        ip: req.ip,
+        url: req.originalUrl,
+        method: req.method,
+      });
+
+      return next();
+    }
+
     let token;
 
     if (req.headers.authorization?.startsWith('Bearer')) {
@@ -136,6 +165,31 @@ const authorize = (...roles) => {
 // Optional authentication with enhanced security
 const optionalAuth = async (req, res, next) => {
   try {
+    if (process.env.DEV_AUTH_BYPASS === 'true') {
+      const devUserId = process.env.DEV_AUTH_USER_ID || '000000000000000000000001';
+      const devUserRole = process.env.DEV_AUTH_ROLE || req.headers['x-dev-user-role'] || 'admin';
+      const devUserEmail = process.env.DEV_AUTH_EMAIL || 'devuser@example.com';
+
+      req.user = {
+        _id: devUserId,
+        id: devUserId,
+        email: devUserEmail,
+        role: devUserRole,
+        isVerified: true,
+      };
+
+      logger.warn('DEV_AUTH_BYPASS enabled - optionalAuth attached dev user', {
+        userId: devUserId,
+        email: devUserEmail,
+        role: devUserRole,
+        ip: req.ip,
+        url: req.originalUrl,
+        method: req.method,
+      });
+
+      return next();
+    }
+
     let token;
 
     if (req.headers.authorization?.startsWith('Bearer')) {

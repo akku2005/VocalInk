@@ -5,6 +5,16 @@ const webSocketService = require('./src/services/WebSocketService');
 const DESIRED_PORT = parseInt(process.env.PORT, 10) || 5000;
 const MAX_ATTEMPTS = 10;
 
+// Lightweight health/heartbeat route (non-API)
+// app.get('/test', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Server is running',
+//     environment: process.env.NODE_ENV || 'development',
+//     timestamp: new Date().toISOString(),
+//   });
+// });
+
 function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
   const server = app.listen(startPort, () => {
     logger.success(`🚀 Server is running on port ${startPort}`);

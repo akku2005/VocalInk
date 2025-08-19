@@ -5,6 +5,7 @@ const blogSchema = new mongoose.Schema(
     title: { type: String, required: true },
     content: { type: String, required: true },
     summary: { type: String },
+    slug: { type: String, unique: true, sparse: true },
     author: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -18,8 +19,13 @@ const blogSchema = new mongoose.Schema(
       enum: ['draft', 'published', 'private'],
       default: 'draft',
     },
-    mood: { type: String },
+    mood: { 
+      type: String, 
+      enum: ['Motivational', 'Thoughtful', 'Educational', 'Other'],
+      default: 'Other'
+    },
     language: { type: String, default: 'en' },
+    publishedAt: { type: Date },
     
     // AI-generated fields
     aiSummary: { type: String },
@@ -65,6 +71,8 @@ blogSchema.index({ readingTime: 1 });
 blogSchema.index({ seoScore: -1 });
 blogSchema.index({ 'likedBy': 1 });
 blogSchema.index({ 'bookmarkedBy': 1 });
+blogSchema.index({ slug: 1 }); // Slug index for fast lookups
+blogSchema.index({ mood: 1 }); // Mood index for filtering
 // createdAt index already covered by status+createdAt composite
 blogSchema.index({ updatedAt: -1 });
 blogSchema.index({ title: 'text', content: 'text', summary: 'text' }); // Text search index
