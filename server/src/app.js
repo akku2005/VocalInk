@@ -5,6 +5,8 @@ const dotenv = require('dotenv');
 const swaggerUi = require('swagger-ui-express');
 const compression = require('compression');
 const Sentry = require('@sentry/node');
+const path = require('path');
+const TTSService = require('./services/TTSService');
 // Removed express-mongo-sanitize due to Express 5 compatibility issues
 
 const swaggerDocument = require('../swagger.json');
@@ -79,6 +81,27 @@ if (process.env.NODE_ENV !== 'test') {
         cleanupExpiredBlacklistedTokens().catch(error => {
           logger.error('Initial token cleanup failed:', { message: error.message, name: error.name, code: error.code });
         });
+
+        // Schedule cleanup of generated TTS/audio files
+        if (process.env.ENABLE_TTS_CLEANUP === 'true') {
+          const ttsService = new TTSService();
+          const retentionHours = parseInt(process.env.TTS_FILE_RETENTION_HOURS || '24', 10);
+          const retentionMs = retentionHours * 60 * 60 * 1000;
+
+          // Daily cleanup
+          setInterval(async () => {
+            try {
+              await ttsService.cleanupOldFiles(retentionMs);
+            } catch (error) {
+              logger.error('Scheduled TTS cleanup failed:', { message: error.message, name: error.name, code: error.code });
+            }
+          }, 24 * 60 * 60 * 1000);
+
+          // Initial cleanup on startup
+          ttsService.cleanupOldFiles(retentionMs).catch(error => {
+            logger.error('Initial TTS cleanup failed:', { message: error.message, name: error.name, code: error.code });
+          });
+        }
       }
     })
     .catch((err) => {
@@ -195,7 +218,7 @@ app.use(speedLimiter);
 app.use('/api/auth', sensitiveOperationLimiter);
 app.use('/api/users', sensitiveOperationLimiter);
 
-// Custom morgan format with colors and security info
+// Custom logging tokens and format
 morgan.token('status-color', (req, res) => {
   const status = res.statusCode;
   const color =
@@ -276,6 +299,25 @@ app.get('/health', async (req, res) => {
 
   res.json(health);
 });
+
+// Serve generated audio (TTS and other audio) with cache and range support
+const staticCacheMaxAge = process.env.STATIC_MAX_AGE || '1d';
+const audioStaticOptions = {
+  maxAge: staticCacheMaxAge,
+  setHeaders: (res, filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.mp3') res.setHeader('Content-Type', 'audio/mpeg');
+    if (ext === '.wav') res.setHeader('Content-Type', 'audio/wav');
+    if (ext === '.ogg') res.setHeader('Content-Type', 'audio/ogg');
+    if (ext === '.m4a') res.setHeader('Content-Type', 'audio/mp4');
+    if (['.mp3', '.wav', '.ogg', '.m4a'].includes(ext)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
+  }
+};
+app.use('/tts', express.static(path.join(__dirname, '../public/tts'), audioStaticOptions));
+app.use('/audio', express.static(path.join(__dirname, '../public/audio'), audioStaticOptions));
 
 // Swagger setup (disable in production)
 if (process.env.NODE_ENV !== 'production') {
