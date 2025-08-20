@@ -149,11 +149,6 @@ badgeSchema.virtual('earnedCount').get(function () {
   return this.analytics.totalEarned;
 });
 
-// Virtual for active status
-badgeSchema.virtual('isActive').get(function () {
-  return this.status === 'active';
-});
-
 // Pre-save middleware for validation and updates
 badgeSchema.pre('save', function(next) {
   // Update analytics if needed

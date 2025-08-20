@@ -10,7 +10,7 @@ class TTSQueueService {
     this.deadLetterQueue = null;
     this.circuitBreakers = new Map();
     this.healthChecks = new Map();
-    this.initialize();
+    // Don't call initialize() in constructor - it will be called explicitly
   }
 
   async initialize() {

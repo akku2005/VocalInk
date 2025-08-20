@@ -6,8 +6,7 @@ const badgeClaimSchema = new mongoose.Schema(
     // Core identification
     claimId: {
       type: String,
-      required: true,
-      unique: true
+      required: true
     },
     
     // Badge and user references
@@ -133,7 +132,7 @@ const badgeClaimSchema = new mongoose.Schema(
 );
 
 // Indexes for performance and querying
-badgeClaimSchema.index({ claimId: 1 });
+badgeClaimSchema.index({ claimId: 1 }, { unique: true });
 badgeClaimSchema.index({ badgeId: 1, userId: 1 });
 badgeClaimSchema.index({ status: 1, createdAt: -1 });
 badgeClaimSchema.index({ userId: 1, status: 1 });
