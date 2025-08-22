@@ -4,7 +4,7 @@ export default function Footer() {
   return (
     <footer className="bg-[#3d2c1a] text-gray-300">
       {/* Newsletter Section */}
-      <div className=" text-white py-12 px-6">
+      <div className="text-white py-12 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <h3 className="text-3xl font-medium tracking-tight mb-3">
             Stay in the Loop
@@ -12,15 +12,15 @@ export default function Footer() {
           <p className="mb-6 text-sm md:text-base">
             Subscribe to get the latest posts & updates delivered to your inbox.
           </p>
-          <form className="flex flex-col sm:flex-row items-center justify-center">
+          <form className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <input
               type="email"
               placeholder="Enter your email"
-              className="w-full sm:w-2/3 px-4 py-3 rounded-md border border-gray-300 text-gray-200 focus:outline-none "
+              className="w-full sm:w-2/3 px-4 py-3 rounded-md border border-gray-300 text-gray-200 focus:outline-none"
             />
             <button
               type="submit"
-              className="mt-3 sm:mt-0 sm:ml-3 px-6 py-3 bg-amber-600 text-white font-medium rounded-md hover:bg-gray-800 transition"
+              className="px-6 py-3 bg-amber-600 text-white font-medium rounded-md hover:bg-gray-800 transition w-full sm:w-auto"
             >
               Subscribe
             </button>
@@ -29,7 +29,7 @@ export default function Footer() {
       </div>
 
       {/* Footer Links */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 px-6 py-14">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 px-6 py-14">
         {/* Brand */}
         <div>
           <h2 className="text-2xl font-semibold text-white font-sans">
@@ -99,7 +99,7 @@ export default function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-wide mb-4">
             Connect
           </h3>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <a href="#" className="hover:text-white">
               Twitter
             </a>
@@ -114,9 +114,9 @@ export default function Footer() {
       </div>
 
       {/* Bottom line */}
-      <div className="border-t border-gray-600 py-6 px-6 text-sm flex flex-col md:flex-row justify-between items-center">
+      <div className="border-t border-gray-600 py-6 px-6 text-sm flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0">
         <p>© 2025 VocalLink. All rights reserved.</p>
-        <div className="flex gap-4 mt-3 md:mt-0">
+        <div className="flex gap-4 flex-wrap justify-center md:justify-end">
           <a href="/terms" className="hover:text-white">
             Terms
           </a>
