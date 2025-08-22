@@ -9,26 +9,16 @@ const ThemedApp = () => {
 
   return (
     <div
-      className={`relative min-h-screen
-    ${
-      theme === "light"
-        ? "bg-gradient-to-b from-[#FCF9F5] to-[#F2E8D5]"
-        : "bg-[#1A1A1A]"
-    }
-  `}
+      className={`relative min-h-screen ${
+        theme === "light" ? "bg-[#f7ede1]" : "bg-[#1A1A1A]"
+      }`}
     >
-      {/* Gradient overlay only in dark mode */}
-      {theme === "dark" && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(198,173,143,0.3)] to-transparent z-0" />
-      )}
+      <Navbar />
 
-      {/* Actual content */}
-      <div className="relative z-10">
-        <Navbar />
-        <main className="pt-20 px-2">
-          <AppRoutes />
-        </main>
-      </div>
+      {/* Page Routes */}
+      <main className="pt-20 ">
+        <AppRoutes />
+      </main>
     </div>
   );
 };

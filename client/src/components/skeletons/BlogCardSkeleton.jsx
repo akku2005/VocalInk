@@ -3,7 +3,7 @@ import Skeleton from "./Skeleton.jsx";
 export default function BlogCardSkeleton() {
   return (
     <div className="m-5.5 mb-0 flex justify-center">
-      <div className="w-full max-w-[900px] flex flex-col gap-6">
+      <div className="w-full max-w-[820px] flex flex-col gap-6">
         {/* search bar skeleton */}
         <div className="relative">
           <Skeleton className="w-full h-12 rounded-full" />

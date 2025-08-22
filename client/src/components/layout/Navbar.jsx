@@ -2,8 +2,11 @@ import React, { useState, useRef } from "react";
 import "../../styles/Navbar.css";
 import Tooltip from "../ui/Tooltip";
 import { useTheme } from "../context/ThemeContext";
+
 import IconButton from "../ui/IconButton";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   SearchIcon,
   LucideBell,
@@ -37,50 +40,58 @@ export default function Navbar() {
   };
   return (
     <nav
-      className="w-full  px-3 py-1  navbar-container  bg-[var(--navbar-bg-color)] 
-             backdrop-blur-sm 
-  fixed top-0 left-0 z-50
-"
+      className={`w-full  px-3 py-1   backdrop-blur-md navbar-container  
+  fixed top-0 left-0 z-50 ${
+    theme === "light"
+      ? "bg-[#f7ede1]/80 border-gray-200"
+      : "bg-[#1A1A1A]/80 border-gray-700"
+  }`}
     >
-      <div className=" mx-auto    flex items-center justify-between  px-4 py-2 rounded-full">
+      <div className=" mx-auto    flex items-center justify-between  px-4 py-1.5 rounded-full">
         {/* Left: Logo */}
         <div className="text-[1.2rem] font-bold flex flex-row items-center  gap-8">
           <Link to="/" className="cursor-pointer ">
-            <h3 className="text-[var(--nav-logo-text-color)] font-semibold tracking-tight ">
+            <h3
+              className="text-[var(--main-headline-color)] font-semibold tracking-tight   text-[1.3rem]"
+              style={{ fontFamily: "Montserrat, sans-serif" }}
+            >
               {" "}
-              bloggr
+              VocalLink
             </h3>
           </Link>
 
           <div className="hidden md:flex  items-center gap-8">
-            <a
-              href="/"
-              onMonMouseEnter={(e) =>
-                (e.currentTarget.style.color = "var(--nav-links-hover-color)")
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                `relative ${
+                  isActive ? "text-[#ca7308]" : "text-[var(--nav-links-color)]"
+                } hover:!text-[var(--nav-links-hover-color)] font-normal tracking-wide text-[0.89rem] transition-colors duration-300 ease-out group`
               }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "var(--nav-links-color)")
-              }
-              className="text-[var(--nav-links-color)] hover:text-[var(--nav-links-hover-color)]   font-medium tracking-wide 
-              transition-colors duration-300 ease-out relative group"
             >
               Home
-              <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[var(--nav-links-color)] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
-            </a>
+              <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[#ca7308] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
+            </NavLink>
+
             <div
               className=" relative"
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
               <div className="flex  cursor-pointer items-center gap-1 p-2">
-                <a
-                  href="#"
-                  className="text-[var(--nav-links-color)] hover:text-[var(--nav-links-hover-color)] font-medium tracking-wide 
-              transition-colors duration-300 ease-out relative group"
+                <NavLink
+                  to="/explore"
+                  className={({ isActive }) =>
+                    `relative ${
+                      isActive
+                        ? "text-[#ca7308]"
+                        : "text-[var(--nav-links-color)]"
+                    } hover:!text-[var(--nav-links-hover-color)] font-normal tracking-wide text-[0.89rem] transition-colors duration-300 ease-out group`
+                  }
                 >
                   Explore
-                  <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[var(--nav-links-color)] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
-                </a>
+                  <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[#ca7308] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
+                </NavLink>
                 {isOpen ? (
                   <ChevronUp className="h-5 w-5 text-[var(--nav-links-color)]" />
                 ) : (
@@ -159,52 +170,74 @@ export default function Navbar() {
                       </li>
                     </ul>
                   </div>
+                  <NavLink
+                    to="/"
+                    className={({ isActive }) =>
+                      `relative ${
+                        isActive
+                          ? "text-[#ca7308]"
+                          : "text-[var(--nav-links-color)]"
+                      } hover:!text-[var(--nav-links-hover-color)] font-normal tracking-wide text-[0.89rem] transition-colors duration-300 ease-out group`
+                    }
+                  >
+                    Home
+                    <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[#ca7308] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
+                  </NavLink>
                 </div>
               )}
             </div>
-            <a
-              href="#"
-              className="text-[var(--nav-links-color)] hover:text-[var(--nav-links-hover-color)] font-medium tracking-wide 
-              transition-colors duration-300 ease-out relative group"
+            <NavLink
+              to="/about"
+              className={({ isActive }) =>
+                `relative ${
+                  isActive ? "text-[#ca7308]" : "text-[var(--nav-links-color)]"
+                } hover:!text-[var(--nav-links-hover-color)] font-normal tracking-wide text-[0.89rem] transition-colors duration-300 ease-out group`
+              }
             >
-              Create
-              <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[var(--nav-links-color)] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
-            </a>
+              About
+              <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[#ca7308] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
+            </NavLink>
+
+            <NavLink
+              to="/contact"
+              className={({ isActive }) =>
+                `relative ${
+                  isActive ? "text-[#ca7308]" : "text-[var(--nav-links-color)]"
+                } hover:!text-[var(--nav-links-hover-color)] font-normal tracking-wide text-[0.89rem] transition-colors duration-300 ease-out group`
+              }
+            >
+              Contact
+              <span className="absolute left-0 bottom-0 w-full h-[2px] bg-[#ca7308] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></span>
+            </NavLink>
           </div>
         </div>
 
         {/* Desktop Menu */}
 
         {/* Right: Search + Icons */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {/* Search input */}
           <div className="relative hidden sm:flex items-center">
             <input
               type="text"
               placeholder="Search"
-              className="bg-[var(--nav-searchbar)] text-[var(--nav-searchbar-text)] placeholder-[var(--navbar-placeholder-text)] 
-              focus:ring-1 focus:ring-[var(--navbar-searchbar-focus-ring)] focus:outline-none
-             shadow-md  
-             rounded-full px-4 pl-12 py-3.5 w-[190px] md:w-[290px]"
+              className=" bg-[var(--nav-searchbar)] text-[var(--nav-searchbar-text)] placeholder-[var(--navbar-placeholder-text)] 
+              focus:ring-1 focus:ring-[var(--navbar-searchbar-focus-ring)] text-[0.89rem] focus:outline-none
+              
+             rounded-full px-4 pl-11.5 py-2.5 text-sm w-[190px] md:w-[290px]"
             />
 
             <span className="absolute left-3 text-[var(--nav-searchbar-text)]">
-              <SearchIcon size={27} />
+              <SearchIcon size={24} />
             </span>
           </div>
 
-          {/* Bell */}
-          <Tooltip content="Notifications">
-            <IconButton icon={LucideBell} />
-          </Tooltip>
-
           {/* change theme icon */}
-          <Tooltip content="Theme">
-            <IconButton
-              icon={theme === "light" ? Moon : Sun}
-              onClick={toggleTheme}
-            />
-          </Tooltip>
+
+          {/* Bell */}
+          {/* <Tooltip content="Notifications">
+            <IconButton icon={LucideBell} className="   " />
+          </Tooltip> */}
 
           {/* Avatar */}
           {/* <Tooltip content="Profile">
@@ -212,19 +245,26 @@ export default function Navbar() {
           </Tooltip> */}
 
           {/* Login button */}
-          <button className="bg-[var(--login-btn-bg-color)] hover:bg-[#B39773] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-300 cursor-pointer">
-            Login
+          <button className="      border border-gray-300 text-[var(--nav-links-color)]   px-4 py-[6px] rounded-lg transition-colors duration-300 cursor-pointer text-[0.89rem]">
+            Sign In
           </button>
 
-          <button className="bg-[#948A7A] hover:bg-[#7F7564] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-300 cursor-pointer">
-            Register
+          <button className="  bg-amber-600   text-white   px-4 py-[6.5px] rounded-lg transition-colors duration-300 cursor-pointer text-[0.89rem]">
+            Sign Up
           </button>
+
+          <Tooltip content="Theme">
+            <IconButton
+              icon={theme === "light" ? Sun : Moon}
+              onClick={toggleTheme}
+            />
+          </Tooltip>
           {/* Hamburger for Mobile */}
           <button
             className="md:hidden text-blue-950"
             onClick={() => setMenuOpen(!menuOpen)}
           >
-            <Menu size={26} />
+            <Menu size={23} />
           </button>
         </div>
       </div>

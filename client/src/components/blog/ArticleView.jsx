@@ -50,35 +50,41 @@ export default function ArticleView() {
 
   return (
     <div className="m-5.5 mb-0 flex justify-center ">
-      <div className="w-full max-w-[780px] flex flex-col gap-3 ">
+      <div className="w-full max-w-[670px] flex flex-col gap-3 ">
         <Breadcrumb />
         <h1
-          className="text-3xl md:text-4xl font-bold leading-tight mb-2 p-4 pb-0 pt-0 mt-4 "
+          className="text-3xl md:text-4xl font-bold leading-tight mb-1 p-4 pb-0 pt-0 mt-5 "
           style={{ color: "var(--headings-color)" }}
         >
           {article.title}
         </h1>
         <span
-          className="text-sm  mb-0 p-4 pb-0 pt-0"
-          style={{ color: "var( --sub-heading-text)" }}
+          className="text-xs  mb-0 p-4 pb-0 pt-0"
+          style={{ color: "var(--sub-heading-text)" }}
         >
           By{" "}
           <span
-            style={{ color: "var( --links-color)" }}
+            style={{ color: "var(--links-color)" }}
             className=" font-medium"
           >
             {article.aurthor}
           </span>{" "}
           . Published on {formattedDate}
         </span>
-        <div className="flex gap-4 px-4 py-3 mt-3">
+        <div className="flex gap-4 px-3 py-1 mb-4">
           {buttonsText.map((item, index) => (
             <button
               key={index}
-              className="flex cursor-pointer flex-col gap-1.5 items-center text-sm transition-colors"
+              className="flex cursor-pointer flex-col items-center text-sm transition-colors"
             >
-              <IconButton icon={item.icon} />
-              <span className="mt-1 text-[#5C4F3B] hover:text-[#534735]">
+              <IconButton
+                icon={item.icon}
+                className="bg-transparent hover:bg-[var(--btn-hover-color)]"
+              />
+              <span
+                style={{ color: "var(--paragraph-text-color)" }}
+                className="  hover:text-[#534735] "
+              >
                 {item.name}
               </span>
             </button>
@@ -97,7 +103,10 @@ export default function ArticleView() {
             alt="A vibrant, modern office space with plants and natural light."
             className="w-full h-fit rounded-xl shadow-md"
           />
-          <figcaption className="mt-2 text-center text-sm text-gray-500">
+          <figcaption
+            className="mt-2 text-center text-sm "
+            style={{ color: "var(--sub-heading-text)" }}
+          >
             A caption
           </figcaption>
         </figure>

@@ -1,5 +1,5 @@
 import React from "react";
-import BlogCard from "../components/blog/BlogCard.jsx";
+import BlogCard from "../components/ui/WelcomeText.jsx";
 import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
 import { useState, useEffect } from "react";
 export default function BlogPage() {

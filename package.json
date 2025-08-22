@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "framer-motion": "^12.23.12",
     "lucide-react": "^0.534.0",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0"

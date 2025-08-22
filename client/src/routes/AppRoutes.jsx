@@ -1,13 +1,15 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import BlogPage from "../pages/BlogPage.jsx";
-import ArticlePage from "../pages/ArticlePage.jsx";
+
+import Login from "../components/auth/Login.jsx";
+
+import LayoutWrapper from "../components/layout/LayoutWrapper.jsx";
 
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<BlogPage />} />
-      <Route path="/article/:id" element={<ArticlePage />} />
+      <Route path="/" element={<LayoutWrapper />} />
+      <Route path="/login" element={<Login />} />
     </Routes>
   );
 }

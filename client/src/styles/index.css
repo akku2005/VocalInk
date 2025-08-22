@@ -1,103 +1,121 @@
 @import "tailwindcss";
-@import "@fontsource/poppins/400.css"; 
-@import '@fontsource/dancing-script/400.css'; 
-*{
-font-family: "Poppins", sans-serif;
-font-weight: 400;
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/dancing-script/400.css";
+@import "@fontsource/montserrat/700.css"; 
+@import "@fontsource/merriweather/400.css"; 
+@import "@fontsource/merriweather/300.css"; body */
+* {
+  font-family: "Merriweather", serif;
+  font-weight: 400;
 }
-h1 {
-  font-weight: 700;
-  font-size: 2.5rem; 
-}
-h2{
-  font-weight: 600;
-  font-size: 1.4rem; 
-}
-h3{
-  font-weight: 600;
-  font-size: 1.6rem; 
-  font-family: 'Dancing Script', cursive;
-}
-h4{
-  font-size: 1.1rem; 
-  font-weight: 500;
-}
-h5{
-  font-size: 1rem; 
-  font-weight: 500;
-}
-p{
-   font-size: 1.2rem; 
-}
-a{
-  font-size: 1.05rem;
-  font-weight: 500;
-}
-input{
-  font-size: 0.88rem;
+.main-heading{
+  font-family: "Montserrat", sans-serif;
+ 
   
 }
-button{
-  font-size: 0.88rem;
-  font-weight: 500;
+.sub-heading{
+  font-family: "Montserrat", sans-serif;
+  
 }
-span{
-  font-size: 0.95rem;
-}
+/* .main-containerr{
+  background-image: url("./../assets/images/circle.svg");
+  background-size: cover;   
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 100vh;
+
+} */
 :root {
-   --headings-color:#2e291f;
-  --sub-heading-text:#443a2d;
+  /* text color */
+  --headings-color: #2e291f;
+  --sub-heading-text: #443a2d;
   --paragraph-text-color: #686052;
-  --links-color:  #ca7308;
+
+  /* links color */
+  --links-color: #ca7308;
   --links-hover-color: #cc8743;
-  --btn-bg-color: #F0E5D5;
+
+  /* button colors */
+  --btn-bg-color: #f0e5d5;
   --btn-bg-color2: #e4d1b4;
-   --btn-hover-color: #E8D7C1;
-   --btn-hover-color2: #e9c89e;
-   --btn-text-color: #362e24;
+  --btn-hover-color: #ecdfcd;
+  --btn-hover-color2: #ece6dd;
+  --btn-text-color: #362e24;
+  
+  /* navbar items color */
+  --navbar-bg-color: #efeae366;
+  --nav-logo-text-color: #3d2c1a;
+  --nav-links-color: #2e291f;
+  --nav-links-hover-color: #c6ad8f;
+  --nav-searchbar: #ecdfcd;
+  --nav-searchbar-text: #5a4a38;
+  --navbar-searchbar-placeholder: #a89c8b;
+  --navbar-searchbar-focus-ring: #c6ad8f;
+  --login-btn-bg-color: #c6ad8f;
+  --navbar-icon-color: #2e291f;
 
-    --navbar-bg-color: #EFEAE366;
-    --nav-logo-text-color: #2e291f;
-     --nav-links-color: #2e291f;
-     --nav-links-hover-color:#C6AD8F;
-      --nav-searchbar: #EFEAE3;
-       --nav-searchbar-text: #5A4A38;
-       --navbar-searchbar-placeholder: 	#A89C8B;
-       --navbar-searchbar-focus-ring: #C6AD8F;
+  /* Welcome Text */
+  --main-headline-color: #3d2c1a;
+  --sub-healine-color:  #6b543b;
+  --details-text: #5c5046;
 
-        --login-btn-bg-color: #C6AD8F;
-       
+    /* Featured Articles  */
+  --bg-color: #ffffff;
+  --buttons-color: #e7e5e5;
+  --headlines: #312415;
+
+  /* Trending */
+  --buttons-color2: #dad7d7;
+  
+  /* breadcrumb  */
+  --breadcrumb-bg-color: #f3eee5;
 }
 
 .dark {
-  --headings-color: rgb(248, 248, 248);
-  --sub-heading-text:#332f28;
-   --links-color: #cc8743;
-   --links-hover-color: #532e00;
-   --paragraph-text-color: #726b5e;
-   --btn-bg-color: #F0E5D5;
-    --btn-bg-color2: #e9d0aa;
-   --btn-hover-color: #E8D7C1;
-    --btn-text-color: #362e24;
+   /* text color */
+  --headings-color: #ede9e0;
+  --sub-heading-text: #9b9082;
+  --links-color: #cc8743;
+  --links-hover-color: #532e00;
+  --paragraph-text-color: #d3c9b7;
 
-    --navbar-bg-color: #EFEAE366;
-    --nav-logo-text-color: #E3D3B3;
-    --nav-links-color: #d8a362;
-    --nav-links-hover-color: #cca35c;
-    --nav-searchbar: #493f34;
-    --nav-searchbar-text: #E3D3B3;
-    --navbar-placeholder-text: 	#C6AD8F;
-     --navbar-searchbar-focus-ring: #A68C6D;
+  /* links color */
+  --btn-bg-color: #272727;
+  --btn-bg-color2: #e9d0aa;
+  --btn-hover-color: #272727;
+  --btn-text-color: #362e24;
 
-    --login-btn-bg-color: #C6AD8F;
-   
+/* navbar items color */
+  
+  --nav-logo-text-color: #e3d3b3;
+  
+  --nav-links-color: #e4ded5;
+  --nav-links-hover-color: #cca35c;
+  --nav-searchbar: #272727;
+  --nav-searchbar-text: #e3d3b3;
+  --navbar-placeholder-text: #c6ad8f;
+  --navbar-searchbar-focus-ring: #a68c6d;
+  --login-btn-bg-color: #c6ad8f;
+  --navbar-icon-color: #e4ded5;
+  --navbar-btn-text-hover-color: rgb(41, 40, 40);
+
+    /* Welcome Text */
+  --main-headline-color: #ffffff;
+  --sub-healine-color:  #b9bbc0;
+  --details-text: #979da7;
+
+  /* Featured Articles  */
+  --bg-color: #272727;
+  --buttons-color: #3f3f3f;
+  --headlines: #ddd9d9;
+  
+  /* Trending */
+  --buttons-color2:#2e2e2e;
+  /* breadcrumb  */
+  --breadcrumb-bg-color: #242424;
 }
 
 body {
- 
   transition: all 0.3s ease;
-}
-
-.custom-hover-link:hover {
-  color: var(--links-hover-color);
+  
 }
