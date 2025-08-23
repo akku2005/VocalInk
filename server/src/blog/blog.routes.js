@@ -1,5 +1,4 @@
 const express = require('express');
-const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
 const blogController = require('./blog.controller');
@@ -9,79 +8,100 @@ const {
   awardBlogPublishingXP, 
   awardBlogUpdateXP 
 } = require('../middleware/xpMiddleware');
-
-// Validation middleware
-function validate(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  next();
-}
+const {
+  validateCreateBlog,
+  validateUpdateBlog,
+  validateBlogId,
+  validateBlogSlug,
+  validateBlogListQuery
+} = require('../middleware/blogValidation');
 
 // Apply general API rate limiting to all blog routes
-router.use(apiLimiter);
+// router.use(apiLimiter);
 
-router.get('/', blogController.getBlogs);
+// Public routes
+router.get('/tag',blogController.getBlogs);
+router.get('/getBlogs',  blogController.getallBlogs);
+router.get('/slug/:slug',  blogController.getBlogBySlug);
 router.get('/:id', blogController.getBlogById);
+
+// Protected routes
 router.post(
-  '/',
-  protect,
-  [body('title').notEmpty(), body('content').notEmpty()],
-  validate,
+  '/addBlog',
+   protect,
+  //validateCreateBlog,
   blogController.createBlog,
-  awardBlogCreationXP
+  // awardBlogCreationXP
 );
+
 router.put(
   '/:id',
   protect,
-  [body('title').optional().notEmpty(), body('content').optional().notEmpty()],
-  validate,
+  // validateUpdateBlog,
   blogController.updateBlog,
   awardBlogUpdateXP
 );
-router.delete('/:id', protect, blogController.deleteBlog);
+
+router.delete('/:id', protect, validateBlogId, blogController.deleteBlog);
+
+// New endpoints
+router.post(
+  '/:id/summary',
+  protect,
+  validateBlogId,
+  blogController.regenerateSummary
+);
+
+router.put(
+  '/:id/publish',
+  protect,
+  validateBlogId,
+  blogController.publishBlog,
+  awardBlogPublishingXP
+);
 
 // Advanced endpoints (with validation)
+const { param, body } = require('express-validator');
+
 router.post(
   '/:id/tts',
   protect,
   [param('id').isMongoId()],
-  validate,
+  validateBlogId[validateBlogId.length - 1], // Use the validation handler from validateBlogId
   blogController.generateTTS
 );
 router.post(
   '/:id/translate',
   protect,
   [param('id').isMongoId(), body('targetLang').notEmpty()],
-  validate,
+  validateBlogId[validateBlogId.length - 1],
   blogController.translateBlog
 );
 router.post(
   '/:id/like',
   protect,
   [param('id').isMongoId()],
-  validate,
+  validateBlogId[validateBlogId.length - 1],
   blogController.likeBlog
 );
 router.post(
   '/:id/bookmark',
   protect,
   [param('id').isMongoId()],
-  validate,
+  validateBlogId[validateBlogId.length - 1],
   blogController.bookmarkBlog
 );
 router.get(
   '/:id/comments',
   [param('id').isMongoId()],
-  validate,
+  validateBlogId[validateBlogId.length - 1],
   blogController.getBlogComments
 );
 router.post(
   '/:id/comments',
   protect,
   [param('id').isMongoId(), body('content').notEmpty()],
-  validate,
+  validateBlogId[validateBlogId.length - 1],
   blogController.addBlogComment
 );
 

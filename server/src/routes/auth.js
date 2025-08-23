@@ -28,12 +28,25 @@ const {
   twoFactorVerificationSchema
 } = require('../validations/authSchema');
 
+console.log('Auth route hit');
+
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+  });
+console.log('Test route hit');
+
+});
+
 // Helper to wrap controller methods
-function routeHandler(fn) {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-}
+// function routeHandler(fn) {
+//   return (req, res, next) => {
+//     Promise.resolve(fn(req, res, next)).catch(next);
+//   };
+// }
 
 /**
  * @swagger
@@ -331,15 +344,17 @@ function validateJoi(schema) {
 // Routes with enhanced validation and security
 router.post(
   '/register',
-  registerLimiter,
-  validateJoi(registerSchema),
+  // registerLimiter,
+  // validateJoi(registerSchema),
   authController.register
 );
 
+
+
 router.post(
   '/login',
-  loginLimiter,
-  validateJoi(loginSchema),
+  // loginLimiter,
+  // validateJoi(loginSchema),
   authController.login
 );
 

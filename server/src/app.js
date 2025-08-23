@@ -42,6 +42,15 @@ dotenv.config();
 
 const app = express();
 
+app.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Trust proxy for correct client IPs behind reverse proxies (e.g., Nginx, Cloudflare)
 app.set('trust proxy', 1);
 
@@ -215,8 +224,8 @@ app.use(generalRateLimit);
 app.use(speedLimiter);
 
 // Apply API-specific rate limiting (only one per route to avoid conflicts)
-app.use('/api/auth', sensitiveOperationLimiter);
-app.use('/api/users', sensitiveOperationLimiter);
+// app.use('/api/auth', sensitiveOperationLimiter);
+// app.use('/api/users', sensitiveOperationLimiter);
 
 // Custom logging tokens and format
 morgan.token('status-color', (req, res) => {

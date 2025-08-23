@@ -149,6 +149,10 @@ badgeSchema.virtual('earnedCount').get(function () {
   return this.analytics.totalEarned;
 });
 
+// TEMP FIX: renamed virtual to avoid conflict with real field
+badgeSchema.virtual('isActiveComputed').get(function () {
+  return this.status === 'active';
+});
 // Pre-save middleware for validation and updates
 badgeSchema.pre('save', function(next) {
   // Update analytics if needed
