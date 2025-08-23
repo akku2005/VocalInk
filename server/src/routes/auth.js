@@ -3,6 +3,7 @@ const router = express.Router();
 const { body } = require('express-validator');
 const { StatusCodes } = require('http-status-codes');
 const Joi = require('joi');
+const logger = require('../utils/logger');
 
 const authController = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
