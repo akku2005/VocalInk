@@ -239,7 +239,7 @@ badgeClaimSchema.methods.checkRateLimit = function() {
 
 badgeClaimSchema.methods.generateSignature = function() {
   const data = `${this.badgeId}-${this.userId}-${this.claimedAt.getTime()}`;
-  const secret = process.env.BADGE_SECRET || 'default-secret';
+      const secret = process.env.BADGE_SECRET || 'CHANGE_THIS_IN_PRODUCTION';
   return crypto.createHmac('sha256', secret).update(data).digest('hex');
 };
 
