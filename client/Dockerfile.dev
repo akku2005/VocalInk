@@ -1,0 +1,27 @@
+# Development Dockerfile for VocalInk Client
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies for development
+RUN apk add --no-cache libc6-compat
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 5173
+
+# Set environment variables for development
+ENV NODE_ENV=development
+ENV PORT=5173
+
+# Start development server with Vite
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"] 

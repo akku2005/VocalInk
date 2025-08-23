@@ -1,10 +1,11 @@
 const { body, param, query, validationResult } = require('express-validator');
 const Joi = require('joi');
 const { StatusCodes } = require('http-status-codes');
+const { ObjectId } = require('mongodb');
+
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
-const { ObjectId } = require('mongodb');
-const { BadRequestError } = require('../utils/errors');
+const { BadRequestError, ValidationError } = require('../utils/errors');
 const { sanitizeInput, isDisposableEmailDomain } = require('../utils/sanitize');
 
 // Validation Constants
@@ -14,34 +15,35 @@ const VALIDATION = {
     STATUS: ['active', 'inactive', 'suspended'],
     MIN_PASSWORD_LENGTH: 8,
     MAX_NAME_LENGTH: 100,
-    MIN_NAME_LENGTH: 2
+    MIN_NAME_LENGTH: 2,
   },
   PROJECT: {
     STATUS: ['active', 'completed', 'on-hold', 'cancelled'],
-    MEMBER_ROLES: ['member', 'lead', 'manager']
+    MEMBER_ROLES: ['member', 'lead', 'manager'],
   },
   TIMESHEET: {
     MAX_HOURS_PER_DAY: 24,
     MIN_TASK_LENGTH: 1,
     MAX_TASK_LENGTH: 1000,
     MAX_REJECTION_REASON_LENGTH: 1000,
-    MIN_REJECTION_REASON_LENGTH: 10
+    MIN_REJECTION_REASON_LENGTH: 10,
   },
   COMMON: {
     MIN_DESCRIPTION_LENGTH: 1,
     MAX_DESCRIPTION_LENGTH: 2000,
-    DATE_FORMAT: 'YYYY-MM-DD'
-  }
+    DATE_FORMAT: 'YYYY-MM-DD',
+  },
 };
 
 // Custom Validators
 const customValidators = {
   password: (value) => {
-    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const regex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!regex.test(value)) {
       throw new Error(
         `Password must be at least ${VALIDATION.USER.MIN_PASSWORD_LENGTH} characters ` +
-        'and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+          'and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
       );
     }
     return true;
@@ -66,16 +68,16 @@ const customValidators = {
       throw new Error('Date must be in the future');
     }
     return true;
-  }
+  },
 };
 
 // Validation Error Formatter
 const formatValidationErrors = (errors) => {
-  return errors.array().map(error => ({
+  return errors.array().map((error) => ({
     field: error.path,
     message: error.msg,
     value: error.value,
-    location: error.location
+    location: error.location,
   }));
 };
 
@@ -86,24 +88,24 @@ const handleValidationErrors = (req, res, next) => {
     logger.warn('Validation failed', {
       path: req.path,
       method: req.method,
-      errors: formatValidationErrors(errors)
+      errors: formatValidationErrors(errors),
     });
 
     return res.status(StatusCodes.BAD_REQUEST).json({
       success: false,
       message: 'Validation failed',
-      errors: formatValidationErrors(errors)
+      errors: formatValidationErrors(errors),
     });
   }
   next();
 };
 
 // Validation Middleware Wrapper
-const validate = (validations) => {
+const validateExpress = (validations) => {
   return async (req, res, next) => {
     try {
       // Run all validations
-      await Promise.all(validations.map(validation => validation.run(req)));
+      await Promise.all(validations.map((validation) => validation.run(req)));
 
       // Check for validation errors
       handleValidationErrors(req, res, next);
@@ -111,9 +113,14 @@ const validate = (validations) => {
       logger.error('Validation middleware error', {
         path: req.path,
         method: req.method,
-        error: error.message
+        error: error.message,
       });
-      next(new AppError('Validation error occurred', StatusCodes.INTERNAL_SERVER_ERROR));
+      next(
+        new AppError(
+          'Validation error occurred',
+          StatusCodes.INTERNAL_SERVER_ERROR
+        )
+      );
     }
   };
 };
@@ -123,7 +130,7 @@ const validateSchema = (schema) => {
   return (req, res, next) => {
     const { error } = schema.validate(req.body, {
       abortEarly: false,
-      stripUnknown: true
+      stripUnknown: true,
     });
 
     if (error) {
@@ -153,25 +160,36 @@ const sanitizeField = (field) => body(field).customSanitizer(sanitizeInput);
 
 // User Validations
 const userValidations = {
-  register: validate([
+  register: validateExpress([
     sanitizeField('name')
-      .notEmpty().withMessage('Name is required')
-      .isLength({ min: VALIDATION.USER.MIN_NAME_LENGTH, max: VALIDATION.USER.MAX_NAME_LENGTH })
-      .withMessage(`Name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`),
+      .notEmpty()
+      .withMessage('Name is required')
+      .isLength({
+        min: VALIDATION.USER.MIN_NAME_LENGTH,
+        max: VALIDATION.USER.MAX_NAME_LENGTH,
+      })
+      .withMessage(
+        `Name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`
+      ),
 
     sanitizeField('email')
-      .notEmpty().withMessage('Email is required')
-      .isEmail().withMessage('Please enter a valid email')
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please enter a valid email')
       .normalizeEmail()
       .custom(async (email) => {
         if (isDisposableEmailDomain(email)) {
-          throw new Error('Disposable/temporary email addresses are not allowed');
+          throw new Error(
+            'Disposable/temporary email addresses are not allowed'
+          );
         }
         return true;
       }),
 
     sanitizeField('password')
-      .notEmpty().withMessage('Password is required')
+      .notEmpty()
+      .withMessage('Password is required')
       .custom(customValidators.password),
 
     body('role')
@@ -182,41 +200,55 @@ const userValidations = {
     body('department')
       .optional()
       .trim()
-      .notEmpty().withMessage('Department cannot be empty')
+      .notEmpty()
+      .withMessage('Department cannot be empty'),
   ]),
 
-  login: validate([
+  login: validateExpress([
     sanitizeField('email')
-      .notEmpty().withMessage('Email is required')
-      .isEmail().withMessage('Please enter a valid email')
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please enter a valid email')
       .normalizeEmail(),
 
-    sanitizeField('password')
-      .notEmpty().withMessage('Password is required')
+    sanitizeField('password').notEmpty().withMessage('Password is required'),
   ]),
 
-  update: validate([
-    param('id')
-      .custom(customValidators.mongoId),
+  update: validateExpress([
+    param('id').custom(customValidators.mongoId),
 
     body('firstName')
       .optional()
       .trim()
-      .notEmpty().withMessage('First name cannot be empty')
-      .isLength({ min: VALIDATION.USER.MIN_NAME_LENGTH, max: VALIDATION.USER.MAX_NAME_LENGTH })
-      .withMessage(`First name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`),
+      .notEmpty()
+      .withMessage('First name cannot be empty')
+      .isLength({
+        min: VALIDATION.USER.MIN_NAME_LENGTH,
+        max: VALIDATION.USER.MAX_NAME_LENGTH,
+      })
+      .withMessage(
+        `First name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`
+      ),
 
     body('lastName')
       .optional()
       .trim()
-      .notEmpty().withMessage('Last name cannot be empty')
-      .isLength({ min: VALIDATION.USER.MIN_NAME_LENGTH, max: VALIDATION.USER.MAX_NAME_LENGTH })
-      .withMessage(`Last name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`),
+      .notEmpty()
+      .withMessage('Last name cannot be empty')
+      .isLength({
+        min: VALIDATION.USER.MIN_NAME_LENGTH,
+        max: VALIDATION.USER.MAX_NAME_LENGTH,
+      })
+      .withMessage(
+        `Last name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`
+      ),
 
     body('email')
       .optional()
       .trim()
-      .isEmail().withMessage('Please enter a valid email')
+      .isEmail()
+      .withMessage('Please enter a valid email')
       .normalizeEmail(),
 
     body('role')
@@ -227,61 +259,72 @@ const userValidations = {
     body('status')
       .optional()
       .isIn(VALIDATION.USER.STATUS)
-      .withMessage(`Status must be one of: ${VALIDATION.USER.STATUS.join(', ')}`),
+      .withMessage(
+        `Status must be one of: ${VALIDATION.USER.STATUS.join(', ')}`
+      ),
 
     body('isActive')
       .optional()
       .isBoolean()
-      .withMessage('isActive must be a boolean value')
+      .withMessage('isActive must be a boolean value'),
   ]),
 
-  changePassword: validate([
+  changePassword: validateExpress([
     body('currentPassword')
       .trim()
-      .notEmpty().withMessage('Current password is required'),
+      .notEmpty()
+      .withMessage('Current password is required'),
 
     body('newPassword')
       .trim()
-      .notEmpty().withMessage('New password is required')
-      .custom(customValidators.password)
+      .notEmpty()
+      .withMessage('New password is required')
+      .custom(customValidators.password),
   ]),
 
-  forgotPassword: validate([
+  forgotPassword: validateExpress([
     body('email')
       .trim()
-      .notEmpty().withMessage('Email is required')
-      .isEmail().withMessage('Please enter a valid email')
-      .normalizeEmail()
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please enter a valid email')
+      .normalizeEmail(),
   ]),
 
-  resetPassword: validate([
-    body('token')
-      .trim()
-      .notEmpty().withMessage('Reset token is required'),
+  resetPassword: validateExpress([
+    body('token').trim().notEmpty().withMessage('Reset token is required'),
 
     body('newPassword')
-      .notEmpty().withMessage('New password is required')
-      .custom(customValidators.password)
+      .notEmpty()
+      .withMessage('New password is required')
+      .custom(customValidators.password),
   ]),
 
-  verifyEmail: validate([
+  verifyEmail: validateExpress([
     body('code')
       .trim()
-      .notEmpty().withMessage('Verification code is required')
+      .notEmpty()
+      .withMessage('Verification code is required')
       .isLength({ min: 6, max: 6 })
       .withMessage('Verification code must be 6 digits')
       .isNumeric()
-      .withMessage('Verification code must contain only numbers')
+      .withMessage('Verification code must contain only numbers'),
   ]),
 
   updateProfile: [
     sanitizeField('name')
       .optional()
-      .isLength({ min: VALIDATION.USER.MIN_NAME_LENGTH, max: VALIDATION.USER.MAX_NAME_LENGTH })
-      .withMessage(`Name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`),
+      .isLength({
+        min: VALIDATION.USER.MIN_NAME_LENGTH,
+        max: VALIDATION.USER.MAX_NAME_LENGTH,
+      })
+      .withMessage(
+        `Name must be between ${VALIDATION.USER.MIN_NAME_LENGTH} and ${VALIDATION.USER.MAX_NAME_LENGTH} characters`
+      ),
     sanitizeField('mobile')
       .optional()
-      .customSanitizer(value => {
+      .customSanitizer((value) => {
         if (!value) return value;
         // Remove all spaces and dashes
         let num = value.replace(/\s|-/g, '');
@@ -295,11 +338,15 @@ const userValidations = {
         return '+91' + num;
       })
       .matches(/^\+91[6-9][0-9]{9}$/)
-      .withMessage('Please provide a valid Indian mobile number (10 digits, starts with 6-9)'),
+      .withMessage(
+        'Please provide a valid Indian mobile number (10 digits, starts with 6-9)'
+      ),
     body('gender')
       .optional()
       .isIn(['male', 'female', 'other', 'prefer_not_to_say'])
-      .withMessage('Gender must be one of: male, female, other, prefer_not_to_say'),
+      .withMessage(
+        'Gender must be one of: male, female, other, prefer_not_to_say'
+      ),
     body('address')
       .optional()
       .isObject()
@@ -321,23 +368,31 @@ const userValidations = {
 
 // Project Validations
 const projectValidations = {
-  create: validate([
+  create: validateExpress([
     body('name')
       .trim()
-      .notEmpty().withMessage('Project name is required')
+      .notEmpty()
+      .withMessage('Project name is required')
       .isLength({ min: 3, max: 100 })
       .withMessage('Project name must be between 3 and 100 characters'),
 
     body('description')
       .optional()
       .trim()
-      .isLength({ min: VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH, max: VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH })
-      .withMessage(`Description must be between ${VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH} and ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`),
+      .isLength({
+        min: VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH,
+        max: VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH,
+      })
+      .withMessage(
+        `Description must be between ${VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH} and ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`
+      ),
 
     body('status')
       .optional()
       .isIn(VALIDATION.PROJECT.STATUS)
-      .withMessage(`Status must be one of: ${VALIDATION.PROJECT.STATUS.join(', ')}`),
+      .withMessage(
+        `Status must be one of: ${VALIDATION.PROJECT.STATUS.join(', ')}`
+      ),
 
     body('startDate')
       .optional()
@@ -348,30 +403,37 @@ const projectValidations = {
       .optional()
       .isISO8601()
       .withMessage('End date must be a valid date')
-      .custom(customValidators.dateRange)
+      .custom(customValidators.dateRange),
   ]),
 
-  update: validate([
-    param('id')
-      .custom(customValidators.mongoId),
+  update: validateExpress([
+    param('id').custom(customValidators.mongoId),
 
     body('name')
       .optional()
       .trim()
-      .notEmpty().withMessage('Project name cannot be empty')
+      .notEmpty()
+      .withMessage('Project name cannot be empty')
       .isLength({ min: 3, max: 100 })
       .withMessage('Project name must be between 3 and 100 characters'),
 
     body('description')
       .optional()
       .trim()
-      .isLength({ min: VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH, max: VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH })
-      .withMessage(`Description must be between ${VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH} and ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`),
+      .isLength({
+        min: VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH,
+        max: VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH,
+      })
+      .withMessage(
+        `Description must be between ${VALIDATION.COMMON.MIN_DESCRIPTION_LENGTH} and ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`
+      ),
 
     body('status')
       .optional()
       .isIn(VALIDATION.PROJECT.STATUS)
-      .withMessage(`Status must be one of: ${VALIDATION.PROJECT.STATUS.join(', ')}`),
+      .withMessage(
+        `Status must be one of: ${VALIDATION.PROJECT.STATUS.join(', ')}`
+      ),
 
     body('startDate')
       .optional()
@@ -382,12 +444,11 @@ const projectValidations = {
       .optional()
       .isISO8601()
       .withMessage('End date must be a valid date')
-      .custom(customValidators.dateRange)
+      .custom(customValidators.dateRange),
   ]),
 
-  addMember: validate([
-    param('id')
-      .custom(customValidators.mongoId),
+  addMember: validateExpress([
+    param('id').custom(customValidators.mongoId),
 
     body('userId')
       .custom(customValidators.mongoId)
@@ -395,22 +456,23 @@ const projectValidations = {
 
     body('role')
       .isIn(VALIDATION.PROJECT.MEMBER_ROLES)
-      .withMessage(`Role must be one of: ${VALIDATION.PROJECT.MEMBER_ROLES.join(', ')}`)
+      .withMessage(
+        `Role must be one of: ${VALIDATION.PROJECT.MEMBER_ROLES.join(', ')}`
+      ),
   ]),
 
-  removeMember: validate([
-    param('id')
-      .custom(customValidators.mongoId),
+  removeMember: validateExpress([
+    param('id').custom(customValidators.mongoId),
 
     param('userId')
       .custom(customValidators.mongoId)
-      .withMessage('Invalid user ID')
-  ])
+      .withMessage('Invalid user ID'),
+  ]),
 };
 
 // Timesheet Validations
 const timesheetValidations = {
-  create: validate([
+  create: validateExpress([
     body('weekStartDate')
       .isISO8601()
       .withMessage('Week start date must be a valid date'),
@@ -425,7 +487,9 @@ const timesheetValidations = {
 
     body('entries.*.hours')
       .isFloat({ min: 0, max: VALIDATION.TIMESHEET.MAX_HOURS_PER_DAY })
-      .withMessage(`Entry hours must be between 0 and ${VALIDATION.TIMESHEET.MAX_HOURS_PER_DAY}`),
+      .withMessage(
+        `Entry hours must be between 0 and ${VALIDATION.TIMESHEET.MAX_HOURS_PER_DAY}`
+      ),
 
     body('entries.*.project')
       .custom(customValidators.mongoId)
@@ -433,20 +497,27 @@ const timesheetValidations = {
 
     body('entries.*.task')
       .trim()
-      .notEmpty().withMessage('Entry task description is required')
-      .isLength({ min: VALIDATION.TIMESHEET.MIN_TASK_LENGTH, max: VALIDATION.TIMESHEET.MAX_TASK_LENGTH })
-      .withMessage(`Entry task description must be between ${VALIDATION.TIMESHEET.MIN_TASK_LENGTH} and ${VALIDATION.TIMESHEET.MAX_TASK_LENGTH} characters`),
+      .notEmpty()
+      .withMessage('Entry task description is required')
+      .isLength({
+        min: VALIDATION.TIMESHEET.MIN_TASK_LENGTH,
+        max: VALIDATION.TIMESHEET.MAX_TASK_LENGTH,
+      })
+      .withMessage(
+        `Entry task description must be between ${VALIDATION.TIMESHEET.MIN_TASK_LENGTH} and ${VALIDATION.TIMESHEET.MAX_TASK_LENGTH} characters`
+      ),
 
     body('entries.*.description')
       .optional()
       .trim()
       .isLength({ max: VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH })
-      .withMessage(`Entry description must be at most ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`)
+      .withMessage(
+        `Entry description must be at most ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`
+      ),
   ]),
 
-  update: validate([
-    param('id')
-      .custom(customValidators.mongoId),
+  update: validateExpress([
+    param('id').custom(customValidators.mongoId),
 
     body('entries')
       .optional()
@@ -461,7 +532,9 @@ const timesheetValidations = {
     body('entries.*.hours')
       .optional()
       .isFloat({ min: 0, max: VALIDATION.TIMESHEET.MAX_HOURS_PER_DAY })
-      .withMessage(`Entry hours must be between 0 and ${VALIDATION.TIMESHEET.MAX_HOURS_PER_DAY}`),
+      .withMessage(
+        `Entry hours must be between 0 and ${VALIDATION.TIMESHEET.MAX_HOURS_PER_DAY}`
+      ),
 
     body('entries.*.project')
       .optional()
@@ -471,15 +544,23 @@ const timesheetValidations = {
     body('entries.*.task')
       .optional()
       .trim()
-      .notEmpty().withMessage('Entry task description cannot be empty')
-      .isLength({ min: VALIDATION.TIMESHEET.MIN_TASK_LENGTH, max: VALIDATION.TIMESHEET.MAX_TASK_LENGTH })
-      .withMessage(`Entry task description must be between ${VALIDATION.TIMESHEET.MIN_TASK_LENGTH} and ${VALIDATION.TIMESHEET.MAX_TASK_LENGTH} characters`),
+      .notEmpty()
+      .withMessage('Entry task description cannot be empty')
+      .isLength({
+        min: VALIDATION.TIMESHEET.MIN_TASK_LENGTH,
+        max: VALIDATION.TIMESHEET.MAX_TASK_LENGTH,
+      })
+      .withMessage(
+        `Entry task description must be between ${VALIDATION.TIMESHEET.MIN_TASK_LENGTH} and ${VALIDATION.TIMESHEET.MAX_TASK_LENGTH} characters`
+      ),
 
     body('entries.*.description')
       .optional()
       .trim()
       .isLength({ max: VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH })
-      .withMessage(`Entry description must be at most ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`),
+      .withMessage(
+        `Entry description must be at most ${VALIDATION.COMMON.MAX_DESCRIPTION_LENGTH} characters`
+      ),
 
     body('status')
       .optional()
@@ -489,25 +570,55 @@ const timesheetValidations = {
     body('rejectionReason')
       .optional()
       .trim()
-      .isLength({ min: VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH, max: VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH })
-      .withMessage(`Rejection reason must be between ${VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH} and ${VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH} characters`)
+      .isLength({
+        min: VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH,
+        max: VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH,
+      })
+      .withMessage(
+        `Rejection reason must be between ${VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH} and ${VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH} characters`
+      ),
   ]),
 
-  approve: validate([
-    param('id')
-      .custom(customValidators.mongoId)
-  ]),
+  approve: validateExpress([param('id').custom(customValidators.mongoId)]),
 
-  reject: validate([
-    param('id')
-      .custom(customValidators.mongoId),
+  reject: validateExpress([
+    param('id').custom(customValidators.mongoId),
 
     body('reason')
       .trim()
-      .notEmpty().withMessage('Rejection reason is required')
-      .isLength({ min: VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH, max: VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH })
-      .withMessage(`Rejection reason must be between ${VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH} and ${VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH} characters`)
-  ])
+      .notEmpty()
+      .withMessage('Rejection reason is required')
+      .isLength({
+        min: VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH,
+        max: VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH,
+      })
+      .withMessage(
+        `Rejection reason must be between ${VALIDATION.TIMESHEET.MIN_REJECTION_REASON_LENGTH} and ${VALIDATION.TIMESHEET.MAX_REJECTION_REASON_LENGTH} characters`
+      ),
+  ]),
+};
+
+const validate = (schema, property = 'body') => {
+  return (req, res, next) => {
+    const data = req[property];
+    const { error, value } = schema.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true
+    });
+
+    if (error) {
+      const errorMessage = error.details
+        .map(detail => detail.message)
+        .join(', ');
+      
+      return next(new ValidationError(errorMessage));
+    }
+
+    // Replace the request data with validated data
+    req[property] = value;
+    next();
+  };
 };
 
 // Export all validation functions and constants
@@ -515,6 +626,7 @@ module.exports = {
   VALIDATION,
   customValidators,
   validate,
+  validateExpress,
   validateSchema,
   validateRequest,
   formatValidationErrors,

@@ -88,8 +88,35 @@ VocalInk is a modern, AI-powered, gamified blog platform for readers and writers
 - **Phase 3:** Gamification, Rewards, Admin Panel, Advanced AI
 - **Phase 4:** Mobile App, Monetization, Web3, AI Avatars
 
-## How to Run (Dev)
+## Quick Start
+
+### Option 1: Automated Setup (Recommended)
 ```bash
+# Run the automated setup script
+./setup.sh          # Linux/macOS
+# OR
+setup.bat           # Windows
+
+# Start development environment
+make dev
+# OR
+./start-dev.sh      # Linux/macOS
+# OR
+start-dev.bat       # Windows
+```
+
+### Option 2: Manual Setup
+```bash
+# Install dependencies
+make install
+
+# Setup environment
+make setup-env
+
+# Start development environment
+make dev
+
+# Or run services individually:
 # Backend
 cd server
 npm install
@@ -100,6 +127,39 @@ cd ../client
 npm install
 npm run dev
 ```
+
+### Docker Commands
+```bash
+# Build and run with Docker
+make docker-build
+make docker-run
+
+# View logs
+make logs
+
+# Stop containers
+make docker-stop
+
+# Check status
+make status
+```
+
+### GitHub CLI Commands
+```bash
+# Setup GitHub CLI
+make github-setup
+
+# Create pull request
+make github-pr TITLE="Feature" BODY="Description"
+
+# Create release
+make github-release VERSION="v1.0.0" TITLE="Release" NOTES="Notes"
+
+# Create issue
+make github-issue TITLE="Bug" BODY="Description" LABEL="bug"
+```
+
+For detailed setup instructions, see [DOCKER_GITHUB_SETUP.md](DOCKER_GITHUB_SETUP.md).
 
 ## API Reference
 See [Swagger UI](http://localhost:5000/api-docs) after running the backend.
