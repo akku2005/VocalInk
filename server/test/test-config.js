@@ -1,6 +1,7 @@
 // Test configuration for VocalInk badge system
 process.env.NODE_ENV = 'test';
 // TODO: Use environment variables for secrets in production
+// Use test-specific secrets for testing only
 process.env.JWT_SECRET = process.env.TEST_JWT_SECRET || 'test-jwt-secret-for-testing-only';
 process.env.JWT_REFRESH_SECRET = process.env.TEST_JWT_REFRESH_SECRET || 'test-jwt-refresh-secret-for-testing-only';
 process.env.JWT_EXPIRES_IN = '24h';

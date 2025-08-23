@@ -13,6 +13,7 @@
     "test-badge-system": "jest badge-system-simple.test.js --verbose",
     "test-basic": "jest basic-functionality.test.js --verbose",
     "test-minimal": "jest minimal-working.test.js --verbose",
+    "security-audit": "node scripts/security-audit-logging.js",
     "test-ai-badge": "node test/run-ai-badge-tests.js",
     "test-all-ai": "jest --testPathPattern='(ai-services-simple|badge-system-simple|test-ai|test-enhanced-ai)' --verbose",
     "seed-badges": "node src/utils/seedBadges.js",

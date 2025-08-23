@@ -227,14 +227,14 @@ class TokenUtils {
         );
       }
       if (error.name === 'TokenExpiredError') {
-        logger.info('Token expired:', { tokenId: error.jti });
+        logger.production.info('Token expired:', { tokenId: '[REDACTED]' });
         throw new AppError(
           'Authentication token has expired',
           StatusCodes.UNAUTHORIZED
         );
       }
       if (error.name === 'NotBeforeError') {
-        logger.warn('Token not active yet:', { tokenId: error.jti });
+        logger.production.warn('Token not active yet:', { tokenId: '[REDACTED]' });
         throw new AppError(
           'Authentication token not yet active',
           StatusCodes.UNAUTHORIZED

@@ -168,7 +168,7 @@ exports.getBlogs = async (req, res) => {
 
 exports.getallBlogs=async(req,res)=>{
   try{
-    console.log('Get all blogs hit');
+    logger.debug('Get all blogs endpoint accessed');
     const blogs=await Blog.find();
     res.json(blogs);
   }catch(err){

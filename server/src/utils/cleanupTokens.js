@@ -13,7 +13,7 @@ const cleanupExpiredBlacklistedTokens = async () => {
       return 0;
     }
     const deletedCount = await Token.cleanupExpiredBlacklistedTokens();
-    logger.info(`Cleaned up ${deletedCount} expired blacklisted tokens`);
+    logger.production.info(`Cleaned up ${deletedCount} expired blacklisted tokens`);
     return deletedCount;
   } catch (error) {
     logger.error('Error cleaning up expired blacklisted tokens:', { message: error.message, name: error.name, code: error.code });
@@ -33,7 +33,7 @@ const cleanupAllExpiredTokens = async () => {
     const result = await Token.deleteMany({
       expiresAt: { $lt: new Date() },
     });
-    logger.info(`Cleaned up ${result.deletedCount} expired tokens`);
+    logger.production.info(`Cleaned up ${result.deletedCount} expired tokens`);
     return result.deletedCount;
   } catch (error) {
     logger.error('Error cleaning up expired tokens:', { message: error.message, name: error.name, code: error.code });

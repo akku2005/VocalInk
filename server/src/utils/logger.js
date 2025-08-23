@@ -6,6 +6,33 @@ const logDir = path.join(__dirname, '../../logs');
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
 const logFile = path.join(logDir, 'server.log');
 
+// Sensitive fields that should never be logged
+const SENSITIVE_FIELDS = [
+  'password', 'token', 'secret', 'key', 'auth', 'credential',
+  'api_key', 'apikey', 'jwt_secret', 'jwt_refresh_secret',
+  'database_url', 'redis_url', 'mongodb_uri', 'mongo_uri',
+  'openai_api_key', 'elevenlabs_api_key', 'google_cloud_credentials'
+];
+
+// Sanitize sensitive data
+const sanitizeData = (data) => {
+  if (typeof data === 'object' && data !== null) {
+    const sanitized = {};
+    for (const [key, value] of Object.entries(data)) {
+      const lowerKey = key.toLowerCase();
+      if (SENSITIVE_FIELDS.some(field => lowerKey.includes(field))) {
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof value === 'object' && value !== null) {
+        sanitized[key] = sanitizeData(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+  return data;
+};
+
 function writeToFile(message) {
   // Remove ANSI color codes for file output
   const noColor = message.replace(/\x1b\[[0-9;]*m/g, '');
@@ -21,7 +48,10 @@ const getTimestamp = () => {
 const formatMessage = (level, message, ...args) => {
   const timestamp = chalk.gray(`[${getTimestamp()}]`);
   const levelTag = getLevelTag(level);
-  const formattedMessage = formatArgs(message, ...args);
+  
+  // Sanitize sensitive data in arguments
+  const sanitizedArgs = args.map(arg => sanitizeData(arg));
+  const formattedMessage = formatArgs(message, ...sanitizedArgs);
 
   return `${timestamp} ${levelTag} ${formattedMessage}`;
 };
@@ -47,9 +77,6 @@ const getLevelTag = (level) => {
 // Format arguments with colors
 const formatArgs = (message, ...args) => {
   let formatted = message;
-
-  // No colorization for URLs, numbers, or booleans
-  // Just keep the message as is
 
   // Format additional arguments
   const formattedArgs = args.map((arg) => {
@@ -84,6 +111,7 @@ const logger = {
   },
 
   debug: (message, ...args) => {
+    // Only log debug messages in non-production environments
     if (process.env.NODE_ENV !== 'production') {
       const msg = formatMessage('DEBUG', message, ...args);
       console.debug(msg);
@@ -97,13 +125,38 @@ const logger = {
     writeToFile(msg);
   },
 
+  // Production-safe logging methods
+  production: {
+    info: (message, ...args) => {
+      const msg = formatMessage('INFO', message, ...args);
+      writeToFile(msg);
+      // Only log to console in development
+      if (process.env.NODE_ENV !== 'production') {
+        console.info(msg);
+      }
+    },
+
+    warn: (message, ...args) => {
+      const msg = formatMessage('WARN', message, ...args);
+      writeToFile(msg);
+      console.warn(msg);
+    },
+
+    error: (message, ...args) => {
+      const msg = formatMessage('ERROR', message, ...args);
+      writeToFile(msg);
+      console.error(msg);
+    }
+  },
+
   // Database specific logging
   db: {
     connect: (host) => {
+      const sanitizedHost = host ? host.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') : host;
       console.log(
         formatMessage(
           'SUCCESS',
-          `Database connected successfully to ${chalk.cyan(host)}`
+          `Database connected successfully to ${chalk.cyan(sanitizedHost)}`
         )
       );
     },
@@ -161,9 +214,12 @@ const logger = {
     },
     token: {
       valid: (userId) => {
-        console.log(
-          formatMessage('DEBUG', `Valid token for user ${chalk.cyan(userId)}`)
-        );
+        // Only log in development
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(
+            formatMessage('DEBUG', `Valid token for user ${chalk.cyan(userId)}`)
+          );
+        }
       },
       invalid: (reason) => {
         console.error(
