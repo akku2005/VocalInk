@@ -28,7 +28,7 @@ const {
   twoFactorVerificationSchema
 } = require('../validations/authSchema');
 
-console.log('Auth route hit');
+logger.debug('Auth route accessed');
 
 router.get('/test', (req, res) => {
   res.json({
@@ -37,7 +37,7 @@ router.get('/test', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
   });
-console.log('Test route hit');
+logger.debug('Test route accessed');
 
 });
 

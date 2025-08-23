@@ -38,6 +38,12 @@ try {
   logger = require('./utils/logger');
 } catch (e) {}
 
+// Production-safe logging
+let productionLogging = null;
+try {
+  productionLogging = require('./config/logging');
+} catch (e) {}
+
 dotenv.config();
 
 const app = express();
@@ -79,7 +85,7 @@ if (process.env.NODE_ENV !== 'test') {
           try {
             const deletedCount = await cleanupExpiredBlacklistedTokens();
             if (deletedCount > 0) {
-              logger.info(`Cleaned up ${deletedCount} expired blacklisted tokens`);
+              logger.production.info(`Cleaned up ${deletedCount} expired blacklisted tokens`);
             }
           } catch (error) {
             logger.error('Scheduled token cleanup failed:', { message: error.message, name: error.name, code: error.code });

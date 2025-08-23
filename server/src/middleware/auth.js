@@ -9,10 +9,10 @@ const logger = require('../utils/logger');
 
 // Protect routes with enhanced security
 const protect = async (req, res, next) => {
-  console.log('outside try Protect route hit');
+  logger.debug('Protect route accessed');
   try {
     // Development-only authentication bypass
-    console.log('Protect route hit');
+    logger.debug('Protect route processing');
 
     if (process.env.DEV_AUTH_BYPASS === 'true') {
       const devUserId = process.env.DEV_AUTH_USER_ID || '000000000000000000000001';
