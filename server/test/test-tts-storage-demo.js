@@ -31,8 +31,8 @@ async function demonstrateTTSStorageIntegration() {
     // 3. Display B2 Native Configuration
     console.log('\n3️⃣ B2 Native Storage Configuration');
     console.log('   🔧 TTS_STORAGE_PROVIDER: b2_native');
-    console.log('   🔑 B2_NATIVE_KEY_ID: 0054d0ceec3628d0000000006');
-    console.log('   🪣 B2_NATIVE_BUCKET: vocalink');
+    console.log('   🔑 B2_NATIVE_KEY_ID:', process.env.B2_NATIVE_KEY_ID ? 'SET' : 'NOT SET');
+    console.log('   🪣 B2_NATIVE_BUCKET:', process.env.B2_NATIVE_BUCKET || 'NOT SET');
     console.log('   ⏰ B2_NATIVE_SIGNED_URL_TTL: 3600 seconds');
     console.log('   🌐 B2_NATIVE_ENDPOINT: (using default)');
 

@@ -1,7 +1,8 @@
 const axios = require('axios');
 
 const BASE_URL = 'http://localhost:3000';
-const AUTH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODk2NTI0MTA0YWRjMTkyNDIxZmQxNDUiLCJlbWFpbCI6ImFzYWthc2hzYWh1MjBAZ21haWwuY29tIiwicm9sZSI6InJlYWRlciIsInR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3NTQ2ODQwODUsImV4cCI6MTc1NDc3MDQ4NSwiYXVkIjoiYWthc2giLCJpc3MiOiJha2FzaCJ9.D_D0HH-4StqeTksCQG_LLiZV3scvbRukQGgEC_Dk0y4';
+// TODO: Replace with actual authentication token obtained from login
+const AUTH_TOKEN = process.env.TEST_AUTH_TOKEN || 'YOUR_AUTH_TOKEN_HERE';
 const USER_ID = '6896524104adc192421fd145';
 
 let createdReportId = null;

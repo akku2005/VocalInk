@@ -31,7 +31,7 @@ Add the following to your `.env` file:
 
 ```env
 # ElevenLabs API Key for Text-to-Speech
-ELEVENLABS_API_KEY=sk_7d748c6c0c21972ba2b0f552d173b4b97e237f8308cd1f32
+ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
 
 # Google Cloud Text-to-Speech API
 GOOGLE_CLOUD_PROJECT_ID=your-project-id

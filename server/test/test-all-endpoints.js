@@ -6,8 +6,8 @@ const app = require('./src/app');
 
 // Test data
 const testUser = {
-  email: 'asakashsahu20@gmail.com',
-  password: 'Akash@2001'
+  email: process.env.TEST_EMAIL || 'YOUR_TEST_EMAIL_HERE',
+  password: process.env.TEST_PASSWORD || 'YOUR_TEST_PASSWORD_HERE'
 };
 
 const newUser = {

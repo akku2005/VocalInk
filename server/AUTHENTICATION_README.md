@@ -461,8 +461,8 @@ HOST=localhost
 MONGO_URI=mongodb://localhost:27017/vocalink
 
 # JWT Configuration - Enhanced Security
-JWT_SECRET=yhbjhwebuy6487hr4fhuy4brug74y5g87bu4ebrub4er
-JWT_REFRESH_SECRET=yhbjhwebuy6487hr4fhuy4brug74y5g87bu4ebrub4er_refresh
+JWT_SECRET=your-256-bit-cryptographically-secure-secret-here-change-this
+JWT_REFRESH_SECRET=your-256-bit-cryptographically-secure-refresh-secret-here-change-this
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 JWT_RESET_EXPIRES_IN=1h
@@ -474,8 +474,8 @@ JWT_AUDIENCE=vocalink-users
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=asakashsahu20@gmail.com
-SMTP_PASS=nufghyxbcuryogln
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
 
 # Email Configuration
 EMAIL_FROM=noreply@vocalink.com
@@ -493,8 +493,8 @@ CORS_ORIGIN=http://localhost:5173
 BCRYPT_ROUNDS=12
 PASSWORD_MIN_LENGTH=8
 PASSWORD_MAX_LENGTH=128
-SESSION_SECRET=yhbjhwebuy6487hr4fhuy4brug74y5g87bu4ebrub4er_session
-COOKIE_SECRET=yhbjhwebuy6487hr4fhuy4brug74y5g87bu4ebrub4er_cookie
+SESSION_SECRET=your-session-secret-change-this-in-production
+COOKIE_SECRET=your-cookie-secret-change-this-in-production
 
 # Rate Limiting - Enhanced Security
 AUTH_RATE_LIMIT_WINDOW_MS=900000
@@ -523,9 +523,9 @@ ENABLE_ANALYTICS=false
 SENTRY_DSN=
 
 # AI Services Configuration
-ELEVENLABS_API_KEY=sk_7d748c6c0c21972ba2b0f552d173b4b97e237f8308cd1f32
-GOOGLE_CLOUD_PROJECT_ID=lyrical-tooling-467821-b9
-GOOGLE_CLOUD_CREDENTIALS=959228681927-na9r579c40hcf5s12ble3chdd7t259gd.apps.googleusercontent.com
+ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
+GOOGLE_CLOUD_PROJECT_ID=your-google-cloud-project-id
+GOOGLE_CLOUD_CREDENTIALS=your-google-cloud-credentials-here
 
 # Redis Configuration (for session storage and caching)
 REDIS_URL=redis://localhost:6379

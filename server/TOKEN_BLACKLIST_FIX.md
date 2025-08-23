@@ -149,7 +149,7 @@ setInterval(async () => {
    ```bash
    curl -X POST http://localhost:5000/api/auth/login \
      -H "Content-Type: application/json" \
-     -d '{"email":"user@example.com","password":"password123"}'
+     -d '{"email":"user@example.com","password":"your-test-password-here"}'
    ```
 
 2. **Access Protected Route** (should work):

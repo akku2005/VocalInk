@@ -23,10 +23,17 @@ async function testElevenLabsConnection() {
     console.log('\n2️⃣ Testing ElevenLabs API Key Directly...');
     
     // This will test if your API key can actually connect to ElevenLabs
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      console.log('   ⚠️  ELEVENLABS_API_KEY not set in environment variables');
+      console.log('   Please set ELEVENLABS_API_KEY to test ElevenLabs connection');
+      return;
+    }
+    
     try {
       const elevenLabsResponse = await axios.get('https://api.elevenlabs.io/v1/voices', {
         headers: {
-          'xi-api-key': 'sk_8dc380970d13b64799a9e0ee35a5169c41ea7ba251a5ab7b'
+          'xi-api-key': apiKey
         },
         timeout: 10000
       });
@@ -63,7 +70,7 @@ async function testElevenLabsConnection() {
     
     // Test 3: Check server configuration
     console.log('\n3️⃣ Server Configuration Check:');
-    console.log('   🔑 API Key Length:', 'sk_8dc380970d13b64799a9e0ee35a5169c41ea7ba251a5ab7b'.length, 'characters');
+    console.log('   🔑 API Key Length:', apiKey ? `${apiKey.length} characters` : 'Not set');
     console.log('   🌐 Base URL: https://api.elevenlabs.io/v1');
     console.log('   🎭 Default Voice: 21m00Tcm4TlvDq8ikWAM (Rachel)');
     

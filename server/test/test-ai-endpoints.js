@@ -1,8 +1,9 @@
 const axios = require('axios');
 
 const BASE_URL = 'http://localhost:3000';
-const EMAIL = 'asakashsahu20@gmail.com';
-const PASSWORD = 'Akash@2001';
+// TODO: Replace with actual test credentials
+const EMAIL = process.env.TEST_EMAIL || 'YOUR_TEST_EMAIL_HERE';
+const PASSWORD = process.env.TEST_PASSWORD || 'YOUR_TEST_PASSWORD_HERE';
 
 let authToken = null;
 
