@@ -77,4 +77,116 @@ blogSchema.index({ mood: 1 }); // Mood index for filtering
 blogSchema.index({ updatedAt: -1 });
 blogSchema.index({ title: 'text', content: 'text', summary: 'text' }); // Text search index
 
+// Additional performance indexes
+blogSchema.index({ author: 1, createdAt: -1 }); // Author's blog timeline
+blogSchema.index({ category: 1, status: 1, createdAt: -1 }); // Category-based queries
+blogSchema.index({ tags: 1, status: 1 }); // Tag-based filtering
+blogSchema.index({ 'aiSummary': 'text' }); // AI summary text search
+blogSchema.index({ language: 1, status: 1, createdAt: -1 }); // Language-based queries
+blogSchema.index({ sentiment: 1, status: 1 }); // Sentiment-based filtering
+blogSchema.index({ seoScore: -1, status: 1 }); // SEO-based sorting
+blogSchema.index({ readingTime: 1, status: 1 }); // Reading time filtering
+blogSchema.index({ 'likedBy': 1, createdAt: -1 }); // User's liked content timeline
+blogSchema.index({ 'bookmarkedBy': 1, createdAt: -1 }); // User's bookmarked content timeline
+blogSchema.index({ seriesId: 1, createdAt: -1 }); // Series content ordering
+blogSchema.index({ mood: 1, status: 1 }); // Mood-based filtering
+blogSchema.index({ 'ttsOptions.voice': 1 }); // TTS voice filtering
+blogSchema.index({ 'ttsOptions.language': 1 }); // TTS language filtering
+blogSchema.index({ audioDuration: 1 }); // Audio duration filtering
+blogSchema.index({ audioQuality: 1 }); // Audio quality filtering
+
+// Compound indexes for complex queries
+blogSchema.index({ 
+  status: 1, 
+  language: 1, 
+  createdAt: -1 
+}); // Status + language + date
+
+blogSchema.index({ 
+  author: 1, 
+  status: 1, 
+  createdAt: -1 
+}); // Author + status + date
+
+blogSchema.index({ 
+  category: 1, 
+  status: 1, 
+  language: 1 
+}); // Category + status + language
+
+blogSchema.index({ 
+  tags: 1, 
+  status: 1, 
+  createdAt: -1 
+}); // Tags + status + date
+
+blogSchema.index({ 
+  sentiment: 1, 
+  status: 1, 
+  createdAt: -1 
+}); // Sentiment + status + date
+
+blogSchema.index({ 
+  seoScore: -1, 
+  status: 1, 
+  createdAt: -1 
+}); // SEO + status + date
+
+// Partial indexes for better performance
+blogSchema.index({ 
+  createdAt: -1 
+}, { 
+  partialFilterExpression: { status: 'published' } 
+}); // Only published blogs by date
+
+blogSchema.index({ 
+  likes: -1 
+}, { 
+  partialFilterExpression: { status: 'published' } 
+}); // Only published blogs by likes
+
+blogSchema.index({ 
+  bookmarks: -1 
+}, { 
+  partialFilterExpression: { status: 'published' } 
+}); // Only published blogs by bookmarks
+
+// Sparse indexes for optional fields
+blogSchema.index({ 
+  seriesId: 1 
+}, { 
+  sparse: true 
+}); // Sparse index for seriesId (many blogs won't have this)
+
+blogSchema.index({ 
+  mood: 1 
+}, { 
+  sparse: true 
+}); // Sparse index for mood
+
+blogSchema.index({ 
+  'ttsUrl': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for TTS URL
+
+// Background index creation for production
+if (process.env.NODE_ENV === 'production') {
+  blogSchema.index({ 
+    author: 1, 
+    status: 1, 
+    createdAt: -1 
+  }, { 
+    background: true 
+  });
+  
+  blogSchema.index({ 
+    category: 1, 
+    status: 1, 
+    createdAt: -1 
+  }, { 
+    background: true 
+  });
+}
+
 module.exports = mongoose.model('Blog', blogSchema);

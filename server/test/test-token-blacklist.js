@@ -33,7 +33,7 @@ async function testTokenBlacklist() {
         type: 'access',
         iat: Math.floor(Date.now() / 1000),
       },
-      process.env.JWT_SECRET || 'your_jwt_secret',
+      process.env.JWT_SECRET || 'CHANGE_THIS_IN_PRODUCTION',
       {
         expiresIn: '1h',
         issuer: 'akash',

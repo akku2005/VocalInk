@@ -2,7 +2,8 @@ const axios = require('axios');
 const logger = require('./src/utils/logger');
 
 const BASE_URL = 'http://localhost:3000/api';
-const TEST_USER_TOKEN = 'test-token'; // We'll need to get a real token
+// TODO: Replace with actual authentication token obtained from login
+const TEST_USER_TOKEN = process.env.TEST_AUTH_TOKEN || 'YOUR_AUTH_TOKEN_HERE';
 
 class TTSTester {
   constructor() {

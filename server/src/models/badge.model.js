@@ -153,8 +153,6 @@ badgeSchema.virtual('earnedCount').get(function () {
 badgeSchema.virtual('isActiveComputed').get(function () {
   return this.status === 'active';
 });
-
-
 // Pre-save middleware for validation and updates
 badgeSchema.pre('save', function(next) {
   // Update analytics if needed
@@ -619,7 +617,7 @@ badgeSchema.statics.updateAnalytics = async function (badgeId, action, metadata 
 
 // Security methods
 badgeSchema.statics.generateBadgeHash = function (badgeId, userId, timestamp) {
-  const secret = process.env.BADGE_SECRET || 'default-secret';
+      const secret = process.env.BADGE_SECRET || 'CHANGE_THIS_IN_PRODUCTION';
   const data = `${badgeId}-${userId}-${timestamp}-${secret}`;
   return crypto.createHash('sha256').update(data).digest('hex');
 };

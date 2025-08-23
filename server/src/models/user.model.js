@@ -456,4 +456,179 @@ userSchema.index({ 'badges': 1 });
 userSchema.index({ 'followers': 1 });
 userSchema.index({ 'following': 1 });
 
+// Additional performance indexes
+userSchema.index({ email: 1, isVerified: 1 }); // Email verification queries
+userSchema.index({ 'aiPreferences.language': 1 }); // Language preference filtering
+userSchema.index({ 'aiPreferences.preferredVoice': 1 }); // Voice preference filtering
+userSchema.index({ 'privacySettings.profileVisibility': 1 }); // Privacy-based queries
+userSchema.index({ 'gamificationSettings.showXP': 1 }); // Gamification preference filtering
+userSchema.index({ 'gamificationSettings.showBadges': 1 }); // Badge visibility filtering
+userSchema.index({ 'gamificationSettings.showLeaderboard': 1 }); // Leaderboard visibility filtering
+userSchema.index({ 'dailyActions.login': 1 }); // Daily login tracking
+userSchema.index({ 'dailyActions.blogReads': 1 }); // Daily blog reads tracking
+userSchema.index({ 'dailyActions.comments': 1 }); // Daily comments tracking
+userSchema.index({ 'dailyActions.shares': 1 }); // Daily shares tracking
+userSchema.index({ 'dailyActions.bookmarks': 1 }); // Daily bookmarks tracking
+userSchema.index({ 'dailyActions.follows': 1 }); // Daily follows tracking
+userSchema.index({ 'dailyActions.invites': 1 }); // Daily invites tracking
+userSchema.index({ 'unlockedFeatures.feature': 1 }); // Feature unlock queries
+userSchema.index({ 'unlockedFeatures.level': 1 }); // Level-based feature queries
+userSchema.index({ 'xpMultipliers.newUser': 1 }); // New user multiplier queries
+userSchema.index({ 'xpMultipliers.mentor': 1 }); // Mentor multiplier queries
+userSchema.index({ 'xpMultipliers.topContributor': 1 }); // Top contributor queries
+userSchema.index({ 'xpMultipliers.betaTester': 1 }); // Beta tester queries
+userSchema.index({ 'xpMultipliers.seasonal': 1 }); // Seasonal multiplier queries
+userSchema.index({ 'aiUsage.ttsGenerated': 1 }); // TTS usage tracking
+userSchema.index({ 'aiUsage.summariesGenerated': 1 }); // Summary usage tracking
+userSchema.index({ 'aiUsage.transcriptionsCreated': 1 }); // Transcription usage tracking
+userSchema.index({ 'aiUsage.lastAIFeature': 1 }); // Last AI feature usage
+userSchema.index({ 'streaks.login.lastLogin': 1 }); // Login streak tracking
+userSchema.index({ 'streaks.publishing.lastPublish': 1 }); // Publishing streak tracking
+userSchema.index({ 'streaks.reading.lastRead': 1 }); // Reading streak tracking
+userSchema.index({ 'streaks.commenting.lastComment': 1 }); // Commenting streak tracking
+userSchema.index({ 'streaks.login.longest': -1 }); // Longest login streak
+userSchema.index({ 'streaks.publishing.longest': -1 }); // Longest publishing streak
+userSchema.index({ 'streaks.reading.longest': -1 }); // Longest reading streak
+userSchema.index({ 'streaks.commenting.longest': -1 }); // Longest commenting streak
+
+// Compound indexes for complex queries
+userSchema.index({ 
+  role: 1, 
+  isVerified: 1, 
+  createdAt: -1 
+}); // Role + verification + date
+
+userSchema.index({ 
+  level: 1, 
+  engagementScore: -1, 
+  createdAt: -1 
+}); // Level + engagement + date
+
+userSchema.index({ 
+  xp: -1, 
+  level: 1, 
+  createdAt: -1 
+}); // XP + level + date
+
+userSchema.index({ 
+  'streaks.login.current': -1, 
+  'streaks.login.longest': -1 
+}); // Current + longest login streak
+
+userSchema.index({ 
+  'streaks.publishing.current': -1, 
+  'streaks.publishing.longest': -1 
+}); // Current + longest publishing streak
+
+userSchema.index({ 
+  totalBlogs: -1, 
+  totalLikes: -1, 
+  engagementScore: -1 
+}); // Content + engagement metrics
+
+userSchema.index({ 
+  'aiPreferences.language': 1, 
+  'aiPreferences.autoSummarize': 1 
+}); // AI preferences combination
+
+userSchema.index({ 
+  'privacySettings.profileVisibility': 1, 
+  'privacySettings.showEmail': 1 
+}); // Privacy settings combination
+
+userSchema.index({ 
+  'gamificationSettings.showXP': 1, 
+  'gamificationSettings.showLevel': 1, 
+  'gamificationSettings.showBadges': 1 
+}); // Gamification settings combination
+
+// Partial indexes for better performance
+userSchema.index({ 
+  createdAt: -1 
+}, { 
+  partialFilterExpression: { isVerified: true } 
+}); // Only verified users by date
+
+userSchema.index({ 
+  xp: -1 
+}, { 
+  partialFilterExpression: { isVerified: true } 
+}); // Only verified users by XP
+
+userSchema.index({ 
+  engagementScore: -1 
+}, { 
+  partialFilterExpression: { isVerified: true } 
+}); // Only verified users by engagement
+
+userSchema.index({ 
+  totalBlogs: -1 
+}, { 
+  partialFilterExpression: { isVerified: true } 
+}); // Only verified users by blog count
+
+// Sparse indexes for optional fields
+userSchema.index({ 
+  'socialLinks.platform': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for social links
+
+userSchema.index({ 
+  'badges': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for badges
+
+userSchema.index({ 
+  'followers': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for followers
+
+userSchema.index({ 
+  'following': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for following
+
+userSchema.index({ 
+  'unlockedFeatures.feature': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for unlocked features
+
+userSchema.index({ 
+  'aiUsage.lastAIFeature': 1 
+}, { 
+  sparse: true 
+}); // Sparse index for AI usage
+
+// Background index creation for production
+if (process.env.NODE_ENV === 'production') {
+  userSchema.index({ 
+    role: 1, 
+    isVerified: 1, 
+    createdAt: -1 
+  }, { 
+    background: true 
+  });
+  
+  userSchema.index({ 
+    level: 1, 
+    engagementScore: -1, 
+    createdAt: -1 
+  }, { 
+    background: true 
+  });
+  
+  userSchema.index({ 
+    xp: -1, 
+    level: 1, 
+    createdAt: -1 
+  }, { 
+    background: true 
+  });
+}
+
 module.exports = mongoose.model('User', userSchema);

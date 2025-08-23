@@ -70,8 +70,8 @@ module.exports = {
     }
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'your_jwt_secret',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'your_jwt_refresh_secret',
+    secret: process.env.JWT_SECRET || 'CHANGE_THIS_IN_PRODUCTION',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'CHANGE_THIS_IN_PRODUCTION',
     accessExpiration: process.env.JWT_EXPIRES_IN || '24h',
     refreshExpiration: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
     resetExpiration: process.env.JWT_RESET_EXPIRES_IN || '24h',

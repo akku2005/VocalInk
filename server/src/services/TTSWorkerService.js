@@ -7,7 +7,6 @@ class TTSWorkerService {
     this.queueService = queueService;
     this.ttsService = new TTSService();
     this.processingJobs = new Map();
-    this.worker = null;
     this.maxConcurrentJobs = parseInt(process.env.TTS_MAX_CONCURRENT_JOBS) || 5;
   }
 
@@ -20,23 +19,24 @@ class TTSWorkerService {
         throw new Error('Queue service is required for TTS worker');
       }
 
-      this.worker = this.queueService.queue.process(
+      // Process jobs with the queue
+      this.queueService.queue.process(
         this.maxConcurrentJobs,
         async (job) => {
           return await this.processTTSJob(job);
         }
       );
 
-      // Handle worker events
-      this.worker.on('completed', (job, result) => {
+      // Handle queue events instead of worker events
+      this.queueService.queue.on('completed', (job, result) => {
         this.handleJobCompleted(job, result);
       });
 
-      this.worker.on('failed', (job, err) => {
+      this.queueService.queue.on('failed', (job, err) => {
         this.handleJobFailed(job, err);
       });
 
-      this.worker.on('stalled', (job) => {
+      this.queueService.queue.on('stalled', (job) => {
         this.handleJobStalled(job);
       });
 
@@ -497,8 +497,9 @@ class TTSWorkerService {
    */
   async stop() {
     try {
-      if (this.worker) {
-        await this.worker.close();
+      // Close the queue processing
+      if (this.queueService && this.queueService.queue) {
+        await this.queueService.queue.close();
       }
       
       logger.info('TTS Worker stopped');
