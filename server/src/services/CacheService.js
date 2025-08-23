@@ -53,7 +53,8 @@ class CacheService {
         const cached = await this.redisClient.get(key);
         if (cached) {
           this.cacheStats.hits++;
-          return JSON.parse(cached);
+          const { secureJSONParse } = require('../utils/secureParser');
+    return secureJSONParse(cached, { maxLength: 10000 }) || null;
         }
       } else {
         const cached = this.memoryCache.get(key);

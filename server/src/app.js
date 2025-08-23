@@ -30,6 +30,7 @@ const {
 } = require('./middleware/security');
 const { setupErrorHandlers } = require('./middleware/errorHandler');
 const apiRouter = require('./routes');
+const securityRouter = require('./routes/security');
 const { cleanupExpiredBlacklistedTokens } = require('./utils/cleanupTokens');
 
 // Optional: Use logger if available
@@ -341,6 +342,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 // API routes
 app.use('/api', apiRouter);
+
+// Security monitoring routes (admin only)
+app.use('/api/security', securityRouter);
 
 // Not found and error handlers
 app.use(notFoundHandler);

@@ -129,7 +129,8 @@ class STTService {
       const transcriptPath = path.join(this.transcriptsDir, `${transcriptId}.json`);
       
       // Read existing config
-      const existingConfig = JSON.parse(await fs.readFile(transcriptPath, 'utf8'));
+      const { secureJSONParse } = require('../utils/secureParser');
+      const existingConfig = secureJSONParse(await fs.readFile(transcriptPath, 'utf8'), { maxLength: 5000 }) || {};
       
       // Update with transcription results
       const updatedConfig = {
@@ -158,7 +159,7 @@ class STTService {
   async getTranscription(transcriptId) {
     try {
       const transcriptPath = path.join(this.transcriptsDir, `${transcriptId}.json`);
-      const transcriptData = JSON.parse(await fs.readFile(transcriptPath, 'utf8'));
+      const transcriptData = secureJSONParse(await fs.readFile(transcriptPath, 'utf8'), { maxLength: 10000 }) || {};
       
       return transcriptData;
     } catch (error) {
@@ -178,7 +179,7 @@ class STTService {
       for (const file of files) {
         if (file.endsWith('.json')) {
           const filePath = path.join(this.transcriptsDir, file);
-          const transcriptData = JSON.parse(await fs.readFile(filePath, 'utf8'));
+          const transcriptData = secureJSONParse(await fs.readFile(filePath, 'utf8'), { maxLength: 10000 }) || {};
           
           if (transcriptData.userId === userId) {
             userTranscriptions.push({

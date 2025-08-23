@@ -79,7 +79,8 @@ class I18nService {
         try {
           const filePath = path.join(translationsDir, file);
           const content = await fs.readFile(filePath, 'utf8');
-          const translations = JSON.parse(content);
+          const { secureJSONParse } = require('../utils/secureParser');
+      const translations = secureJSONParse(content, { maxLength: 50000 }) || {};
           
           // Extract language code from filename (e.g., "fr.json" -> "fr")
           const langCode = path.basename(file, '.json');
@@ -588,7 +589,11 @@ class I18nService {
       
       // Replace parameters
       Object.keys(params).forEach(param => {
-        translation = translation.replace(new RegExp(`{${param}}`, 'g'), params[param]);
+        const { safeRegExp } = require('../utils/secureParser');
+        const regex = safeRegExp(`{${param}}`, 'g');
+        if (regex) {
+          translation = translation.replace(regex, params[param]);
+        }
       });
       
       // Cache the result
@@ -797,7 +802,7 @@ class I18nService {
   importTranslations(language, translationsData) {
     try {
       const translations = typeof translationsData === 'string' 
-        ? JSON.parse(translationsData) 
+        ? require('../utils/secureParser').secureJSONParse(translationsData, { maxLength: 50000 }) 
         : translationsData;
       
       if (this.isLanguageSupported(language)) {

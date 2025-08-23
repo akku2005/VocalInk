@@ -578,7 +578,8 @@ class AIMachineLearningService {
       // Load sentiment classifier
       const sentimentPath = `${path}/sentiment.json`;
       if (fs.existsSync(sentimentPath)) {
-        const sentimentData = JSON.parse(fs.readFileSync(sentimentPath, 'utf8'));
+        const { secureJSONParse } = require('../utils/secureParser');
+      const sentimentData = secureJSONParse(fs.readFileSync(sentimentPath, 'utf8'), { maxLength: 10000 }) || {};
         this.sentimentClassifier = natural.BayesClassifier.restore(sentimentData);
         logger.info('Sentiment classifier loaded successfully');
       }
@@ -586,7 +587,7 @@ class AIMachineLearningService {
       // Load topic classifier
       const topicPath = `${path}/topic.json`;
       if (fs.existsSync(topicPath)) {
-        const topicData = JSON.parse(fs.readFileSync(topicPath, 'utf8'));
+        const topicData = secureJSONParse(fs.readFileSync(topicPath, 'utf8'), { maxLength: 10000 }) || {};
         this.topicClassifier = natural.BayesClassifier.restore(topicData);
         logger.info('Topic classifier loaded successfully');
       }
@@ -594,7 +595,7 @@ class AIMachineLearningService {
       // Load quality classifier
       const qualityPath = `${path}/quality.json`;
       if (fs.existsSync(qualityPath)) {
-        const qualityData = JSON.parse(fs.readFileSync(qualityPath, 'utf8'));
+        const qualityData = secureJSONParse(fs.readFileSync(qualityPath, 'utf8'), { maxLength: 10000 }) || {};
         this.qualityClassifier = natural.BayesClassifier.restore(qualityData);
         logger.info('Quality classifier loaded successfully');
       }

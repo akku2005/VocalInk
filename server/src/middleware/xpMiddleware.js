@@ -16,7 +16,17 @@ const awardBlogCreationXP = async (req, res, next) => {
         const blogData = req.body;
         
         // Award XP for creating blog draft
-        const responseData = typeof data === 'string' ? JSON.parse(data) : data;
+        const { secureJSONParse } = require('../utils/secureParser');
+        const responseData = typeof data === 'string' ? secureJSONParse(data, {
+          maxLength: 5000,
+          validateSchema: (data) => typeof data === 'object' && data !== null && data._id
+        }) : data;
+        
+        if (!responseData || !responseData._id) {
+          logger.warn('Invalid response data for XP award:', { userId, data: typeof data === 'string' ? data.substring(0, 100) : 'object' });
+          return;
+        }
+        
         logger.info('Awarding blog creation XP', { userId, blogId: responseData._id });
         await XPService.awardXP(userId, 'create_blog_draft', {
           blogId: responseData._id,
@@ -62,8 +72,19 @@ const awardBlogPublishingXP = async (req, res, next) => {
           );
           
           // Award XP for publishing blog
+          const { secureJSONParse } = require('../utils/secureParser');
+          const responseData = typeof data === 'string' ? secureJSONParse(data, {
+            maxLength: 5000,
+            validateSchema: (data) => typeof data === 'object' && data !== null && data._id
+          }) : data;
+          
+          if (!responseData || !responseData._id) {
+            logger.warn('Invalid response data for publish XP award:', { userId });
+            return;
+          }
+          
           await XPService.awardXP(userId, 'publish_blog', {
-            blogId: JSON.parse(data)._id,
+            blogId: responseData._id,
             qualityScore: qualityResult.overallScore,
             wordCount: blogData.content.split(/\s+/).length,
             category: blogData.tags?.[0] || 'general',
@@ -141,7 +162,17 @@ const awardCommentXP = async (req, res, next) => {
         );
         
         // Award XP for writing comment
-        const responseData = typeof data === 'string' ? JSON.parse(data) : data;
+        const { secureJSONParse } = require('../utils/secureParser');
+        const responseData = typeof data === 'string' ? secureJSONParse(data, {
+          maxLength: 5000,
+          validateSchema: (data) => typeof data === 'object' && data !== null && data._id
+        }) : data;
+        
+        if (!responseData || !responseData._id) {
+          logger.warn('Invalid response data for comment XP award:', { userId });
+          return;
+        }
+        
         logger.info('Awarding comment XP', { userId, commentId: responseData._id });
         await XPService.awardXP(userId, 'write_comment', {
           commentId: responseData._id,
@@ -174,7 +205,16 @@ const awardBlogLikeXP = async (req, res, next) => {
     try {
       // Only award XP if the request was successful and it's a like action
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        const responseData = JSON.parse(data);
+        const { secureJSONParse } = require('../utils/secureParser');
+        const responseData = secureJSONParse(data, {
+          maxLength: 5000,
+          validateSchema: (data) => typeof data === 'object' && data !== null && typeof data.liked === 'boolean'
+        });
+        
+        if (!responseData) {
+          logger.warn('Invalid response data for blog like XP award:', { userId: req.user?.id });
+          return;
+        }
         
         if (responseData.liked) {
           // Find the blog author to award them XP
@@ -203,7 +243,16 @@ const awardCommentLikeXP = async (req, res, next) => {
     try {
       // Only award XP if the request was successful and it's a like action
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        const responseData = JSON.parse(data);
+        const { secureJSONParse } = require('../utils/secureParser');
+        const responseData = secureJSONParse(data, {
+          maxLength: 5000,
+          validateSchema: (data) => typeof data === 'object' && data !== null && typeof data.liked === 'boolean'
+        });
+        
+        if (!responseData) {
+          logger.warn('Invalid response data for comment like XP award:', { userId: req.user?.id });
+          return;
+        }
         
         if (responseData.liked) {
           // Find the comment author to award them XP
