@@ -25,7 +25,11 @@ module.exports = {
     credentials: (() => {
       try {
         if (process.env.GOOGLE_CLOUD_CREDENTIALS && process.env.GOOGLE_CLOUD_CREDENTIALS.trim().startsWith('{')) {
-          return JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS);
+          const { secureJSONParse } = require('../utils/secureParser');
+    return secureJSONParse(process.env.GOOGLE_CLOUD_CREDENTIALS, {
+      maxLength: 5000,
+      validateSchema: (data) => typeof data === 'object' && data !== null && data.type === 'service_account'
+    }) || null;
         }
         return null;
       } catch (error) {

@@ -285,7 +285,7 @@ exports.claimBadge = async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
       deviceFingerprint: req.headers['x-device-fingerprint'],
-      location: req.headers['x-user-location'] ? JSON.parse(req.headers['x-user-location']) : null,
+      location: req.headers['x-user-location'] ? require('../utils/secureParser').validateLocation(req.headers['x-user-location']) : null,
       sessionId: req.session?.id
     };
 

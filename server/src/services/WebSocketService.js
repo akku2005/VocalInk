@@ -127,7 +127,21 @@ class WebSocketService {
    */
   handleMessage(userId, data) {
     try {
-      const message = JSON.parse(data);
+      const { secureJSONParse } = require('../utils/secureParser');
+      const message = secureJSONParse(data, {
+        maxLength: 1000,
+        validateSchema: (data) => {
+          return typeof data === 'object' && 
+                 data !== null && 
+                 typeof data.type === 'string' &&
+                 ['join_room', 'leave_room', 'ping'].includes(data.type);
+        }
+      });
+      
+      if (!message) {
+        logger.warn('Invalid WebSocket message received:', { userId, data: data.substring(0, 100) });
+        return;
+      }
       
       switch (message.type) {
         case 'join_room':

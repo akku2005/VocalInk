@@ -44,7 +44,9 @@ class BadgeService {
     if (this.redisClient) {
       try {
         const cached = await this.redisClient.get(key);
-        return cached ? JSON.parse(cached) : null;
+        if (!cached) return null;
+    const { secureJSONParse } = require('../utils/secureParser');
+    return secureJSONParse(cached, { maxLength: 10000 }) || null;
       } catch (error) {
         logger.warn('Redis cache read failed:', error.message);
         return this.memoryCache.get(key) || null;
@@ -701,7 +703,7 @@ class BadgeService {
         { name: { $regex: query, $options: 'i' } },
         { description: { $regex: query, $options: 'i' } },
         { longDescription: { $regex: query, $options: 'i' } },
-        { tags: { $in: [new RegExp(query, 'i')] } }
+        { tags: { $in: [require('../utils/secureParser').safeRegExp(query, 'i')] } }
       ]
     };
 

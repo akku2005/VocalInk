@@ -28,7 +28,7 @@ exports.createReport = async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
       deviceFingerprint: req.headers['x-device-fingerprint'],
-      location: req.headers['x-location'] ? JSON.parse(req.headers['x-location']) : null
+              location: req.headers['x-location'] ? require('../utils/secureParser').validateLocation(req.headers['x-location']) : null
     };
 
     // Create report using service

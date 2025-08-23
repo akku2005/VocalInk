@@ -235,7 +235,10 @@ class AIEnhancedController {
         {
           contentType: contentType || 'all',
           limit: parseInt(limit) || 20,
-          filters: filters ? JSON.parse(filters) : {},
+          filters: filters ? require('../utils/secureParser').secureJSONParse(filters, {
+          maxLength: 2000,
+          validateSchema: (data) => typeof data === 'object' && data !== null
+        }) || {} : {},
           includeSimilar: includeSimilar !== 'false'
         }
       );

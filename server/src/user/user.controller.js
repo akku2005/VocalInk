@@ -660,7 +660,14 @@ exports.searchUsers = async (req, res) => {
       });
     }
 
-    const searchRegex = new RegExp(q, 'i');
+          const { safeRegExp } = require('../utils/secureParser');
+      const searchRegex = safeRegExp(q, 'i');
+      if (!searchRegex) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid search query'
+        });
+      }
 
     const users = await User.find({
       $or: [
