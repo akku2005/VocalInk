@@ -1,115 +1,174 @@
-import React from "react";
-import { SearchIcon } from "lucide-react";
-import image1 from "../../assets/images/image1.jpg";
-import image2 from "../../assets/images/image2.jpg";
-import { Link } from "react-router-dom";
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
+import Badge from '../ui/Badge';
+import { Calendar, Clock, User, Heart, MessageCircle, Bookmark } from 'lucide-react';
 
-export default function BlogCard() {
-  const bgColor = "var(--btn-bg-color2)";
-  const hoverColor = "var(--btn-hover-color)";
-  const collection = [
-    {
-      id: 1,
-      name: "The Future of Work: Remote Collaboration ",
-      discription:
-        "Explore the latest trends in remote work and collaboration tools",
-    },
-    {
-      id: 2,
-      name: "The Future of Work: Remote Collaboration ",
-      discription:
-        "Explore the latest trends in remote work and collaboration tools",
-    },
-    {
-      id: 3,
-      name: "The Future of Work: Remote Collaboration ",
-      discription:
-        "Explore the latest trends in remote work and collaboration tools",
-    },
-  ];
-  const topicNames = [
-    "Remote Work Trends",
-    "AI in Daily Life",
-    "Future of Technology",
-    "Health and Productivity",
-  ];
-  const buttonsText = ["Technology", "Lifestyle", "Travel", "Food", "Health"];
+const BlogCard = ({ blog, viewMode = 'grid' }) => {
+  const {
+    title,
+    excerpt,
+    author,
+    publishedAt,
+    readTime,
+    tags = [],
+    likes = 0,
+    comments = 0,
+    isBookmarked = false,
+  } = blog;
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  if (viewMode === 'list') {
+    return (
+      <Card className="cursor-pointer group">
+        <div className="flex flex-col lg:flex-row">
+          <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 flex items-center justify-center">
+            <div className="text-3xl text-primary-500 opacity-30">📝</div>
+          </div>
+          
+          <div className="flex-1 flex flex-col">
+            <CardHeader className="flex-1">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {tags.slice(0, 3).map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs px-2 py-1">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  <CardTitle className="text-xl lg:text-2xl line-clamp-2 group-hover:text-primary-500 transition-colors">
+                    {title}
+                  </CardTitle>
+                  
+                  <p className="text-text-secondary line-clamp-3 text-base leading-relaxed">
+                    {excerpt}
+                  </p>
+                </div>
+                
+                <button className="p-2 bg-white hover:bg-gray-50 dark:bg-black/80 dark:hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <Bookmark 
+                    className={`w-5 h-5 ${isBookmarked ? 'fill-current text-primary-500' : 'text-black dark:text-white'}`} 
+                  />
+                </button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-0 mt-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 text-sm text-text-secondary">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    <span className="font-medium">{author}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>{formatDate(publishedAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>{readTime} min read</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4 text-sm text-text-secondary">
+                  <div className="flex items-center gap-1 hover:text-error transition-colors cursor-pointer">
+                    <Heart className="w-4 h-4" />
+                    <span className="font-medium">{likes}</span>
+                  </div>
+                  <div className="flex items-center gap-1 hover:text-primary-500 transition-colors cursor-pointer">
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="font-medium">{comments}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
-    <div className="m-5.5 mb-0 flex justify-center ">
-      <div className="w-full max-w-[900px] flex justify-center items-center flex-col gap-8">
-        {/* search bar */}
-        <div className="relative w-full   flex items-center">
-          <input
-            type="text"
-            placeholder="Search"
-            className="bg-[#F5EFE8] text-[#5C4F3B] placeholder-[#948A7A] focus:ring-[#C6AD8F] rounded-full focus:outline-none focus:ring-1 shadow  p-4 pl-14 w-full py-4.5"
+    <Card className="cursor-pointer group overflow-hidden">
+      {/* Image/Header */}
+      <div className="aspect-video bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 flex items-center justify-center relative">
+        <div className="text-4xl text-primary-500 opacity-30">📝</div>
+        <button className="absolute top-4 right-4 p-2 bg-white hover:bg-gray-50 dark:bg-black/80 dark:hover:bg-black rounded-lg transition-all duration-200 shadow-sm border border-gray-200 dark:border-gray-700">
+          <Bookmark 
+            className={`w-4 h-4 ${isBookmarked ? 'fill-current text-primary-500' : 'text-black dark:text-white'}`} 
           />
-          <span className="absolute left-4 text-gray-950">
-            <SearchIcon size={27} />
-          </span>
-        </div>
-
-        {/* featured section */}
-        <div className="flex flex-col">
-          <h2 className="font-bold" style={{ color: "var(--headings-color)" }}>
-            Featured
-          </h2>
-          <div className="flex flex-wrap gap-3 mt-5">
-            {collection.map((item) => (
-              <div
-                key={item.id}
-                className="w-full sm:w-[48%] lg:w-[32.2%]  rounded"
-              >
-                <img
-                  src={image1}
-                  className="w-full h-[170px] rounded-xl object-cover"
-                />
-                <Link
-                  to={`/article/${item.id}`}
-                  className="text-[25px]   hover:underline mt-2.5 block"
-                >
-                  <h4 style={{ color: "var(--sub-heading-text)" }}>
-                    {item.name}
-                  </h4>
-                </Link>
-                <span style={{ color: "var(--paragraph-text-color)" }}>
-                  {item.discription}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Trending topics section */}
-        <div className="flex flex-col">
-          <h2
-            className="font-bold text-2xl"
-            style={{ color: "var(--headings-color)" }}
-          >
-            Trending Topics
-          </h2>
-          <div className="flex flex-row gap-7 mt-5">
-            {buttonsText.map((item, index) => (
-              <button
-                key={index}
-                className="bg-[var(--btn-bg-color2)] hover:bg-[var(--btn-hover-color2)] text-[var(--btn-text-color)] rounded-xl p-2.5 cursor-pointer flex items-center transition-colors duration-200"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          {/* Trending posts */}
-          <div className="flex flex-row gap-4 mt-5">
-            {topicNames.map((item, index) => (
-              <div key={index} className=" flex flex-col items-center w-[20%]">
-                <img src={image2} className="rounded-xl mb-1" />
-                <span style={{ color: "var(--sub-heading-text)" }}>{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        </button>
       </div>
-    </div>
+      
+      <CardHeader className="space-y-4">
+        {/* Tags */}
+        <div className="flex flex-wrap gap-2">
+          {tags.slice(0, 2).map((tag, index) => (
+            <Badge key={index} variant="outline" className="text-xs px-2 py-1">
+              {tag}
+            </Badge>
+          ))}
+          {tags.length > 2 && (
+            <Badge variant="outline" className="text-xs px-2 py-1">
+              +{tags.length - 2}
+            </Badge>
+          )}
+        </div>
+        
+        {/* Title */}
+        <CardTitle className="text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
+          {title}
+        </CardTitle>
+        
+        {/* Excerpt */}
+        <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed">
+          {excerpt}
+        </p>
+      </CardHeader>
+
+      <CardContent className="pt-0">
+        {/* Author and Date */}
+        <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
+          <div className="flex items-center gap-1">
+            <User className="w-3 h-3" />
+            <span className="font-medium">{author}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            <span>{formatDate(publishedAt)}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>{readTime}m</span>
+          </div>
+        </div>
+        
+        {/* Engagement */}
+        <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex items-center gap-4 text-sm text-text-secondary">
+            <div className="flex items-center gap-1 hover:text-error transition-colors cursor-pointer">
+              <Heart className="w-4 h-4" />
+              <span className="font-medium">{likes}</span>
+            </div>
+            <div className="flex items-center gap-1 hover:text-primary-500 transition-colors cursor-pointer">
+              <MessageCircle className="w-4 h-4" />
+              <span className="font-medium">{comments}</span>
+            </div>
+          </div>
+          <div className="text-xs text-text-secondary font-medium">
+            {readTime} min read
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default BlogCard;

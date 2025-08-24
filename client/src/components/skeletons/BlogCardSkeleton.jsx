@@ -1,52 +1,47 @@
-import Skeleton from "./Skeleton.jsx";
+import { Card, CardHeader, CardContent } from '../ui/Card';
 
-export default function BlogCardSkeleton() {
+const BlogCardSkeleton = () => {
   return (
-    <div className="m-5.5 mb-0 flex justify-center">
-      <div className="w-full max-w-[900px] flex flex-col gap-6">
-        {/* search bar skeleton */}
-        <div className="relative">
-          <Skeleton className="w-full h-12 rounded-full" />
+    <Card className="animate-pulse">
+      {/* Image skeleton */}
+      <div className="aspect-video bg-secondary-100 rounded-t-lg" />
+      
+      <CardHeader className="pb-3">
+        <div className="space-y-3">
+          {/* Title skeleton */}
+          <div className="h-6 bg-secondary-100 rounded w-3/4" />
+          {/* Excerpt skeleton */}
+          <div className="space-y-2">
+            <div className="h-4 bg-secondary-100 rounded w-full" />
+            <div className="h-4 bg-secondary-100 rounded w-2/3" />
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-0">
+        {/* Tags skeleton */}
+        <div className="flex gap-2 mb-4">
+          <div className="h-6 bg-secondary-100 rounded-full w-16" />
+          <div className="h-6 bg-secondary-100 rounded-full w-20" />
+          <div className="h-6 bg-secondary-100 rounded-full w-14" />
         </div>
 
-        {/* featured skeleton cards */}
-        <div className="flex flex-col">
-          <Skeleton className="h-9 w-28 mt-2" />
-          {/* title */}
-          <div className="flex flex-wrap gap-3 mt-6">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={index}
-                className="w-full sm:w-[48%] lg:w-[32.2%]  rounded "
-              >
-                <Skeleton className="w-full h-[170px] rounded-xl " />
-                <Skeleton className="h-8 w-[95%] mb-3 mt-4" />
-                <Skeleton className="h-7 w-[80%]" />
-              </div>
-            ))}
+        {/* Meta information skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="h-4 bg-secondary-100 rounded w-20" />
+            <div className="h-4 bg-secondary-100 rounded w-16" />
+            <div className="h-4 bg-secondary-100 rounded w-24" />
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <div className="h-4 bg-secondary-100 rounded w-8" />
+            <div className="h-4 bg-secondary-100 rounded w-8" />
           </div>
         </div>
-
-        {/* trending topics buttons */}
-        <div className="flex flex-col">
-          <Skeleton className="h-9 w-40 mb-3 mt-6 " />
-          {/* title */}
-          <div className="flex flex-row gap-4 mt-5">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-10 w-[85px] rounded-xl" />
-            ))}
-          </div>
-          {/* trending posts skeletons */}
-          <div className="flex flex-row gap-4 mt-5">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="flex flex-col items-center w-[20%]">
-                <Skeleton className="w-[100%] h-[110px] rounded-xl mb-2" />
-                <Skeleton className="w-[80%] h-5" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
-}
+};
+
+export default BlogCardSkeleton;
