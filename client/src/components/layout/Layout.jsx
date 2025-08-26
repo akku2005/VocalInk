@@ -1,6 +1,8 @@
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import Breadcrumb from './Breadcrumb';
+import SkipLink from '../ui/SkipLink';
 import { useState, useEffect } from 'react';
 
 const Layout = () => {
@@ -22,6 +24,7 @@ const Layout = () => {
 
   return (
     <div className="layout-container bg-background text-text-primary theme-transition">
+      <SkipLink />
       <Header 
         sidebarOpen={sidebarOpen} 
         setSidebarOpen={setSidebarOpen}
@@ -37,10 +40,15 @@ const Layout = () => {
       />
       
       {/* Main content */}
-      <main className={`pt-16 transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-      }`}>
+      <main 
+        id="main-content"
+        className={`pt-16 transition-all duration-300 relative z-0 ${
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}
+        tabIndex={-1}
+      >
         <div className="p-4 sm:p-6">
+          <Breadcrumb />
           <Outlet />
         </div>
       </main>

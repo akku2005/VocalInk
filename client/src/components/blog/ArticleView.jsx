@@ -1,15 +1,13 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Volume2, MessageCircle, BookmarkIcon, ShareIcon } from "lucide-react";
 import image3 from "../../assets/images/image3.jpg";
 import Breadcrumb from "../layout/Breadcrumb.jsx";
 import { useParams } from "react-router-dom";
 import IconButton from "../ui/IconButton.jsx";
-const buttonsText = [
-  { name: "Listen", icon: Volume2 },
-  { name: "Comment", icon: MessageCircle },
-  { name: "Save", icon: BookmarkIcon },
-  { name: "Share", icon: ShareIcon },
-];
+import EngagementButtons from "../engagement/EngagementButtons";
+import AudioPlayer from "../audio/AudioPlayer";
+import CommentList from "../comment/CommentList";
+
 
 const articles = [
   {
@@ -37,10 +35,22 @@ const articles = [
 
 export default function ArticleView() {
   const { id } = useParams();
-  const article = articles.find((a) => a.id === id);
+  const [article, setArticle] = useState(null);
+  const [showComments, setShowComments] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  
+  useEffect(() => {
+    // Simulate fetching article data
+    const foundArticle = articles.find((a) => a.id === id);
+    if (foundArticle) {
+      setArticle(foundArticle);
+    }
+  }, [id]);
+
   if (!article) {
     return <div className="p-6 text-red-500">Article not found!</div>;
   }
+
   const date = new Date();
   const formattedDate = date.toLocaleDateString("en-US", {
     year: "numeric",
@@ -71,18 +81,26 @@ export default function ArticleView() {
           </span>{" "}
           . Published on {formattedDate}
         </span>
-        <div className="flex gap-4 px-4 py-3 mt-3">
-          {buttonsText.map((item, index) => (
-            <button
-              key={index}
-              className="flex cursor-pointer flex-col gap-1.5 items-center text-sm transition-colors"
-            >
-              <IconButton icon={item.icon} />
-              <span className="mt-1 text-[#5C4F3B] hover:text-[#534735]">
-                {item.name}
-              </span>
-            </button>
-          ))}
+        {/* Engagement Buttons */}
+        <div className="px-4 py-3 mt-3">
+          <EngagementButtons
+            blogId={id}
+            initialLikes={156}
+            initialComments={31}
+            initialBookmarks={23}
+            isLiked={false}
+            isBookmarked={false}
+          />
+        </div>
+
+        {/* Audio Player */}
+        <div className="px-4 py-3">
+          <AudioPlayer
+            blogId={id}
+            blogTitle={article.title}
+            initialAudioUrl={audioUrl}
+            onAudioGenerated={setAudioUrl}
+          />
         </div>
 
         <p
@@ -101,6 +119,26 @@ export default function ArticleView() {
             A caption
           </figcaption>
         </figure>
+
+        {/* Comments Section */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-text-primary">Comments</h3>
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className="text-primary-500 hover:text-primary-600 font-medium"
+            >
+              {showComments ? 'Hide Comments' : 'Show Comments'}
+            </button>
+          </div>
+          
+          {showComments && (
+            <CommentList
+              blogId={id}
+              blogTitle={article.title}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

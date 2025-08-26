@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { TrendingUp, Users, BookOpen, Zap } from 'lucide-react';
+import { TrendingUp, Users, BookOpen, Zap, ArrowRight } from 'lucide-react';
 
 const Home = () => {
+  const { isAuthenticated } = useAuth();
   const [stats] = useState({
     totalBlogs: 1250,
     totalUsers: 850,
@@ -24,12 +27,33 @@ const Home = () => {
             text-to-speech, and gamified social features.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button size="lg" className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300">
-              Get Started
-            </Button>
-            <Button variant="ghost" size="lg" className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300">
-              Learn More
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <Link to="/create-blog">
+                  <Button size="lg" className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    Create New Post
+                  </Button>
+                </Link>
+                <Link to="/dashboard">
+                  <Button variant="ghost" size="lg" className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300">
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/register">
+                  <Button size="lg" className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    Get Started
+                  </Button>
+                </Link>
+                <Link to="/blogs">
+                  <Button variant="ghost" size="lg" className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300">
+                    Explore Blogs
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -83,40 +107,160 @@ const Home = () => {
 
       {/* Featured Content */}
       <div className="space-y-6">
-        <div className="text-center lg:text-left">
-          <h2 className="text-2xl lg:text-3xl font-bold text-text-primary mb-2">
-            Featured Content
-          </h2>
-          <p className="text-text-secondary">Discover the latest and most popular content from our community</p>
+        <div className="flex items-center justify-between">
+          <div className="text-center lg:text-left">
+            <h2 className="text-2xl lg:text-3xl font-bold text-text-primary mb-2">
+              Featured Content
+            </h2>
+            <p className="text-text-secondary">Discover the latest and most popular content from our community</p>
+          </div>
+          <Link to="/blogs">
+            <Button variant="outline" className="hidden lg:flex items-center gap-2">
+              View All
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
           {[1, 2, 3, 4, 5, 6].map((item) => (
-            <Card key={item} className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md hover:shadow-2xl">
-              <div className="h-48 bg-gradient-to-br from-primary-50 to-primary-100 rounded-t-lg mb-4"></div>
-              <CardHeader className="pb-2">
-                <CardTitle className="group-hover:text-primary-500 transition-colors text-lg">
-                  Sample Blog Post {item}
-                </CardTitle>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Discover the future of content creation with AI-powered features and innovative storytelling techniques...
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm text-text-secondary">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-primary-600">JD</span>
+            <Link key={item} to={`/article/${item}`}>
+              <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md hover:shadow-2xl">
+                <div className="h-48 bg-gradient-to-br from-primary-50 to-primary-100 rounded-t-lg mb-4"></div>
+                <CardHeader className="pb-2">
+                  <CardTitle className="group-hover:text-primary-500 transition-colors text-lg">
+                    Sample Blog Post {item}
+                  </CardTitle>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    Discover the future of content creation with AI-powered features and innovative storytelling techniques...
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm text-text-secondary">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-primary-600">JD</span>
+                      </div>
+                      <span>John Doe</span>
                     </div>
-                    <span>John Doe</span>
+                    <div className="flex items-center space-x-4">
+                      <span>5 min read</span>
+                      <span>2 days ago</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <span>5 min read</span>
-                    <span>2 days ago</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
+        </div>
+        <div className="text-center lg:hidden">
+          <Link to="/blogs">
+            <Button variant="outline" className="flex items-center gap-2 mx-auto">
+              View All Blogs
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Key Features Section */}
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl lg:text-3xl font-bold text-text-primary mb-2">
+            {isAuthenticated ? 'Your VocalInk Dashboard' : 'Discover VocalInk Features'}
+          </h2>
+          <p className="text-text-secondary">
+            {isAuthenticated 
+              ? 'Access your personalized tools and insights' 
+              : 'Explore the powerful tools and features that make VocalInk unique'
+            }
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {isAuthenticated ? (
+            <>
+              <Link to="/analytics">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-200 transition-colors">
+                    <TrendingUp className="w-6 h-6 text-primary-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Analytics</h3>
+                  <p className="text-sm text-text-secondary">Track your content performance and audience insights</p>
+                </Card>
+              </Link>
+              
+              <Link to="/rewards">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-warning-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-warning-200 transition-colors">
+                    <BookOpen className="w-6 h-6 text-warning-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Rewards</h3>
+                  <p className="text-sm text-text-secondary">Earn badges, XP, and rewards for your engagement</p>
+                </Card>
+              </Link>
+              
+              <Link to="/create-blog">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-success-200 transition-colors">
+                    <Users className="w-6 h-6 text-success-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Create Content</h3>
+                  <p className="text-sm text-text-secondary">Start writing and publishing your next blog post</p>
+                </Card>
+              </Link>
+              
+              <Link to="/settings">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-accent-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-accent-200 transition-colors">
+                    <Zap className="w-6 h-6 text-accent-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Settings</h3>
+                  <p className="text-sm text-text-secondary">Customize your profile and preferences</p>
+                </Card>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to="/register">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-primary-200 transition-colors">
+                    <TrendingUp className="w-6 h-6 text-primary-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Join Community</h3>
+                  <p className="text-sm text-text-secondary">Create an account and start your journey</p>
+                </Card>
+              </Link>
+              
+              <Link to="/blogs">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-warning-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-warning-200 transition-colors">
+                    <BookOpen className="w-6 h-6 text-warning-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Explore Content</h3>
+                  <p className="text-sm text-text-secondary">Discover amazing blogs and stories</p>
+                </Card>
+              </Link>
+              
+              <Link to="/leaderboard">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-success-200 transition-colors">
+                    <Users className="w-6 h-6 text-success-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Leaderboard</h3>
+                  <p className="text-sm text-text-secondary">See top creators and trending content</p>
+                </Card>
+              </Link>
+              
+              <Link to="/search">
+                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group text-center p-6">
+                  <div className="w-12 h-12 bg-accent-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-accent-200 transition-colors">
+                    <Zap className="w-6 h-6 text-accent-600" />
+                  </div>
+                  <h3 className="font-semibold text-text-primary mb-2">Smart Search</h3>
+                  <p className="text-sm text-text-secondary">Find content with AI-powered search and filters</p>
+                </Card>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

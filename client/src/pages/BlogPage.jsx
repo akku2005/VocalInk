@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import BlogCard from '../components/blog/BlogCard';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -13,6 +14,7 @@ const BlogPage = () => {
   // Sample blog data
   const sampleBlogs = [
     {
+      id: "1",
       title: "The Future of AI in Content Creation",
       excerpt: "Discover how artificial intelligence is revolutionizing the way we create, edit, and distribute content across various platforms.",
       author: "Sarah Johnson",
@@ -21,9 +23,12 @@ const BlogPage = () => {
       tags: ["AI", "Technology", "Content Creation"],
       likes: 124,
       comments: 23,
+      isLiked: false,
       isBookmarked: false,
+      bookmarks: 15,
     },
     {
+      id: "2",
       title: "Building a Successful Blog Series: A Complete Guide",
       excerpt: "Learn the strategies and techniques needed to create engaging blog series that keep readers coming back for more.",
       author: "Michael Chen",
@@ -32,9 +37,12 @@ const BlogPage = () => {
       tags: ["Blogging", "Content Strategy", "Writing"],
       likes: 89,
       comments: 15,
+      isLiked: true,
       isBookmarked: true,
+      bookmarks: 23,
     },
     {
+      id: "3",
       title: "Voice-to-Text: The Next Big Thing in Writing",
       excerpt: "Explore how speech recognition technology is changing the landscape of content creation and making writing more accessible.",
       author: "Emily Rodriguez",
@@ -43,9 +51,12 @@ const BlogPage = () => {
       tags: ["Voice Technology", "Accessibility", "Innovation"],
       likes: 156,
       comments: 31,
+      isLiked: false,
       isBookmarked: false,
+      bookmarks: 18,
     },
     {
+      id: "4",
       title: "Gamification in Learning: Making Education Fun",
       excerpt: "How game mechanics and rewards systems are transforming the way we learn and retain information.",
       author: "David Kim",
@@ -54,9 +65,12 @@ const BlogPage = () => {
       tags: ["Education", "Gamification", "Learning"],
       likes: 203,
       comments: 42,
+      isLiked: false,
       isBookmarked: false,
+      bookmarks: 31,
     },
     {
+      id: "5",
       title: "The Psychology of Social Media Engagement",
       excerpt: "Understanding what makes content go viral and how to create posts that truly resonate with your audience.",
       author: "Lisa Thompson",
@@ -65,9 +79,12 @@ const BlogPage = () => {
       tags: ["Psychology", "Social Media", "Marketing"],
       likes: 178,
       comments: 28,
+      isLiked: false,
       isBookmarked: true,
+      bookmarks: 27,
     },
     {
+      id: "6",
       title: "Sustainable Living: Small Changes, Big Impact",
       excerpt: "Practical tips and strategies for reducing your environmental footprint through everyday choices and habits.",
       author: "Alex Green",
@@ -76,7 +93,9 @@ const BlogPage = () => {
       tags: ["Sustainability", "Lifestyle", "Environment"],
       likes: 145,
       comments: 19,
+      isLiked: false,
       isBookmarked: false,
+      bookmarks: 12,
     },
   ];
 
@@ -150,10 +169,12 @@ const BlogPage = () => {
             </button>
           </div>
           
-          <Button className="flex items-center gap-2 h-12 px-6">
-            <Plus className="w-4 h-4" />
-            New Post
-          </Button>
+          <Link to="/create-blog">
+            <Button className="flex items-center gap-2 h-12 px-6">
+              <Plus className="w-4 h-4" />
+              New Post
+            </Button>
+          </Link>
         </div>
       </div>
 
