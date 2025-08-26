@@ -18,6 +18,14 @@
   --color-success: 16 185 129;
   --color-warning: 245 158 11;
   --color-error: 239 68 68;
+
+  /* buttons colors */
+  --secondary-btn: rgb(236, 235, 235);
+  --secondary-btn-hover: rgb(236, 236, 236);
+  --text-color:rgb(39, 39, 39);
+  --light-text-color:rgb(95, 95, 95);
+  --links-hover:rgba(255, 255, 255, 0.2);
+   --border-color:rgba(0, 0, 0, 0.2);
 }
 
 [data-theme="dark"] {
@@ -33,6 +41,13 @@
   --color-success: 34 197 94;
   --color-warning: 251 191 36;
   --color-error: 248 113 113;
+
+   /* buttons colors */
+  --secondary-btn: rgba(255, 255, 255, 0.1);
+   --secondary-btn-hover: rgba(255, 255, 255, 0.2);
+   --text-color:rgb(241, 235, 235);
+   --light-text-color:rgb(194, 192, 192);
+   --border-color:rgba(255, 255, 255, 0.2);
 }
 
 /* Custom Classes */
@@ -90,10 +105,7 @@ html {
 }
 
 /* Focus styles for accessibility */
-*:focus {
-  outline: 2px solid rgb(var(--color-primary));
-  outline-offset: 2px;
-}
+
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
