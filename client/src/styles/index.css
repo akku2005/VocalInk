@@ -21,11 +21,14 @@
 
   /* buttons colors */
   --secondary-btn: rgb(236, 235, 235);
+  --secondary-btn2: rgb(228, 225, 225);
   --secondary-btn-hover: rgb(236, 236, 236);
+  --secondary-btn-hover2:rgb(216, 216, 216);
   --text-color:rgb(39, 39, 39);
-  --light-text-color:rgb(95, 95, 95);
+  --light-text-color:rgb(151, 151, 151);
+  --light-text-color2:rgb(32, 32, 32);
   --links-hover:rgba(255, 255, 255, 0.2);
-   --border-color:rgba(0, 0, 0, 0.2);
+   --border-color:rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] {
@@ -44,9 +47,12 @@
 
    /* buttons colors */
   --secondary-btn: rgba(255, 255, 255, 0.1);
+  --secondary-btn2: rgba(240, 239, 239, 0.1);
    --secondary-btn-hover: rgba(255, 255, 255, 0.2);
+   --secondary-btn-hover2: rgba(255, 255, 255, 0.2);
    --text-color:rgb(241, 235, 235);
-   --light-text-color:rgb(194, 192, 192);
+   --light-text-color:rgb(180, 180, 180);
+   --light-text-color2:rgb(204, 203, 203);
    --border-color:rgba(255, 255, 255, 0.2);
 }
 
@@ -116,6 +122,15 @@ html {
 ::-webkit-scrollbar-track {
   background: rgb(var(--color-surface));
 }
+input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 
 ::-webkit-scrollbar-thumb {
   background: rgb(var(--color-border));

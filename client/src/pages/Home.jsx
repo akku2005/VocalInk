@@ -69,7 +69,7 @@ const Home = () => {
                   <Button
                     variant="ghost"
                     size="lg"
-                    className="w-full sm:w-auto bg-[var(--secondary-btn)] backdrop-blur-2xl hover:bg-[var(--secondary-btn-hover)] transition-all duration-300 cursor-pointer "
+                    className="w-full sm:w-auto bg-[var(--secondary-btn)] backdrop-blur-2xl hover:bg-[var(--secondary-btn-hover)] transition-all duration-300 cursor-pointer outline-none "
                   >
                     Explore Blogs
                   </Button>
