@@ -1,14 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+import { useState, useEffect } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -46,10 +37,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
   };
 
-  const register = async (name, email, password) => {
+  const register = async (username, displayName, email, password) => {
     try {
       // TODO: Implement actual registration API call
-      const mockUser = { id: 1, name, email };
+      const mockUser = { id: 1, username, displayName, email };
       const mockToken = 'mock-jwt-token';
       
       setUser(mockUser);

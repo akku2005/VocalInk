@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const schema = yup.object({
   email: yup.string().email('Invalid email address').required('Email is required'),
@@ -17,6 +18,11 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the intended destination from location state, or default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const {
     register,
@@ -31,7 +37,10 @@ const Login = () => {
     setLoading(true);
     try {
       const result = await login(data.email, data.password);
-      if (!result.success) {
+      if (result.success) {
+        // Redirect to the intended destination or dashboard
+        navigate(from, { replace: true });
+      } else {
         setError('root', { message: result.error });
       }
     } catch (error) {

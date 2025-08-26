@@ -37,9 +37,9 @@ export default function Navbar() {
   };
   return (
     <nav
-      className="w-full  px-3 py-1  navbar-container  bg-[var(--navbar-bg-color)] 
-             backdrop-blur-sm 
-  fixed top-0 left-0 z-50
+      className="w-full px-3 py-1 navbar-container bg-[var(--navbar-bg-color)] 
+             backdrop-blur-md bg-opacity-95
+  fixed top-0 left-0 z-[9999] shadow-lg
 "
     >
       <div className=" mx-auto    flex items-center justify-between  px-4 py-2 rounded-full">

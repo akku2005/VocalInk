@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { TrendingUp, Users, BookOpen, Zap, Activity, Calendar, Clock, Star } from 'lucide-react';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats] = useState({
     totalViews: 15420,
     totalLikes: 3240,
@@ -54,10 +56,10 @@ const Dashboard = () => {
   ]);
 
   const [quickActions] = useState([
-    { name: 'Write New Post', icon: BookOpen, action: () => console.log('Write post') },
-    { name: 'Create Series', icon: BookOpen, action: () => console.log('Create series') },
-    { name: 'Generate Audio', icon: Zap, action: () => console.log('Generate audio') },
-    { name: 'View Analytics', icon: Activity, action: () => console.log('View analytics') },
+    { name: 'Write New Post', icon: BookOpen, action: () => navigate('/create-blog') },
+    { name: 'Create Series', icon: BookOpen, action: () => navigate('/series') },
+    { name: 'Generate Audio', icon: Zap, action: () => navigate('/create-blog') },
+    { name: 'View Analytics', icon: Activity, action: () => navigate('/analytics') },
   ]);
 
   return (

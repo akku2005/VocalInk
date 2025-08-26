@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Badge from '../ui/Badge';
-import { Calendar, Clock, User, Heart, MessageCircle, Bookmark } from 'lucide-react';
+import EngagementButtons from '../engagement/EngagementButtons';
+import { Calendar, Clock, User, Bookmark } from 'lucide-react';
 
 const BlogCard = ({ blog, viewMode = 'grid' }) => {
   const {
@@ -77,16 +78,14 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-4 text-sm text-text-secondary">
-                  <div className="flex items-center gap-1 hover:text-error transition-colors cursor-pointer">
-                    <Heart className="w-4 h-4" />
-                    <span className="font-medium">{likes}</span>
-                  </div>
-                  <div className="flex items-center gap-1 hover:text-primary-500 transition-colors cursor-pointer">
-                    <MessageCircle className="w-4 h-4" />
-                    <span className="font-medium">{comments}</span>
-                  </div>
-                </div>
+                <EngagementButtons
+                  blogId={blog.id}
+                  initialLikes={likes}
+                  initialComments={comments}
+                  initialBookmarks={blog.bookmarks || 0}
+                  isLiked={blog.isLiked}
+                  isBookmarked={blog.isBookmarked}
+                />
               </div>
             </CardContent>
           </div>
@@ -151,20 +150,15 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
         </div>
         
         {/* Engagement */}
-        <div className="flex items-center justify-between pt-4 border-t border-border">
-          <div className="flex items-center gap-4 text-sm text-text-secondary">
-            <div className="flex items-center gap-1 hover:text-error transition-colors cursor-pointer">
-              <Heart className="w-4 h-4" />
-              <span className="font-medium">{likes}</span>
-            </div>
-            <div className="flex items-center gap-1 hover:text-primary-500 transition-colors cursor-pointer">
-              <MessageCircle className="w-4 h-4" />
-              <span className="font-medium">{comments}</span>
-            </div>
-          </div>
-          <div className="text-xs text-text-secondary font-medium">
-            {readTime} min read
-          </div>
+        <div className="pt-4 border-t border-border">
+          <EngagementButtons
+            blogId={blog.id}
+            initialLikes={likes}
+            initialComments={comments}
+            initialBookmarks={blog.bookmarks || 0}
+            isLiked={blog.isLiked}
+            isBookmarked={blog.isBookmarked}
+          />
         </div>
       </CardContent>
     </Card>

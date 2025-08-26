@@ -1,19 +1,33 @@
-import { Home, BookOpen, FileText, Mic, Users, Trophy, Settings, X, ChevronLeft, ChevronRight, Layers, LayoutDashboard } from 'lucide-react';
+import { Home, BookOpen, FileText, Mic, Users, Trophy, Settings, X, ChevronLeft, ChevronRight, Layers, LayoutDashboard, Search, TrendingUp, Award } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
 const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
 
-  const navigation = [
+  // Public navigation items (always visible)
+  const publicNavigation = [
     { name: 'Home', href: '/', icon: Home },
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Blogs', href: '/blogs', icon: BookOpen },
     { name: 'Series', href: '/series', icon: Layers },
-    { name: 'AI Tools', href: '/ai', icon: Mic },
-    { name: 'Community', href: '/community', icon: Users },
-    { name: 'Achievements', href: '/achievements', icon: Trophy },
+    { name: 'Search', href: '/search', icon: Search },
+    { name: 'Leaderboard', href: '/leaderboard', icon: Users },
+    { name: 'Badges', href: '/badges', icon: Award },
+  ];
+
+  // Private navigation items (only visible when authenticated)
+  const privateNavigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+    { name: 'Rewards', href: '/rewards', icon: Trophy },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
+
+  // Combine navigation based on authentication status
+  const navigation = isAuthenticated 
+    ? [...publicNavigation, ...privateNavigation]
+    : publicNavigation;
 
   const isActive = (href) => {
     if (href === '/') {
