@@ -24,6 +24,8 @@ import {
   Flame,
   Palette
 } from 'lucide-react';
+import Modal from '../components/ui/Modal';
+import { Link } from 'react-router-dom';
 
 const BadgeGalleryPage = () => {
   const [badges, setBadges] = useState([]);
@@ -32,6 +34,9 @@ const BadgeGalleryPage = () => {
   const [filterRarity, setFilterRarity] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('rarity');
+  const [badgeModal, setBadgeModal] = useState({ open: false, badge: null });
+
+  const badgeSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   useEffect(() => {
     // Simulate API call
@@ -311,11 +316,11 @@ const BadgeGalleryPage = () => {
   }, []);
 
   const rarities = [
-    { id: 'all', name: 'All Rarities', color: 'bg-gray-100 text-gray-800' },
-    { id: 'common', name: 'Common', color: 'bg-gray-100 text-gray-800' },
-    { id: 'rare', name: 'Rare', color: 'bg-blue-100 text-blue-800' },
-    { id: 'epic', name: 'Epic', color: 'bg-purple-100 text-purple-800' },
-    { id: 'legendary', name: 'Legendary', color: 'bg-yellow-100 text-yellow-800' }
+    { id: 'all', name: 'All Rarities', color: 'bg-surface text-text-primary' },
+    { id: 'common', name: 'Common', color: 'bg-surface text-text-primary' },
+    { id: 'rare', name: 'Rare', color: 'bg-surface text-text-primary' },
+    { id: 'epic', name: 'Epic', color: 'bg-surface text-text-primary' },
+    { id: 'legendary', name: 'Legendary', color: 'bg-surface text-text-primary' }
   ];
 
   const categories = [
@@ -344,9 +349,10 @@ const BadgeGalleryPage = () => {
     return matchesSearch && matchesRarity && matchesCategory;
   }).sort((a, b) => {
     switch (sortBy) {
-      case 'rarity':
-        const rarityOrder = { legendary: 4, epic: 3, rare: 2, common: 1 };
-        return rarityOrder[b.rarity] - rarityOrder[a.rarity];
+      case 'rarity': {
+        const order = { legendary: 4, epic: 3, rare: 2, common: 1 };
+        return order[b.rarity] - order[a.rarity];
+      }
       case 'progress':
         return b.progress - a.progress;
       case 'name':
@@ -371,15 +377,15 @@ const BadgeGalleryPage = () => {
     return (
       <div className="max-w-7xl mx-auto p-6">
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          <div className="h-8 bg-[rgba(var(--color-surface),0.6)] rounded w-1/3"></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 bg-gray-200 rounded"></div>
+              <div key={i} className="h-12 rounded border border-[var(--border-color)] bg-[rgba(var(--color-surface),0.6)]"></div>
             ))}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-64 bg-gray-200 rounded"></div>
+              <div key={i} className="h-64 rounded border border-[var(--border-color)] bg-[rgba(var(--color-surface),0.6)]"></div>
             ))}
           </div>
         </div>
@@ -397,28 +403,28 @@ const BadgeGalleryPage = () => {
 
       {/* Progress Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardContent className="p-6 text-center">
             <div className="text-3xl mb-2">🏆</div>
             <div className="text-2xl font-bold text-primary-500">{earnedBadges.length}</div>
             <div className="text-sm text-text-secondary">Badges Earned</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardContent className="p-6 text-center">
             <div className="text-3xl mb-2">🎯</div>
             <div className="text-2xl font-bold text-primary-500">{totalBadges}</div>
             <div className="text-sm text-text-secondary">Total Badges</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardContent className="p-6 text-center">
             <div className="text-3xl mb-2">📊</div>
             <div className="text-2xl font-bold text-primary-500">{completionRate}%</div>
             <div className="text-sm text-text-secondary">Completion Rate</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardContent className="p-6 text-center">
             <div className="text-3xl mb-2">⭐</div>
             <div className="text-2xl font-bold text-primary-500">12,450</div>
@@ -428,7 +434,7 @@ const BadgeGalleryPage = () => {
       </div>
 
       {/* Search and Filters */}
-      <Card>
+      <Card className="border border-[var(--border-color)]">
         <CardContent className="p-6">
           <div className="space-y-6">
             {/* Search */}
@@ -453,7 +459,7 @@ const BadgeGalleryPage = () => {
                 <select
                   value={filterRarity}
                   onChange={(e) => setFilterRarity(e.target.value)}
-                  className="w-full p-2 border border-border rounded-lg bg-background text-text-primary"
+                  className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-background text-text-primary"
                 >
                   {rarities.map((rarity) => (
                     <option key={rarity.id} value={rarity.id}>
@@ -471,7 +477,7 @@ const BadgeGalleryPage = () => {
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full p-2 border border-border rounded-lg bg-background text-text-primary"
+                  className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-background text-text-primary"
                 >
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
@@ -489,7 +495,7 @@ const BadgeGalleryPage = () => {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full p-2 border border-border rounded-lg bg-background text-text-primary"
+                  className="w-full p-2 border border-[var(--border-color)] rounded-lg bg-background text-text-primary"
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -517,7 +523,7 @@ const BadgeGalleryPage = () => {
       {/* Badges Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredBadges.map((badge) => (
-          <Card key={badge.id} className="hover:shadow-lg transition-all duration-300">
+          <Card key={badge.id} className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-[var(--border-color)]" onClick={() => setBadgeModal({ open: true, badge })}>
             <CardContent className="p-6">
               <div className="text-center space-y-4">
                 {/* Badge Icon and Status */}
@@ -586,7 +592,7 @@ const BadgeGalleryPage = () => {
                   </div>
 
                   {/* Stats */}
-                  <div className="mt-4 pt-4 border-t border-border">
+                  <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                     <div className="flex items-center justify-between text-xs text-text-secondary">
                       <span>{badge.earnedBy} earned</span>
                       <span>{Math.round((badge.earnedBy / badge.totalUsers) * 100)}% of users</span>
@@ -606,9 +612,36 @@ const BadgeGalleryPage = () => {
         ))}
       </div>
 
+      <Modal
+        isOpen={badgeModal.open}
+        onClose={() => setBadgeModal({ open: false, badge: null })}
+        title={badgeModal.badge?.name || 'Badge'}
+        footer={
+          <>
+            <button className="px-4 py-2 rounded-md border border-[var(--border-color)]" onClick={() => setBadgeModal({ open: false, badge: null })}>Close</button>
+            {badgeModal.badge && (
+              <Link to={`/badges/${badgeSlug(badgeModal.badge.name)}`} className="px-4 py-2 rounded-md bg-primary-500 text-white">View details</Link>
+            )}
+          </>
+        }
+      >
+        {badgeModal.badge && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl" aria-hidden>{badgeModal.badge.icon}</div>
+              <Badge className={rarities.find(r => r.id === badgeModal.badge.rarity)?.color}>{badgeModal.badge.rarity}</Badge>
+            </div>
+            <p className="text-text-secondary">{badgeModal.badge.description}</p>
+            <div className="text-sm text-text-secondary">
+              Earned by {badgeModal.badge.earnedBy} users ({Math.round((badgeModal.badge.earnedBy / badgeModal.badge.totalUsers) * 100)}%)
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Empty State */}
       {filteredBadges.length === 0 && (
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardContent className="p-12 text-center">
             <Award className="w-12 h-12 text-text-secondary mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-text-primary mb-2">No badges found</h3>

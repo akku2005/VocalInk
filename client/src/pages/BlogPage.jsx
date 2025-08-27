@@ -1,15 +1,32 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import BlogCard from "../components/blog/BlogCard";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
-import { Search, Filter, Plus, Grid3X3, List, X } from "lucide-react";
+import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
+import {
+  Search,
+  Filter,
+  Plus,
+  Grid3X3,
+  List,
+  X,
+  ArrowUpDown,
+} from "lucide-react";
 
 const BlogPage = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [viewMode, setViewMode] = useState("grid");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+
+  const [searchQuery, setSearchQuery] = useState(params.get("q") || "");
+  const [selectedCategory, setSelectedCategory] = useState(
+    params.get("cat") || "all"
+  );
+  const [viewMode, setViewMode] = useState(params.get("view") || "grid");
+  const [sortBy, setSortBy] = useState(params.get("sort") || "recent");
+  const [isLoading, setIsLoading] = useState(false);
 
   // Sample blog data
   const sampleBlogs = [
@@ -114,26 +131,78 @@ const BlogPage = () => {
     { id: "sustainability", name: "Sustainability", count: 1 },
   ];
 
-  const filteredBlogs = sampleBlogs.filter((blog) => {
-    const matchesSearch =
-      blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      blog.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      blog.tags.some((tag) =>
-        tag.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  // URL sync
+  useEffect(() => {
+    const q = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
+    const cat =
+      selectedCategory && selectedCategory !== "all"
+        ? `&cat=${encodeURIComponent(selectedCategory)}`
+        : "";
+    const view =
+      viewMode !== "grid" ? `&view=${encodeURIComponent(viewMode)}` : "";
+    const sort =
+      sortBy !== "recent" ? `&sort=${encodeURIComponent(sortBy)}` : "";
+    const query = [q, cat, view, sort].filter(Boolean).join("");
+    const url = query ? `/blogs?${query.replace(/^&/, "")}` : "/blogs";
+    navigate(url, { replace: true });
+  }, [searchQuery, selectedCategory, viewMode, sortBy, navigate]);
 
-    const matchesCategory =
-      selectedCategory === "all" ||
-      blog.tags.some((tag) => tag.toLowerCase() === selectedCategory);
+  // Debounced search
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
 
-    return matchesSearch && matchesCategory;
-  });
+  // Simulated loading when filters/search change
+  useEffect(() => {
+    setIsLoading(true);
+    const id = setTimeout(() => setIsLoading(false), 350);
+    return () => clearTimeout(id);
+  }, [debouncedQuery, selectedCategory, sortBy, viewMode]);
+
+  const filteredAndSortedBlogs = useMemo(() => {
+    const filtered = sampleBlogs.filter((blog) => {
+      const matchesSearch =
+        blog.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+        blog.excerpt.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+        blog.tags.some((tag) =>
+          tag.toLowerCase().includes(debouncedQuery.toLowerCase())
+        );
+
+      const matchesCategory =
+        selectedCategory === "all" ||
+        blog.tags.some((tag) => tag.toLowerCase() === selectedCategory);
+
+      return matchesSearch && matchesCategory;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === "recent") {
+        return new Date(b.publishedAt) - new Date(a.publishedAt);
+      }
+      if (sortBy === "popular") {
+        return (
+          b.likes +
+          b.comments +
+          (b.bookmarks || 0) -
+          (a.likes + a.comments + (a.bookmarks || 0))
+        );
+      }
+      if (sortBy === "readtime") {
+        return a.readTime - b.readTime;
+      }
+      return 0;
+    });
+
+    return sorted;
+  }, [sampleBlogs, debouncedQuery, selectedCategory, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header Section */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent pb-2">
+        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">
           Blog Posts
         </h1>
         <p className="text-lg text-text-secondary max-w-2xl mx-auto">
@@ -151,6 +220,7 @@ const BlogPage = () => {
             placeholder="Search posts, authors, or tags..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search posts"
             className="pl-11 h-12 text-base text-[var(--light-text-color2)] placeholder:text-[var(--light-text-color)]
              focus:outline-none focus:ring-0 focus-visible:ring-0   border border-[var(--border-color)]"
           />
@@ -158,6 +228,7 @@ const BlogPage = () => {
             <button
               onClick={() => setSearchQuery("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text-color)]  cursor-pointer"
+              aria-label="Clear search"
             >
               <X className="w-4 h-4" />
             </button>
@@ -165,10 +236,35 @@ const BlogPage = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Sort */}
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="w-5 h-5 text-primary-500" />
+            <label htmlFor="sort" className="text-sm text-text-secondary">
+              Sort by
+            </label>
+            <select
+              id="sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="h-12 rounded-lg border border-[var(--border-color)] bg-background px-3 text-sm"
+            >
+              <option value="recent">Most Recent</option>
+              <option value="popular">Most Popular</option>
+              <option value="readtime">Shortest Read</option>
+            </select>
+          </div>
+
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]">
+          <div
+            className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]"
+            role="tablist"
+            aria-label="View mode"
+          >
             <button
               onClick={() => setViewMode("grid")}
+              role="tab"
+              aria-selected={viewMode === "grid"}
+              aria-controls="blog-grid"
               className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
                 viewMode === "grid"
                   ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm hover:bg-[var(--secondary-btn-hover2)]"
@@ -179,6 +275,9 @@ const BlogPage = () => {
             </button>
             <button
               onClick={() => setViewMode("list")}
+              role="tab"
+              aria-selected={viewMode === "list"}
+              aria-controls="blog-grid"
               className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
                 viewMode === "list"
                   ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
@@ -219,6 +318,7 @@ const BlogPage = () => {
                   : ""
               }`}
               onClick={() => setSelectedCategory(category.id)}
+              aria-pressed={selectedCategory === category.id}
             >
               {category.name}{" "}
               <span className="ml-1 opacity-75">({category.count})</span>
@@ -228,11 +328,14 @@ const BlogPage = () => {
       </div>
 
       {/* Results Summary */}
-      <div className="flex items-center justify-between py-4 border-b border-[var(--border-color)]">
+      <div
+        className="flex items-center justify-between py-4 border-b border-[var(--border-color)]"
+        aria-live="polite"
+      >
         <div className="text-text-secondary">
           Showing{" "}
           <span className="font-semibold text-text-primary">
-            {filteredBlogs.length}
+            {filteredAndSortedBlogs.length}
           </span>{" "}
           of{" "}
           <span className="font-semibold text-text-primary">
@@ -245,23 +348,35 @@ const BlogPage = () => {
         </div>
       </div>
 
-      {/* Blog Grid */}
-      {filteredBlogs.length > 0 && (
+      {/* Loading State */}
+      {isLoading && (
         <div
+          className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}
+        >
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <BlogCardSkeleton key={idx} />
+          ))}
+        </div>
+      )}
+
+      {/* Blog Grid */}
+      {!isLoading && filteredAndSortedBlogs.length > 0 && (
+        <div
+          id="blog-grid"
           className={`grid gap-6 ${
             viewMode === "grid"
               ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
               : "grid-cols-1"
           }`}
         >
-          {filteredBlogs.map((blog, index) => (
+          {filteredAndSortedBlogs.map((blog, index) => (
             <BlogCard key={index} blog={blog} viewMode={viewMode} />
           ))}
         </div>
       )}
 
       {/* Empty State */}
-      {filteredBlogs.length === 0 && (
+      {!isLoading && filteredAndSortedBlogs.length === 0 && (
         <div className="text-center py-16">
           <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
             <Search className="w-10 h-10 text-primary-600" />
@@ -278,6 +393,7 @@ const BlogPage = () => {
             onClick={() => {
               setSearchQuery("");
               setSelectedCategory("all");
+              setSortBy("recent");
             }}
             className="px-6 py-3"
           >

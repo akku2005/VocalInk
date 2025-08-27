@@ -34,7 +34,7 @@ export default function Breadcrumb() {
       className="py-3 px-4 mb-4 bg-surface border border-[var(--border-color)]
  rounded-lg"
     >
-      <nav className="flex items-center space-x-2 text-sm">
+      <nav aria-label="Breadcrumb" className="flex items-center space-x-2 text-sm">
         <Link
           to="/"
           className="flex items-center gap-1 text-text-secondary hover:text-primary-500 transition-colors duration-200"
