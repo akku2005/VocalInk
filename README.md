@@ -9,6 +9,8 @@ VocalInk is an open-source voice-to-text and transcription platform...
 
 
 <img width="1536" height="1024" alt="ChatGPT Image Jul 26, 2025, 03_55_28 PM" src="https://github.com/user-attachments/assets/e6e8dade-88aa-4162-ac5d-9cecce1130bb" />
+![Screenshot 2025-08-27 195004](https://github.com/user-attachments/assets/b0b11b6e-ce7b-432b-a42a-55f155b36816)
+
 
 
 # VocalInk – The Next-Gen Blogging Platform
