@@ -1,22 +1,6 @@
-import {
-  Home,
-  BookOpen,
-  FileText,
-  Mic,
-  Users,
-  Trophy,
-  Settings,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Layers,
-  LayoutDashboard,
-  Search,
-  TrendingUp,
-  Award,
-} from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { Home, BookOpen, FileText, Mic, Users, Trophy, Settings, X, ChevronLeft, ChevronRight, Layers, LayoutDashboard, Search, TrendingUp, Award } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
 const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
   const location = useLocation();
@@ -24,30 +8,30 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
 
   // Public navigation items (always visible)
   const publicNavigation = [
-    { name: "Home", href: "/", icon: Home },
-    { name: "Blogs", href: "/blogs", icon: BookOpen },
-    { name: "Series", href: "/series", icon: Layers },
-    { name: "Search", href: "/search", icon: Search },
-    { name: "Leaderboard", href: "/leaderboard", icon: Users },
-    { name: "Badges", href: "/badges", icon: Award },
+    { name: 'Home', href: '/', icon: Home },
+    { name: 'Blogs', href: '/blogs', icon: BookOpen },
+    { name: 'Series', href: '/series', icon: Layers },
+    { name: 'Search', href: '/search', icon: Search },
+    { name: 'Leaderboard', href: '/leaderboard', icon: Users },
+    { name: 'Badges', href: '/badges', icon: Award },
   ];
 
   // Private navigation items (only visible when authenticated)
   const privateNavigation = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Analytics", href: "/analytics", icon: TrendingUp },
-    { name: "Rewards", href: "/rewards", icon: Trophy },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Analytics', href: '/analytics', icon: TrendingUp },
+    { name: 'Rewards', href: '/rewards', icon: Trophy },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
   // Combine navigation based on authentication status
-  const navigation = isAuthenticated
+  const navigation = isAuthenticated 
     ? [...publicNavigation, ...privateNavigation]
     : publicNavigation;
 
   const isActive = (href) => {
-    if (href === "/") {
-      return location.pathname === "/";
+    if (href === '/') {
+      return location.pathname === '/';
     }
     return location.pathname.startsWith(href);
   };
@@ -56,22 +40,21 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
     <>
       {/* Mobile backdrop */}
       {open && (
-        <div
+        <div 
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar */}
-      <div
-        className={`
+      <div className={`
         fixed top-0 left-0 z-30 h-screen glassmorphism border-r border-border
         transition-all duration-300 ease-in-out
-        ${open ? "transform translate-x-0" : "transform -translate-x-full"}
+        ${open ? 'transform translate-x-0' : 'transform -translate-x-full'}
         lg:translate-x-0
-        ${collapsed ? "w-16" : "w-64"}
-      `}
-      >
+        ${collapsed ? 'w-16' : 'w-64'}
+      `}>
         <div className="flex flex-col h-full">
           {/* Sidebar Header with Logo and Toggle */}
           <div className="flex items-center justify-between p-4 border-b border-border h-16">
@@ -82,7 +65,7 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
                 </h1>
                 <button
                   onClick={toggleCollapsed}
-                  className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all  cursor-pointer duration-200"
+                  className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200"
                   aria-label="Collapse sidebar"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -91,7 +74,7 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
             ) : (
               <button
                 onClick={toggleCollapsed}
-                className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200  cursor-pointer mx-auto"
+                className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 mx-auto"
                 aria-label="Expand sidebar"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -100,9 +83,10 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
           </div>
 
           {/* Navigation - Fixed height, no scroll */}
-          <nav className="flex-1 px-2 py-4 space-y-1">
+          <nav aria-label="Primary" className="flex-1 px-2 py-4 space-y-1">
             {navigation.map((item) => {
               const Icon = item.icon;
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.name}
@@ -110,18 +94,16 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
                   onClick={() => setOpen(false)}
                   className={`
                     flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 group
-                    ${
-                      isActive(item.href)
-                        ? "bg-primary-50  text-primary-500 border-r-2 border-indigo-500 shadow-sm"
-                        : "text-text-secondary hover:bg-[var(--links-hover)]  hover:text-primary-500 hover:shadow-sm border-transparent border-r-2"
+                    ${active
+                      ? 'bg-primary-50 dark:bg-white/10 text-primary-500 border-r-2 border-primary-500 shadow-sm'
+                      : 'text-text-secondary hover:bg-primary-50 dark:hover:bg-white/10 hover:text-primary-500 hover:shadow-sm'
                     }
                   `}
                   title={collapsed ? item.name : undefined}
+                  aria-current={active ? 'page' : undefined}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
-                  {!collapsed && (
-                    <span className="font-medium text-sm">{item.name}</span>
-                  )}
+                  {!collapsed && <span className="font-medium text-sm">{item.name}</span>}
                 </Link>
               );
             })}
@@ -131,9 +113,7 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
           {!collapsed && (
             <div className="p-4 border-t border-border">
               <div className="glassmorphism-card p-4">
-                <h3 className="text-sm font-semibold text-primary-900 dark:text-primary-100 mb-2">
-                  Pro Features
-                </h3>
+                <h3 className="text-sm font-semibold text-primary-900 dark:text-primary-100 mb-2">Pro Features</h3>
                 <p className="text-xs text-primary-700 dark:text-primary-300 mb-3">
                   Unlock advanced AI tools and premium content
                 </p>
@@ -149,4 +129,4 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
   );
 };
 
-export default Sidebar;
+export default Sidebar; 

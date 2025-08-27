@@ -68,6 +68,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
             <input
               type="text"
               placeholder="Search blogs, series..."
+              aria-label="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -90,6 +91,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               <button
                 onClick={() => setSearchQuery("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text-color)]  cursor-pointer"
+                aria-label="Clear search"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -137,6 +139,8 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 flex items-center gap-2 text-[var(--text-color)]"
                   aria-label="User menu"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen ? 'true' : 'false'}
                 >
                   <User className="w-5 h-5" />
                   {user && (
@@ -148,7 +152,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
 
                 {/* User Dropdown Menu */}
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-50" role="menu">
                     <div className="py-1">
                       <Link
                         to="/profile/me"
@@ -200,6 +204,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
              hover:text-white 
               hover:bg-indigo-600 box-border 
              outline-none focus:outline-none focus:ring-0 "
+                aria-label="Sign in"
               >
                 Sign In
               </Link>
@@ -207,6 +212,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               <Link
                 to="/register"
                 className="px-4 py-2 text-sm font-medium bg-indigo-500 text-white rounded-lg hover:bg-indigo-600  transition-colors"
+                aria-label="Sign up"
               >
                 Sign Up
               </Link>

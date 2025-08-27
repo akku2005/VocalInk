@@ -99,7 +99,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
   }
 
   return (
-    <Card className="cursor-pointer group overflow-hidden">
+    <Card className="cursor-pointer group overflow-hidden hover:shadow-lg transition-shadow duration-300">
       {/* Image/Header */}
       <div className="aspect-video bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 flex items-center justify-center relative">
         <div className="text-4xl text-primary-500 opacity-30">📝</div>
@@ -110,7 +110,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
         </button>
       </div>
 
-      <CardHeader className="space-y-4">
+      <CardHeader className="space-y-4 sm:space-y-3">
         {/* Tags */}
         <div className="flex flex-wrap gap-2">
           {tags.slice(0, 2).map((tag, index) => (

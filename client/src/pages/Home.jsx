@@ -34,13 +34,13 @@ const Home = () => {
             Create, discover, and experience content like never before with
             AI-powered blogging, text-to-speech, and gamified social features.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center ">
             {isAuthenticated ? (
               <>
                 <Link to="/create-blog">
                   <Button
                     size="lg"
-                    className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300"
+                    className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
                   >
                     Create New Post
                   </Button>
@@ -49,7 +49,7 @@ const Home = () => {
                   <Button
                     variant="ghost"
                     size="lg"
-                    className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300"
+                    className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300 cursor-pointer"
                   >
                     Go to Dashboard
                   </Button>

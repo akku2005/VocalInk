@@ -334,6 +334,7 @@ const audioStaticOptions = {
 };
 app.use('/tts', express.static(path.join(__dirname, '../public/tts'), audioStaticOptions));
 app.use('/audio', express.static(path.join(__dirname, '../public/audio'), audioStaticOptions));
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads'), { maxAge: staticCacheMaxAge }));
 
 // Swagger setup (disable in production)
 if (process.env.NODE_ENV !== 'production') {
