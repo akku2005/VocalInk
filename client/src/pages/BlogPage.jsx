@@ -133,7 +133,7 @@ const BlogPage = () => {
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header Section */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent pb-2">
           Blog Posts
         </h1>
         <p className="text-lg text-text-secondary max-w-2xl mx-auto">
@@ -181,8 +181,8 @@ const BlogPage = () => {
               onClick={() => setViewMode("list")}
               className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
                 viewMode === "list"
-                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)]"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface "
               }`}
             >
               <List className="w-4 h-4" />
@@ -203,7 +203,7 @@ const BlogPage = () => {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-primary-500" />
-            <span className="text-base font-semibold text-text-primary">
+            <span className="text-base font-medium text-text-primary">
               Categories:
             </span>
           </div>
