@@ -11,6 +11,7 @@ const abuseReportRoutes = require('../abusereport/abusereport.routes');
 const aiRoutes = require('../ai/ai.routes');
 const ttsRoutes = require('./tts.routes');
 const xpRoutes = require('./xp');
+const uploadRoutes = require('./upload.routes');
 
 const authRoutes = require('./auth');
 
@@ -25,6 +26,7 @@ router.use('/abusereports', abuseReportRoutes);
 router.use('/ai', aiRoutes);
 router.use('/tts', ttsRoutes);
 router.use('/xp', xpRoutes);
+router.use('/uploads', uploadRoutes);
 router.use('/test', (req, res) => {
   res.json({
     success: true,
