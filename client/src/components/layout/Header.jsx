@@ -1,13 +1,25 @@
-import { Menu, Search, Bell, Sun, Moon, User, Plus, BookOpen, Settings, LogOut } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../../hooks/useAuth';
-import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import {
+  Menu,
+  Search,
+  Bell,
+  Sun,
+  Moon,
+  User,
+  Plus,
+  BookOpen,
+  Settings,
+  LogOut,
+  X,
+} from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../../hooks/useAuth";
+import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isAuthenticated } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
   const navigate = useNavigate();
@@ -20,16 +32,20 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   return (
-    <header className={`fixed top-0 z-[9999] glassmorphism border-b border-border theme-transition transition-all duration-300 ${
-      sidebarCollapsed ? 'left-0 lg:left-16 right-0' : 'left-0 lg:left-64 right-0'
-    }`}>
+    <header
+      className={`fixed top-0 z-[9999] glassmorphism border-b border-border theme-transition transition-all duration-300 ${
+        sidebarCollapsed
+          ? "left-0 lg:left-16 right-0"
+          : "left-0 lg:left-64 right-0"
+      }`}
+    >
       <div className="flex justify-between items-center h-16 px-4 sm:px-6 lg:px-8">
         {/* Left Section */}
         <div className="flex items-center space-x-4">
@@ -45,19 +61,39 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
         {/* Center Search */}
         <div className="flex flex-1 max-w-md mx-auto">
           <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
+            {/* Search Icon */}
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--light-text-color)]" />
+
+            {/* Input */}
             <input
               type="text"
               placeholder="Search blogs, series..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && searchQuery.trim()) {
-                  navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  navigate(
+                    `/search?q=${encodeURIComponent(searchQuery.trim())}`
+                  );
                 }
               }}
-              className="w-full pl-10 pr-4 py-2 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent theme-transition placeholder:text-gray-500 dark:placeholder:text-gray-400 text-gray-900 dark:text-white"
+              className="w-full pl-10 pr-10 py-2 glassmorphism backdrop-blur-sm 
+              rounded-lg
+            appearance-none focus:border-gray-300 dark:focus:border-gray-600
+  
+        placeholder:text-[var(--light-text-color)]
+            text-[var(--text-color)]  focus:outline-none focus:ring-0"
             />
+
+            {/* Cross  Button */}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text-color)]  cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -65,10 +101,10 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
         <div className="flex items-center space-x-2">
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 text-gray-900 dark:text-white"
+            className="p-2.5 rounded-lg hover:bg-[var(--secondary-btn-hover)] transition-all duration-200 text-[var(--text-color)] cursor-pointer"
             aria-label="Toggle theme"
           >
-            {theme === 'light' ? (
+            {theme === "light" ? (
               <Moon className="w-5 h-5" />
             ) : (
               <Sun className="w-5 h-5" />
@@ -85,7 +121,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               >
                 <Plus className="w-5 h-5" />
               </Link>
-              
+
               <Link
                 to="/notifications"
                 className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 relative text-gray-900 dark:text-white"
@@ -97,13 +133,17 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
 
               {/* User Menu */}
               <div className="relative" ref={userMenuRef}>
-                <button 
+                <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 flex items-center gap-2 text-gray-900 dark:text-white"
+                  className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 flex items-center gap-2 text-[var(--text-color)]"
                   aria-label="User menu"
                 >
                   <User className="w-5 h-5" />
-                  {user && <span className="text-sm font-medium text-gray-900 dark:text-white">{user.displayName || user.name}</span>}
+                  {user && (
+                    <span className="text-sm font-medium text-[var(--text-color)]">
+                      {user.displayName || user.name}
+                    </span>
+                  )}
                 </button>
 
                 {/* User Dropdown Menu */}
@@ -139,7 +179,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                         onClick={() => {
                           logout();
                           setUserMenuOpen(false);
-                          navigate('/');
+                          navigate("/");
                         }}
                         className="flex items-center w-full px-4 py-2 text-sm text-error hover:bg-error/10"
                       >
@@ -156,13 +196,17 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               {/* Guest Actions */}
               <Link
                 to="/login"
-                className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="px-4 py-2 text-sm font-medium border border-indigo-500 rounded-lg text-[var(--text-color)]  
+             hover:text-white 
+              hover:bg-indigo-600 box-border 
+             outline-none focus:outline-none focus:ring-0 "
               >
                 Sign In
               </Link>
+
               <Link
                 to="/register"
-                className="px-4 py-2 text-sm font-medium bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-indigo-500 text-white rounded-lg hover:bg-indigo-600  transition-colors"
               >
                 Sign Up
               </Link>
@@ -174,4 +218,4 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
   );
 };
 
-export default Header; 
+export default Header;

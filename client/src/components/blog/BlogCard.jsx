@@ -1,9 +1,9 @@
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
-import Badge from '../ui/Badge';
-import EngagementButtons from '../engagement/EngagementButtons';
-import { Calendar, Clock, User, Bookmark } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
+import Badge from "../ui/Badge";
+import EngagementButtons from "../engagement/EngagementButtons";
+import { Calendar, Clock, User, Bookmark } from "lucide-react";
 
-const BlogCard = ({ blog, viewMode = 'grid' }) => {
+const BlogCard = ({ blog, viewMode = "grid" }) => {
   const {
     title,
     excerpt,
@@ -17,45 +17,49 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
   } = blog;
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
-  if (viewMode === 'list') {
+  if (viewMode === "list") {
     return (
       <Card className="cursor-pointer group">
         <div className="flex flex-col lg:flex-row">
-          <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 flex items-center justify-center">
+          <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-500 to-gray-500  flex items-center justify-center">
             <div className="text-3xl text-primary-500 opacity-30">📝</div>
           </div>
-          
+
           <div className="flex-1 flex flex-col">
             <CardHeader className="flex-1">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {tags.slice(0, 3).map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs px-2 py-1">
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="text-xs px-2 py-1"
+                      >
                         {tag}
                       </Badge>
                     ))}
                   </div>
-                  
+
                   <CardTitle className="text-xl lg:text-2xl line-clamp-2 group-hover:text-primary-500 transition-colors">
                     {title}
                   </CardTitle>
-                  
+
                   <p className="text-text-secondary line-clamp-3 text-base leading-relaxed">
                     {excerpt}
                   </p>
                 </div>
-                
-                <button className="p-2 bg-white hover:bg-gray-50 dark:bg-black/80 dark:hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 shadow-sm border border-gray-200 dark:border-gray-700">
-                  <Bookmark 
-                    className={`w-5 h-5 ${isBookmarked ? 'fill-current text-primary-500' : 'text-black dark:text-white'}`} 
+
+                <button className="p-2 bg-[var(--secondary-btn)]    rounded-lg transition-colors flex-shrink-0 shadow-sm  dark:border-gray-700">
+                  <Bookmark
+                    className={`w-5 h-5 ${isBookmarked ? "fill-current text-primary-500" : ""}`}
                   />
                 </button>
               </div>
@@ -77,7 +81,7 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
                     <span>{readTime} min read</span>
                   </div>
                 </div>
-                
+
                 <EngagementButtons
                   blogId={blog.id}
                   initialLikes={likes}
@@ -99,13 +103,13 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
       {/* Image/Header */}
       <div className="aspect-video bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 flex items-center justify-center relative">
         <div className="text-4xl text-primary-500 opacity-30">📝</div>
-        <button className="absolute top-4 right-4 p-2 bg-white hover:bg-gray-50 dark:bg-black/80 dark:hover:bg-black rounded-lg transition-all duration-200 shadow-sm border border-gray-200 dark:border-gray-700">
-          <Bookmark 
-            className={`w-4 h-4 ${isBookmarked ? 'fill-current text-primary-500' : 'text-black dark:text-white'}`} 
+        <button className="absolute top-4 right-4 p-2  cursor-pointer border border-[var(--border-color)] dark:bg-black/80 dark:hover:bg-black rounded-lg transition-all duration-200 shadow-sm text-[var(--text-color)] dark:border-gray-700 bg-[var(--secondary-btn)]">
+          <Bookmark
+            className={`w-4 h-4 ${isBookmarked ? "fill-current text-primary-500" : "text-[var(--text-color)]"}`}
           />
         </button>
       </div>
-      
+
       <CardHeader className="space-y-4">
         {/* Tags */}
         <div className="flex flex-wrap gap-2">
@@ -120,12 +124,12 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
             </Badge>
           )}
         </div>
-        
+
         {/* Title */}
         <CardTitle className="text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
           {title}
         </CardTitle>
-        
+
         {/* Excerpt */}
         <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed">
           {excerpt}
@@ -148,7 +152,7 @@ const BlogCard = ({ blog, viewMode = 'grid' }) => {
             <span>{readTime}m</span>
           </div>
         </div>
-        
+
         {/* Engagement */}
         <div className="pt-4 border-t border-border">
           <EngagementButtons
