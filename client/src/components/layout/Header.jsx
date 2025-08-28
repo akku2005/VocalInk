@@ -51,7 +51,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
         <div className="flex items-center space-x-4">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-colors lg:hidden"
+            className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-colors lg:hidden cursor-pointer"
             aria-label="Toggle sidebar"
           >
             <Menu className="w-5 h-5" />
@@ -80,7 +80,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               }}
               className="w-full pl-10 pr-10 py-2 glassmorphism backdrop-blur-sm 
               rounded-lg
-            appearance-none focus:border-gray-300 dark:focus:border-gray-600
+            appearance-none 
   
         placeholder:text-[var(--light-text-color)]
             text-[var(--text-color)]  focus:outline-none focus:ring-0"
@@ -103,7 +103,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
         <div className="flex items-center space-x-2">
           <button
             onClick={toggleTheme}
-            className="p-2.5 rounded-lg hover:bg-[var(--secondary-btn-hover)] transition-all duration-200 text-[var(--text-color)] cursor-pointer"
+            className="p-2.5 rounded-lg  transition-all duration-200 hover:bg-[var(--secondary-btn-hover)] text-[var(--text-color)] cursor-pointer"
             aria-label="Toggle theme"
           >
             {theme === "light" ? (
@@ -118,7 +118,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               {/* Create New Post Button */}
               <Link
                 to="/create-blog"
-                className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 text-gray-900 dark:text-white"
+                className="p-2 rounded-lg hover:bg-primary-50 hover:bg-[var(--secondary-btn-hover)] text-[var(--text-color)] cursor-pointer"
                 aria-label="Create new post"
               >
                 <Plus className="w-5 h-5" />
@@ -126,7 +126,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
 
               <Link
                 to="/notifications"
-                className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 relative text-gray-900 dark:text-white"
+                className="p-2 rounded-lg hover:bg-primary-50  transition-all duration-200 relative hover:bg-[var(--secondary-btn-hover)] text-[var(--text-color)] cursor-pointer"
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
@@ -137,10 +137,10 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="p-2 rounded-lg hover:bg-primary-50 dark:hover:bg-white/10 transition-all duration-200 flex items-center gap-2 text-[var(--text-color)]"
+                  className="p-2 rounded-lg  transition-all duration-200 flex items-center gap-2  hover:bg-[var(--secondary-btn-hover)] text-[var(--text-color)] cursor-pointer"
                   aria-label="User menu"
                   aria-haspopup="menu"
-                  aria-expanded={userMenuOpen ? 'true' : 'false'}
+                  aria-expanded={userMenuOpen ? "true" : "false"}
                 >
                   <User className="w-5 h-5" />
                   {user && (
@@ -152,11 +152,14 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
 
                 {/* User Dropdown Menu */}
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-50" role="menu">
-                    <div className="py-1">
+                  <div
+                    className="absolute right-0 mt-2 w-48 bg-[var(--background)] border border-[var(--border-color)] rounded-lg shadow-lg z-50 p-2 "
+                    role="menu"
+                  >
+                    <div className="py-1 flex flex-col gap-2">
                       <Link
                         to="/profile/me"
-                        className="flex items-center px-4 py-2 text-sm text-text-primary hover:bg-primary-50 dark:hover:bg-white/10"
+                        className="flex items-center px-4 py-2 text-sm text-text-primary  cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded "
                         onClick={() => setUserMenuOpen(false)}
                       >
                         <User className="w-4 h-4 mr-3" />
@@ -164,7 +167,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                       </Link>
                       <Link
                         to="/analytics"
-                        className="flex items-center px-4 py-2 text-sm text-text-primary hover:bg-primary-50 dark:hover:bg-white/10"
+                        className="flex items-center px-4 py-2 text-sm text-text-primary  cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded"
                         onClick={() => setUserMenuOpen(false)}
                       >
                         <BookOpen className="w-4 h-4 mr-3" />
@@ -172,20 +175,20 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                       </Link>
                       <Link
                         to="/settings"
-                        className="flex items-center px-4 py-2 text-sm text-text-primary hover:bg-primary-50 dark:hover:bg-white/10"
+                        className="flex items-center px-4 py-2 text-sm text-text-primary cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded"
                         onClick={() => setUserMenuOpen(false)}
                       >
                         <Settings className="w-4 h-4 mr-3" />
                         Settings
                       </Link>
-                      <hr className="my-1 border-border" />
+                      <hr className="my-1 border-[var(--border-color)]" />
                       <button
                         onClick={() => {
                           logout();
                           setUserMenuOpen(false);
                           navigate("/");
                         }}
-                        className="flex items-center w-full px-4 py-2 text-sm text-error hover:bg-error/10"
+                        className="flex items-center w-full px-4 py-2 text-sm text-error hover:bg-error/10 cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded"
                       >
                         <LogOut className="w-4 h-4 mr-3" />
                         Sign Out

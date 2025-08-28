@@ -4,8 +4,17 @@ import BlogCard from "../components/blog/BlogCard";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
+import DropDown from "../components/ui/DropDown";
 import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
-import { Search, Filter, Plus, Grid3X3, List, X, ArrowUpDown } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Plus,
+  Grid3X3,
+  List,
+  X,
+  ArrowUpDown,
+} from "lucide-react";
 
 const BlogPage = () => {
   const navigate = useNavigate();
@@ -13,7 +22,9 @@ const BlogPage = () => {
   const params = new URLSearchParams(location.search);
 
   const [searchQuery, setSearchQuery] = useState(params.get("q") || "");
-  const [selectedCategory, setSelectedCategory] = useState(params.get("cat") || "all");
+  const [selectedCategory, setSelectedCategory] = useState(
+    params.get("cat") || "all"
+  );
   const [viewMode, setViewMode] = useState(params.get("view") || "grid");
   const [sortBy, setSortBy] = useState(params.get("sort") || "recent");
   const [isLoading, setIsLoading] = useState(false);
@@ -124,9 +135,14 @@ const BlogPage = () => {
   // URL sync
   useEffect(() => {
     const q = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
-    const cat = selectedCategory && selectedCategory !== "all" ? `&cat=${encodeURIComponent(selectedCategory)}` : "";
-    const view = viewMode !== "grid" ? `&view=${encodeURIComponent(viewMode)}` : "";
-    const sort = sortBy !== "recent" ? `&sort=${encodeURIComponent(sortBy)}` : "";
+    const cat =
+      selectedCategory && selectedCategory !== "all"
+        ? `&cat=${encodeURIComponent(selectedCategory)}`
+        : "";
+    const view =
+      viewMode !== "grid" ? `&view=${encodeURIComponent(viewMode)}` : "";
+    const sort =
+      sortBy !== "recent" ? `&sort=${encodeURIComponent(sortBy)}` : "";
     const query = [q, cat, view, sort].filter(Boolean).join("");
     const url = query ? `/blogs?${query.replace(/^&/, "")}` : "/blogs";
     navigate(url, { replace: true });
@@ -167,7 +183,12 @@ const BlogPage = () => {
         return new Date(b.publishedAt) - new Date(a.publishedAt);
       }
       if (sortBy === "popular") {
-        return (b.likes + b.comments + (b.bookmarks || 0)) - (a.likes + a.comments + (a.bookmarks || 0));
+        return (
+          b.likes +
+          b.comments +
+          (b.bookmarks || 0) -
+          (a.likes + a.comments + (a.bookmarks || 0))
+        );
       }
       if (sortBy === "readtime") {
         return a.readTime - b.readTime;
@@ -182,7 +203,7 @@ const BlogPage = () => {
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header Section */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl lg:text-5xl font-bold leading-[1.15] md:leading-[1.1] pb-1 bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent">
+        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent pb-2">
           Blog Posts
         </h1>
         <p className="text-lg text-text-secondary max-w-2xl mx-auto">
@@ -219,21 +240,18 @@ const BlogPage = () => {
           {/* Sort */}
           <div className="flex items-center gap-2">
             <ArrowUpDown className="w-5 h-5 text-primary-500" />
-            <label htmlFor="sort" className="text-sm text-text-secondary">Sort by</label>
-            <select
-              id="sort"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="h-12 rounded-lg border border-[var(--border-color)] bg-background px-3 text-sm"
-            >
-              <option value="recent">Most Recent</option>
-              <option value="popular">Most Popular</option>
-              <option value="readtime">Shortest Read</option>
-            </select>
+            <label htmlFor="sort" className="text-sm text-text-secondary">
+              Sort by
+            </label>
+            <DropDown sortBy={sortBy} setSortBy={setSortBy} />
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]" role="tablist" aria-label="View mode">
+          <div
+            className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]"
+            role="tablist"
+            aria-label="View mode"
+          >
             <button
               onClick={() => setViewMode("grid")}
               role="tab"
@@ -254,8 +272,8 @@ const BlogPage = () => {
               aria-controls="blog-grid"
               className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
                 viewMode === "list"
-                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)]"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface "
               }`}
             >
               <List className="w-4 h-4" />
@@ -272,11 +290,11 @@ const BlogPage = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="space-y-4">
+      <div className="space-y-4 z-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-primary-500" />
-            <span className="text-base font-semibold text-text-primary">
+            <span className="text-base font-medium text-text-primary">
               Categories:
             </span>
           </div>
@@ -302,7 +320,10 @@ const BlogPage = () => {
       </div>
 
       {/* Results Summary */}
-      <div className="flex items-center justify-between py-4 border-b border-[var(--border-color)]" aria-live="polite">
+      <div
+        className="flex items-center justify-between py-4 border-b border-[var(--border-color)]"
+        aria-live="polite"
+      >
         <div className="text-text-secondary">
           Showing{" "}
           <span className="font-semibold text-text-primary">
@@ -321,7 +342,9 @@ const BlogPage = () => {
 
       {/* Loading State */}
       {isLoading && (
-        <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
+        <div
+          className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}
+        >
           {Array.from({ length: 6 }).map((_, idx) => (
             <BlogCardSkeleton key={idx} />
           ))}

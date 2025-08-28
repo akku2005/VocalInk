@@ -40,7 +40,7 @@ const Home = () => {
                 <Link to="/create-blog">
                   <Button
                     size="lg"
-                    className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+                    className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-shadow duration-300  text-white cursor-pointer bg-indigo-500 hover:bg-indigo-600"
                   >
                     Create New Post
                   </Button>
@@ -49,7 +49,7 @@ const Home = () => {
                   <Button
                     variant="ghost"
                     size="lg"
-                    className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300 cursor-pointer"
+                    className="w-full sm:w-auto hover:bg-primary-50 transition-all duration-300 cursor-pointer bg-[var(--secondary-btn)] backdrop-blur-2xl hover:bg-[var(--secondary-btn-hover)]"
                   >
                     Go to Dashboard
                   </Button>
@@ -176,7 +176,7 @@ const Home = () => {
           {[1, 2, 3, 4, 5, 6].map((item) => (
             <Link key={item} to={`/article/${item}`}>
               <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md ">
-                <div className="h-48 bg-gradient-to-br from-primary-50 to-primary-100 rounded-t-lg mb-4"></div>
+                <div className="h-48 bg-gradient-to-br from-indigo-500 to-gray-400 rounded-t-lg mb-4"></div>
                 <CardHeader className="pb-2">
                   <CardTitle className="group-hover:text-primary-500 transition-colors text-lg">
                     Sample Blog Post {item}

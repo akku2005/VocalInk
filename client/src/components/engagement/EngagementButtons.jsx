@@ -177,12 +177,12 @@ const EngagementButtons = ({
   });
 
   return (
-    <div className="flex items-center  gap-0.5">
+    <div className="flex items-center justify-center gap-2.5 pl-1">
       {/* Like Button */}
       <button
         onClick={handleLike}
         disabled={!isAuthenticated || isLiking}
-        className={`flex items-center  gap-2  py-2 rounded-lg transition-all duration-200 ${
+        className={`flex items-center  gap-2  py-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isLikedState
             ? "text-error bg-error/10"
             : "text-text-secondary hover:text-error hover:bg-error/10"
@@ -190,23 +190,23 @@ const EngagementButtons = ({
         title={isAuthenticated ? "Like this post" : "Sign in to like"}
       >
         <Heart className={`w-4 h-4 ${isLikedState ? "fill-current" : ""}`} />
-        <span className="font-normal text-sm">{likes}</span>
+        <span className="font-normal text-xs">{likes}</span>
       </button>
 
       {/* Comment Button */}
       <button
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-primary-500 hover:bg-primary/10 transition-all duration-200"
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-primary-500 hover:bg-primary/10 transition-all duration-200 cursor-pointer"
         title="View comments"
       >
-        <MessageCircle className="w-5 h-5" />
-        <span className="font-medium">{comments}</span>
+        <MessageCircle className="w-4 h-4" />
+        <span className="font-medium text-xs">{comments}</span>
       </button>
 
       {/* Bookmark Button */}
       <button
         onClick={handleBookmark}
         disabled={!isAuthenticated || isBookmarking}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isBookmarkedState
             ? "text-primary-500 bg-primary/10"
             : "text-text-secondary hover:text-primary-500 hover:bg-primary/10"
@@ -216,18 +216,18 @@ const EngagementButtons = ({
         <Bookmark
           className={`w-4 h-4 flex flex-col ${isBookmarkedState ? "fill-current" : ""}`}
         />
-        <span className="font-normal text-xm">{bookmarks}</span>
+        <span className="font-medium text-xs">{bookmarks}</span>
       </button>
 
       {/* Share Button */}
       <div className="relative">
         <button
           onClick={() => setShowShareMenu(!showShareMenu)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-accent-500 hover:bg-accent/10 transition-all duration-200"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-accent-500 hover:bg-accent/10 transition-all duration-200 cursor-pointer"
           title="Share this post"
         >
-          <Share2 className="w-5 h-5" />
-          <span className="font-medium">Share</span>
+          <Share2 className="w-4 h-4" />
+          <span className="font-medium text-xs">Share</span>
         </button>
 
         {/* Share Menu */}
@@ -242,7 +242,7 @@ const EngagementButtons = ({
                 <button
                   key={option.platform}
                   onClick={() => handleShare(option.platform)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-text-primary hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-200 group"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-text-primary hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-200 group "
                 >
                   <span className="text-base group-hover:scale-105 transition-transform duration-200">
                     {option.icon}

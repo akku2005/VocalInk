@@ -28,7 +28,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
     return (
       <Card className="cursor-pointer group">
         <div className="flex flex-col lg:flex-row">
-          <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-500 to-gray-500  flex items-center justify-center">
+          <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-500 to-gray-500  flex items-center justify-center rounded-l-2xl">
             <div className="text-3xl text-primary-500 opacity-30">📝</div>
           </div>
 
@@ -101,9 +101,9 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
   return (
     <Card className="cursor-pointer group overflow-hidden hover:shadow-lg transition-shadow duration-300">
       {/* Image/Header */}
-      <div className="aspect-video bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 flex items-center justify-center relative">
+      <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400  flex items-center justify-center relative">
         <div className="text-4xl text-primary-500 opacity-30">📝</div>
-        <button className="absolute top-4 right-4 p-2  cursor-pointer border border-[var(--border-color)] dark:bg-black/80 dark:hover:bg-black rounded-lg transition-all duration-200 shadow-sm text-[var(--text-color)] dark:border-gray-700 bg-[var(--secondary-btn)]">
+        <button className="absolute top-4 right-4 p-2  cursor-pointer border border-[var(--border-color)]  rounded-lg transition-all duration-200 shadow-sm text-[var(--text-color)]  bg-[var(--secondary-btn)]">
           <Bookmark
             className={`w-4 h-4 ${isBookmarked ? "fill-current text-primary-500" : "text-[var(--text-color)]"}`}
           />
@@ -126,7 +126,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
         </div>
 
         {/* Title */}
-        <CardTitle className="text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
+        <CardTitle className="text-xl line-clamp-2 group-hover:text-primary-500  transition-colors leading-tight font-medium">
           {title}
         </CardTitle>
 
@@ -136,7 +136,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
         </p>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 ">
         {/* Author and Date */}
         <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
           <div className="flex items-center gap-1">
@@ -154,15 +154,17 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
         </div>
 
         {/* Engagement */}
-        <div className="pt-4 border-t border-border">
-          <EngagementButtons
-            blogId={blog.id}
-            initialLikes={likes}
-            initialComments={comments}
-            initialBookmarks={blog.bookmarks || 0}
-            isLiked={blog.isLiked}
-            isBookmarked={blog.isBookmarked}
-          />
+        <div className="pt-4 border-t border-border flex justify-center items-center">
+          <div className="flex gap-4 justify-center items-center">
+            <EngagementButtons
+              blogId={blog.id}
+              initialLikes={likes}
+              initialComments={comments}
+              initialBookmarks={blog.bookmarks || 0}
+              isLiked={blog.isLiked}
+              isBookmarked={blog.isBookmarked}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>
