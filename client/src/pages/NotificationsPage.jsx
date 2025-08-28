@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
-import Button from '../components/ui/Button';
-import { 
-  Bell, 
-  Heart, 
-  MessageCircle, 
-  Users, 
-  Award, 
-  Star, 
-  BookOpen, 
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
+import {
+  Bell,
+  Heart,
+  MessageCircle,
+  Users,
+  Award,
+  Star,
+  BookOpen,
   Zap,
   Settings,
   Check,
@@ -19,14 +24,14 @@ import {
   MoreHorizontal,
   User,
   TrendingUp,
-  Gift
-} from 'lucide-react';
+  Gift,
+} from "lucide-react";
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedNotifications, setSelectedNotifications] = useState(new Set());
 
   useEffect(() => {
@@ -35,171 +40,202 @@ const NotificationsPage = () => {
       setNotifications([
         {
           id: 1,
-          type: 'like',
-          title: 'New like on your post',
-          message: 'Sarah Johnson liked your post "The Future of AI in Content Creation"',
-          time: '2 minutes ago',
+          type: "like",
+          title: "New like on your post",
+          message:
+            'Sarah Johnson liked your post "The Future of AI in Content Creation"',
+          time: "2 minutes ago",
           read: false,
           icon: Heart,
-          color: 'text-red-500',
-          bgColor: 'bg-red-50',
-          action: 'view_post',
-          postId: 123
+          color: "text-red-500",
+          bgColor: "bg-red-50",
+          action: "view_post",
+          postId: 123,
         },
         {
           id: 2,
-          type: 'comment',
-          title: 'New comment on your post',
-          message: 'Mike Chen commented: "Great insights! This really helped me understand..."',
-          time: '15 minutes ago',
+          type: "comment",
+          title: "New comment on your post",
+          message:
+            'Mike Chen commented: "Great insights! This really helped me understand..."',
+          time: "15 minutes ago",
           read: false,
           icon: MessageCircle,
-          color: 'text-blue-500',
-          bgColor: 'bg-blue-50',
-          action: 'view_comment',
+          color: "text-blue-500",
+          bgColor: "bg-blue-50",
+          action: "view_comment",
           postId: 123,
-          commentId: 456
+          commentId: 456,
         },
         {
           id: 3,
-          type: 'follow',
-          title: 'New follower',
-          message: 'Emily Rodriguez started following you',
-          time: '1 hour ago',
+          type: "follow",
+          title: "New follower",
+          message: "Emily Rodriguez started following you",
+          time: "1 hour ago",
           read: false,
           icon: Users,
-          color: 'text-green-500',
-          bgColor: 'bg-green-50',
-          action: 'view_profile',
-          userId: 789
+          color: "text-green-500",
+          bgColor: "bg-green-50",
+          action: "view_profile",
+          userId: 789,
         },
         {
           id: 4,
-          type: 'badge',
-          title: 'Badge earned!',
-          message: 'Congratulations! You earned the "AI Pioneer" badge for using AI features 50+ times',
-          time: '2 hours ago',
+          type: "badge",
+          title: "Badge earned!",
+          message:
+            'Congratulations! You earned the "AI Pioneer" badge for using AI features 50+ times',
+          time: "2 hours ago",
           read: false,
           icon: Award,
-          color: 'text-yellow-500',
-          bgColor: 'bg-yellow-50',
-          action: 'view_badge',
-          badgeId: 4
+          color: "text-yellow-500",
+          bgColor: "bg-yellow-50",
+          action: "view_badge",
+          badgeId: 4,
         },
         {
           id: 5,
-          type: 'level_up',
-          title: 'Level up!',
-          message: 'Congratulations! You reached level 8. Keep up the great work!',
-          time: '3 hours ago',
+          type: "level_up",
+          title: "Level up!",
+          message:
+            "Congratulations! You reached level 8. Keep up the great work!",
+          time: "3 hours ago",
           read: true,
           icon: TrendingUp,
-          color: 'text-purple-500',
-          bgColor: 'bg-purple-50',
-          action: 'view_profile'
+          color: "text-purple-500",
+          bgColor: "bg-purple-50",
+          action: "view_profile",
         },
         {
           id: 6,
-          type: 'series',
-          title: 'Series update',
-          message: 'Your series "AI in Content Creation" has reached 1,000 total views',
-          time: '5 hours ago',
+          type: "series",
+          title: "Series update",
+          message:
+            'Your series "AI in Content Creation" has reached 1,000 total views',
+          time: "5 hours ago",
           read: true,
           icon: BookOpen,
-          color: 'text-indigo-500',
-          bgColor: 'bg-indigo-50',
-          action: 'view_series',
-          seriesId: 101
+          color: "text-indigo-500",
+          bgColor: "bg-indigo-50",
+          action: "view_series",
+          seriesId: 101,
         },
         {
           id: 7,
-          type: 'ai',
-          title: 'AI generation complete',
-          message: 'Your TTS audio for "Building a Successful Blog Series" is ready',
-          time: '1 day ago',
+          type: "ai",
+          title: "AI generation complete",
+          message:
+            'Your TTS audio for "Building a Successful Blog Series" is ready',
+          time: "1 day ago",
           read: true,
           icon: Zap,
-          color: 'text-orange-500',
-          bgColor: 'bg-orange-50',
-          action: 'view_audio',
-          postId: 124
+          color: "text-orange-500",
+          bgColor: "bg-orange-50",
+          action: "view_audio",
+          postId: 124,
         },
         {
           id: 8,
-          type: 'reward',
-          title: 'Reward unlocked!',
-          message: 'You unlocked 500 XP for publishing 10 posts this month',
-          time: '2 days ago',
+          type: "reward",
+          title: "Reward unlocked!",
+          message: "You unlocked 500 XP for publishing 10 posts this month",
+          time: "2 days ago",
           read: true,
           icon: Gift,
-          color: 'text-pink-500',
-          bgColor: 'bg-pink-50',
-          action: 'view_rewards'
+          color: "text-pink-500",
+          bgColor: "bg-pink-50",
+          action: "view_rewards",
         },
         {
           id: 9,
-          type: 'mention',
-          title: 'You were mentioned',
-          message: 'David Kim mentioned you in their post "Collaborative Writing Tips"',
-          time: '3 days ago',
+          type: "mention",
+          title: "You were mentioned",
+          message:
+            'David Kim mentioned you in their post "Collaborative Writing Tips"',
+          time: "3 days ago",
           read: true,
           icon: User,
-          color: 'text-cyan-500',
-          bgColor: 'bg-cyan-50',
-          action: 'view_post',
-          postId: 125
+          color: "text-cyan-500",
+          bgColor: "bg-cyan-50",
+          action: "view_post",
+          postId: 125,
         },
         {
           id: 10,
-          type: 'system',
-          title: 'Welcome to VocalInk!',
-          message: 'We\'re excited to have you join our community. Start by creating your first post!',
-          time: '1 week ago',
+          type: "system",
+          title: "Welcome to VocalInk!",
+          message:
+            "We're excited to have you join our community. Start by creating your first post!",
+          time: "1 week ago",
           read: true,
           icon: Bell,
-          color: 'text-gray-500',
-          bgColor: 'bg-gray-50',
-          action: 'create_post'
-        }
+          color: "text-gray-500",
+          bgColor: "bg-gray-50",
+          action: "create_post",
+        },
       ]);
       setLoading(false);
     }, 1000);
   }, []);
 
   const notificationTypes = [
-    { id: 'all', name: 'All', count: notifications.length },
-    { id: 'like', name: 'Likes', count: notifications.filter(n => n.type === 'like').length },
-    { id: 'comment', name: 'Comments', count: notifications.filter(n => n.type === 'comment').length },
-    { id: 'follow', name: 'Follows', count: notifications.filter(n => n.type === 'follow').length },
-    { id: 'badge', name: 'Badges', count: notifications.filter(n => n.type === 'badge').length },
-    { id: 'system', name: 'System', count: notifications.filter(n => n.type === 'system').length }
+    { id: "all", name: "All", count: notifications.length },
+    {
+      id: "like",
+      name: "Likes",
+      count: notifications.filter((n) => n.type === "like").length,
+    },
+    {
+      id: "comment",
+      name: "Comments",
+      count: notifications.filter((n) => n.type === "comment").length,
+    },
+    {
+      id: "follow",
+      name: "Follows",
+      count: notifications.filter((n) => n.type === "follow").length,
+    },
+    {
+      id: "badge",
+      name: "Badges",
+      count: notifications.filter((n) => n.type === "badge").length,
+    },
+    {
+      id: "system",
+      name: "System",
+      count: notifications.filter((n) => n.type === "system").length,
+    },
   ];
 
-  const filteredNotifications = notifications.filter(notification => {
-    const matchesFilter = filter === 'all' || notification.type === filter;
-    const matchesSearch = notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         notification.message.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredNotifications = notifications.filter((notification) => {
+    const matchesFilter = filter === "all" || notification.type === filter;
+    const matchesSearch =
+      notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      notification.message.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAsRead = (notificationId) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
     );
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   const deleteNotification = (notificationId) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
   };
 
   const deleteSelected = () => {
-    setNotifications(prev => prev.filter(n => !selectedNotifications.has(n.id)));
+    setNotifications((prev) =>
+      prev.filter((n) => !selectedNotifications.has(n.id))
+    );
     setSelectedNotifications(new Set());
   };
 
@@ -217,32 +253,32 @@ const NotificationsPage = () => {
     markAsRead(notification.id);
     // Handle different action types
     switch (notification.action) {
-      case 'view_post':
-        console.log('Navigate to post:', notification.postId);
+      case "view_post":
+        console.log("Navigate to post:", notification.postId);
         break;
-      case 'view_comment':
-        console.log('Navigate to comment:', notification.commentId);
+      case "view_comment":
+        console.log("Navigate to comment:", notification.commentId);
         break;
-      case 'view_profile':
-        console.log('Navigate to profile:', notification.userId);
+      case "view_profile":
+        console.log("Navigate to profile:", notification.userId);
         break;
-      case 'view_badge':
-        console.log('Navigate to badge:', notification.badgeId);
+      case "view_badge":
+        console.log("Navigate to badge:", notification.badgeId);
         break;
-      case 'view_series':
-        console.log('Navigate to series:', notification.seriesId);
+      case "view_series":
+        console.log("Navigate to series:", notification.seriesId);
         break;
-      case 'view_audio':
-        console.log('Play audio for post:', notification.postId);
+      case "view_audio":
+        console.log("Play audio for post:", notification.postId);
         break;
-      case 'view_rewards':
-        console.log('Navigate to rewards');
+      case "view_rewards":
+        console.log("Navigate to rewards");
         break;
-      case 'create_post':
-        console.log('Navigate to create post');
+      case "create_post":
+        console.log("Navigate to create post");
         break;
       default:
-        console.log('Unknown action:', notification.action);
+        console.log("Unknown action:", notification.action);
     }
   };
 
@@ -264,19 +300,30 @@ const NotificationsPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Notifications</h1>
+          <h1 className="text-3xl font-bold text-text-primary">
+            Notifications
+          </h1>
           <p className="text-text-secondary">
-            {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
+            {unreadCount > 0
+              ? `${unreadCount} unread notifications`
+              : "All caught up!"}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <Button variant="outline" onClick={markAllAsRead} className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={markAllAsRead}
+              className="flex items-center gap-2 cursor-pointer border border-[var(--border-color)] text-[var(--text-color)]  hover:bg-[var(--secondary-btn-hover)]"
+            >
               <Check className="w-4 h-4" />
               Mark all as read
             </Button>
           )}
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 cursor-pointer border border-[var(--border-color)] text-[var(--text-color)]  hover:bg-[var(--secondary-btn-hover)]"
+          >
             <Settings className="w-4 h-4" />
             Settings
           </Button>
@@ -294,7 +341,7 @@ const NotificationsPage = () => {
                 placeholder="Search notifications..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full pl-10 pr-4 py-2  glassmorphism backdrop-blur-sm rounded-lg placeholder:text-[var(--light-text-color)] text-[var(--text-color)] "
               />
             </div>
             <div className="flex items-center gap-2">
@@ -302,7 +349,7 @@ const NotificationsPage = () => {
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="px-3 py-2 border border-border rounded-lg bg-background text-text-primary"
+                className="px-3 py-2 cursor-pointer border border-[var(--border-color)] text-[var(--text-color)] rounded-lg bg-background text-text-primary"
               >
                 {notificationTypes.map((type) => (
                   <option key={type.id} value={type.id}>
@@ -321,14 +368,15 @@ const NotificationsPage = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-primary-700">
-                {selectedNotifications.size} notification{selectedNotifications.size !== 1 ? 's' : ''} selected
+                {selectedNotifications.size} notification
+                {selectedNotifications.size !== 1 ? "s" : ""} selected
               </span>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    selectedNotifications.forEach(id => markAsRead(id));
+                    selectedNotifications.forEach((id) => markAsRead(id));
                     setSelectedNotifications(new Set());
                   }}
                   className="flex items-center gap-1"
@@ -357,10 +405,12 @@ const NotificationsPage = () => {
           filteredNotifications.map((notification) => {
             const Icon = notification.icon;
             return (
-              <Card 
-                key={notification.id} 
+              <Card
+                key={notification.id}
                 className={`hover:shadow-lg transition-all duration-200 cursor-pointer ${
-                  !notification.read ? 'border-primary-200 bg-primary-50/50' : ''
+                  !notification.read
+                    ? "border-primary-200 bg-primary-50/50"
+                    : ""
                 }`}
                 onClick={() => handleNotificationAction(notification)}
               >
@@ -374,13 +424,15 @@ const NotificationsPage = () => {
                           e.stopPropagation();
                           toggleSelection(notification.id);
                         }}
-                        className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
+                        className="h-4 w-4 text-primary-500 focus:ring--500 border-border cursor-pointer rounded"
                       />
-                      <div className={`p-2 rounded-full ${notification.bgColor}`}>
+                      <div
+                        className={`p-2 rounded-full cursor-pointer ${notification.bgColor}`}
+                      >
                         <Icon className={`w-5 h-5 ${notification.color}`} />
                       </div>
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
@@ -400,7 +452,7 @@ const NotificationsPage = () => {
                             </Badge>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           {!notification.read && (
                             <Button
@@ -410,7 +462,7 @@ const NotificationsPage = () => {
                                 e.stopPropagation();
                                 markAsRead(notification.id);
                               }}
-                              className="text-primary-500 hover:text-primary-600"
+                              className="text-primary-500  cursor-pointer hover:bg-[var(--secondary-btn-hover)]"
                             >
                               <Check className="w-4 h-4" />
                             </Button>
@@ -422,7 +474,7 @@ const NotificationsPage = () => {
                               e.stopPropagation();
                               deleteNotification(notification.id);
                             }}
-                            className="text-error hover:text-error"
+                            className="text-error hover:text-error cursor-pointer hover:bg-[var(--secondary-btn-hover2)]"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -438,12 +490,13 @@ const NotificationsPage = () => {
           <Card>
             <CardContent className="p-12 text-center">
               <Bell className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-text-primary mb-2">No notifications found</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-2">
+                No notifications found
+              </h3>
               <p className="text-text-secondary">
-                {searchQuery || filter !== 'all' 
-                  ? 'Try adjusting your search or filters'
-                  : 'You\'re all caught up! New notifications will appear here.'
-                }
+                {searchQuery || filter !== "all"
+                  ? "Try adjusting your search or filters"
+                  : "You're all caught up! New notifications will appear here."}
               </p>
             </CardContent>
           </Card>
@@ -453,4 +506,4 @@ const NotificationsPage = () => {
   );
 };
 
-export default NotificationsPage; 
+export default NotificationsPage;

@@ -18,6 +18,7 @@
   --color-success: 16 185 129;
   --color-warning: 245 158 11;
   --color-error: 239 68 68;
+   --background: rgb(255, 255, 255);
 
   /* buttons colors */
   --secondary-btn: rgb(236, 235, 235);
@@ -44,7 +45,7 @@
   --color-success: 34 197 94;
   --color-warning: 251 191 36;
   --color-error: 248 113 113;
-
+ --background: rgb(0, 0, 0);
    /* buttons colors */
   --secondary-btn: rgba(255, 255, 255, 0.1);
   --secondary-btn2: rgba(240, 239, 239, 0.1);

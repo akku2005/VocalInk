@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-export default function DropDown({ sortBy, setSortBy }) {
+export default function DiscoverSeriesDropDown({ sortBy, setSortBy }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -20,7 +20,9 @@ export default function DropDown({ sortBy, setSortBy }) {
   const options = [
     { value: "recent", label: "Most Recent" },
     { value: "popular", label: "Most Popular" },
-    { value: "readtime", label: "Shortest Read" },
+    { value: "episodes", label: "Most Episodes" },
+    { value: "completion", label: "Best Rate" },
+    { value: "rating", label: "Highest Rated" },
   ];
 
   return (

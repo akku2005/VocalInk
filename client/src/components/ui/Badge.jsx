@@ -4,15 +4,14 @@ import { cn } from "../../utils/cn";
 const Badge = forwardRef(
   ({ className, variant = "default", children, ...props }, ref) => {
     const variants = {
-      default:
-        "bg-secondary-100 dark: text-secondary-700 dark:text-white hover:bg-[var(--secondary-btn-hover)]",
+      default: "bg-secondary-100   hover:bg-[var(--secondary-btn-hover)]",
       secondary:
-        "bg-secondary-100 dark:bg-white/20 text-secondary-900  hover:bg-[var(--secondary-btn-hover)]",
+        "bg-secondary-100 dark:bg-white/20 text-secondary-900 hover:bg-[var(--secondary-btn-hover)]",
       destructive: "bg-error text-white hover:bg-red-600",
       outline:
         "text-text-primary border border-border hover:bg-surface dark:hover:bg-white/10",
-      success: "bg-success text-white hover:bg-green-600",
-      warning: "bg-warning text-white hover:bg-yellow-600",
+      success: "bg-success  hover:bg-green-600",
+      warning: "bg-indigo-500 text-white  hover:bg-indigo-600",
     };
 
     return (

@@ -4,6 +4,7 @@ import BlogCard from "../components/blog/BlogCard";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
+import DropDown from "../components/ui/DropDown";
 import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
 import {
   Search,
@@ -202,7 +203,7 @@ const BlogPage = () => {
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header Section */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent pb-2">
           Blog Posts
         </h1>
         <p className="text-lg text-text-secondary max-w-2xl mx-auto">
@@ -242,16 +243,7 @@ const BlogPage = () => {
             <label htmlFor="sort" className="text-sm text-text-secondary">
               Sort by
             </label>
-            <select
-              id="sort"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="h-12 rounded-lg border border-[var(--border-color)] bg-background px-3 text-sm"
-            >
-              <option value="recent">Most Recent</option>
-              <option value="popular">Most Popular</option>
-              <option value="readtime">Shortest Read</option>
-            </select>
+            <DropDown sortBy={sortBy} setSortBy={setSortBy} />
           </div>
 
           {/* View Mode Toggle */}
@@ -298,7 +290,7 @@ const BlogPage = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="space-y-4">
+      <div className="space-y-4 z-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-primary-500" />
