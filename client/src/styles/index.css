@@ -191,3 +191,94 @@ button:focus {
 .animate-slide-in {
   animation: slideIn 0.3s ease-out;
 }
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Improve touch targets */
+  button, 
+  input[type="checkbox"], 
+  input[type="radio"],
+  select,
+  .cursor-pointer {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Smaller touch targets for specific elements */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 24px;
+    min-width: 24px;
+  }
+  
+  /* Improve spacing for mobile */
+  .space-y-3 > * + * {
+    margin-top: 0.75rem;
+  }
+  
+  .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+  
+  /* Better mobile card spacing */
+  .glassmorphism-card {
+    border-radius: 12px;
+  }
+  
+  /* Improve mobile button spacing */
+  .flex.gap-1 > * + * {
+    margin-left: 0.25rem;
+  }
+  
+  .flex.gap-2 > * + * {
+    margin-left: 0.5rem;
+  }
+  
+  /* Mobile-optimized text sizes */
+  .text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+  
+  .text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  .text-base {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+  
+  .text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+  
+  .text-3xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+
+/* Improve mobile form elements */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Better mobile button states */
+  button:active {
+    transform: scale(0.98);
+  }
+  
+  /* Improve mobile scrolling */
+  .overflow-x-hidden {
+    -webkit-overflow-scrolling: touch;
+  }
+}

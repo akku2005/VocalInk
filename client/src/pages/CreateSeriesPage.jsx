@@ -163,10 +163,10 @@ const CreateSeriesPage = () => {
                   <Button onClick={()=>{addTag(tagQuery); setTagQuery('');}} size="sm">Add</Button>
                 </div>
                 {filteredTags.length>0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">{filteredTags.map(t => <button key={t} onClick={()=>addTag(t)} className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs">{t}</button>)}</div>
+                  <div className="flex flex-wrap gap-2 mb-2">{filteredTags.map(t => <button key={t} onClick={()=>addTag(t)} className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs cursor-pointer">{t}</button>)}</div>
                 )}
                 {form.tags.length>0 && (
-                  <div className="flex flex-wrap gap-2">{form.tags.map(t => <Badge key={t} variant="default" className="flex items-center gap-1">{t}<button onClick={()=>removeTag(t)} className="ml-1 hover:text-error">×</button></Badge>)}{form.tags.length>=5 && <span className="text-xs text-text-secondary">Max 5</span>}</div>
+                  <div className="flex flex-wrap gap-2">{form.tags.map(t => <Badge key={t} variant="default" className="flex items-center gap-1">{t}<button onClick={()=>removeTag(t)} className="ml-1 hover:text-error cursor-pointer">×</button></Badge>)}{form.tags.length>=5 && <span className="text-xs text-text-secondary">Max 5</span>}</div>
                 )}
               </div>
               <div>

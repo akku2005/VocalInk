@@ -155,7 +155,7 @@ const RichTextEditor = ({ value, onChange, className = '' }) => {
     editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
 
-  const btn = (active) => `px-2.5 py-1.5 rounded-md hover:bg-secondary-100 ${active ? 'bg-primary-100 text-primary-700' : ''}`;
+  const btn = (active) => `px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer ${active ? 'bg-primary-100 text-primary-700' : ''}`;
   const divider = <span className="mx-1 text-border">|</span>;
 
   const inTable = editor.isActive('table');
@@ -164,8 +164,8 @@ const RichTextEditor = ({ value, onChange, className = '' }) => {
     <div className={`border border-border rounded-lg ${className}`}>
       <div className="p-2 lg:p-3 border-b border-border flex flex-wrap items-center gap-2 text-sm sticky top-0 bg-background z-10">
         <div className="flex items-center gap-1">
-          <button title="Undo" onClick={() => editor.chain().focus().undo().run()} className="p-1.5 rounded-md hover:bg-secondary-100"><Undo2 className="w-4 h-4" /></button>
-          <button title="Redo" onClick={() => editor.chain().focus().redo().run()} className="p-1.5 rounded-md hover:bg-secondary-100"><Redo2 className="w-4 h-4" /></button>
+          <button title="Undo" onClick={() => editor.chain().focus().undo().run()} className="p-1.5 rounded-md hover:bg-secondary-100 cursor-pointer"><Undo2 className="w-4 h-4" /></button>
+          <button title="Redo" onClick={() => editor.chain().focus().redo().run()} className="p-1.5 rounded-md hover:bg-secondary-100 cursor-pointer"><Redo2 className="w-4 h-4" /></button>
         </div>
         {divider}
         <div className="flex items-center gap-2">
@@ -200,21 +200,21 @@ const RichTextEditor = ({ value, onChange, className = '' }) => {
         {divider}
         <div className="flex items-center gap-1">
           <button title="Set Link" onClick={setLink} className={btn(editor.isActive('link'))}><Link2 className="w-4 h-4" /></button>
-          <button title="Remove Link" onClick={unsetLink} className="p-1.5 rounded-md hover:bg-secondary-100"><Link2Off className="w-4 h-4" /></button>
-          <button title="Insert Image" onClick={insertImage} className="p-1.5 rounded-md hover:bg-secondary-100"><ImageIcon className="w-4 h-4" /></button>
-          <button title="Insert Table" onClick={insertTable} className="p-1.5 rounded-md hover:bg-secondary-100"><TableIcon className="w-4 h-4" /></button>
+          <button title="Remove Link" onClick={unsetLink} className="p-1.5 rounded-md hover:bg-secondary-100 cursor-pointer"><Link2Off className="w-4 h-4" /></button>
+          <button title="Insert Image" onClick={insertImage} className="p-1.5 rounded-md hover:bg-secondary-100 cursor-pointer"><ImageIcon className="w-4 h-4" /></button>
+          <button title="Insert Table" onClick={insertTable} className="p-1.5 rounded-md hover:bg-secondary-100 cursor-pointer"><TableIcon className="w-4 h-4" /></button>
         </div>
         {inTable && (
           <>
             {divider}
             <div className="hidden sm:flex items-center gap-1">
-              <button title="Add Column Before" onClick={() => editor.chain().focus().addColumnBefore().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">+Col◀</button>
-              <button title="Add Column After" onClick={() => editor.chain().focus().addColumnAfter().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">+Col▶</button>
-              <button title="Add Row Before" onClick={() => editor.chain().focus().addRowBefore().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">+Row▲</button>
-              <button title="Add Row After" onClick={() => editor.chain().focus().addRowAfter().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">+Row▼</button>
-              <button title="Delete Column" onClick={() => editor.chain().focus().deleteColumn().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">Del Col</button>
-              <button title="Delete Row" onClick={() => editor.chain().focus().deleteRow().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">Del Row</button>
-              <button title="Delete Table" onClick={() => editor.chain().focus().deleteTable().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100">Del Table</button>
+              <button title="Add Column Before" onClick={() => editor.chain().focus().addColumnBefore().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">+Col◀</button>
+              <button title="Add Column After" onClick={() => editor.chain().focus().addColumnAfter().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">+Col▶</button>
+              <button title="Add Row Before" onClick={() => editor.chain().focus().addRowBefore().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">+Row▲</button>
+              <button title="Add Row After" onClick={() => editor.chain().focus().addRowAfter().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">+Row▼</button>
+              <button title="Delete Column" onClick={() => editor.chain().focus().deleteColumn().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">Del Col</button>
+              <button title="Delete Row" onClick={() => editor.chain().focus().deleteRow().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">Del Row</button>
+              <button title="Delete Table" onClick={() => editor.chain().focus().deleteTable().run()} className="px-2.5 py-1.5 rounded-md hover:bg-secondary-100 cursor-pointer">Del Table</button>
             </div>
           </>
         )}
@@ -231,7 +231,7 @@ const RichTextEditor = ({ value, onChange, className = '' }) => {
             {headings.map((h, idx) => (
               <li key={`${h.pos}-${idx}`}>
                 <button
-                  className={`text-left hover:underline ${h.level === 1 ? 'font-semibold' : h.level === 2 ? '' : 'text-text-secondary'}`}
+                  className={`text-left hover:underline cursor-pointer ${h.level === 1 ? 'font-semibold' : h.level === 2 ? '' : 'text-text-secondary'}`}
                   onClick={() => editor.chain().focus().setTextSelection(h.pos).run()}
                 >
                   {Array(h.level).fill('—').join('')} {h.text || 'Untitled'}

@@ -618,7 +618,7 @@ const BadgeGalleryPage = () => {
         title={badgeModal.badge?.name || 'Badge'}
         footer={
           <>
-            <button className="px-4 py-2 rounded-md border border-[var(--border-color)]" onClick={() => setBadgeModal({ open: false, badge: null })}>Close</button>
+            <button className="px-4 py-2 rounded-md border border-[var(--border-color)] cursor-pointer" onClick={() => setBadgeModal({ open: false, badge: null })}>Close</button>
             {badgeModal.badge && (
               <Link to={`/badges/${badgeSlug(badgeModal.badge.name)}`} className="px-4 py-2 rounded-md bg-primary-500 text-white">View details</Link>
             )}

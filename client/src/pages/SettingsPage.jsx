@@ -244,7 +244,7 @@ const SettingsPage = () => {
                       alt="Profile" 
                       className="w-20 h-20 rounded-full"
                     />
-                    <button className="absolute -bottom-1 -right-1 p-1 bg-primary-500 text-white rounded-full hover:bg-primary-600">
+                    <button className="absolute -bottom-1 -right-1 p-1 bg-primary-500 text-white rounded-full hover:bg-primary-600 cursor-pointer">
                       <Camera className="w-4 h-4" />
                     </button>
                   </div>
@@ -429,7 +429,7 @@ const SettingsPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -447,7 +447,7 @@ const SettingsPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer"
                       >
                         {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -465,7 +465,7 @@ const SettingsPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer"
                       >
                         {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -596,7 +596,7 @@ const SettingsPage = () => {
                         <button
                           key={theme.value}
                           onClick={() => handleInputChange('appearance', 'theme', theme.value)}
-                          className={`p-4 border-2 rounded-lg transition-all duration-200 flex flex-col items-center gap-2 ${
+                          className={`p-4 border-2 rounded-lg transition-all duration-200 flex flex-col items-center gap-2 cursor-pointer ${
                             settings.appearance.theme === theme.value
                               ? 'border-primary-500 bg-primary-50'
                               : 'border-border hover:border-primary-200'

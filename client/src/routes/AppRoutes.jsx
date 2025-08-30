@@ -26,6 +26,9 @@ const LeaderboardPage = lazy(() => import("../pages/LeaderboardPage"));
 const BadgeGalleryPage = lazy(() => import("../pages/BadgeGalleryPage"));
 const BadgeDetailPage = lazy(() => import("../pages/badges/BadgeDetailPage.jsx"));
 const CreateSeriesPage = lazy(() => import("../pages/CreateSeriesPage.jsx"));
+const UpgradePage = lazy(() => import("../pages/UpgradePage.jsx"));
+const ContactSalesPage = lazy(() => import("../pages/ContactSalesPage.jsx"));
+const FreeTrialPage = lazy(() => import("../pages/FreeTrialPage.jsx"));
 
 export default function AppRoutes() {
   return (
@@ -41,6 +44,9 @@ export default function AppRoutes() {
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="badges" element={<BadgeGalleryPage />} />
           <Route path="badges/:slug" element={<BadgeDetailPage />} />
+          <Route path="upgrade" element={<UpgradePage />} />
+          <Route path="contact-sales" element={<ContactSalesPage />} />
+          <Route path="free-trial" element={<FreeTrialPage />} />
           
           {/* Guest Routes - Only for non-authenticated users */}
           <Route path="login" element={

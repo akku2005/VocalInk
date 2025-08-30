@@ -14,7 +14,7 @@ const Button = forwardRef(
     ref
   ) => {
     const baseClasses =
-      "inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+      "inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer touch-manipulation";
 
     const variants = {
       primary:
@@ -24,15 +24,15 @@ const Button = forwardRef(
       ghost:
         "hover:bg-primary-50 dark:hover:bg-white/10 text-text-primary focus:ring-primary-500",
       outline:
-        "border border-[var(border-color)] hover:bg-[var(--secondary-btn-hover2)] text-text-primary  backdrop-blur-sm",
+        "border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover2)] text-text-primary backdrop-blur-sm",
       danger:
         "bg-error hover:bg-red-600 text-white focus:ring-error shadow-sm hover:shadow-md",
     };
 
     const sizes = {
-      sm: "px-3 py-1.5 text-sm rounded-md",
-      md: "px-4 py-2 text-sm rounded-lg",
-      lg: "px-6 py-3 text-base rounded-lg",
+      sm: "px-3 py-2 text-sm rounded-md min-h-[36px]",
+      md: "px-4 py-2.5 text-sm rounded-lg min-h-[40px]",
+      lg: "px-6 py-3 text-base rounded-lg min-h-[48px]",
     };
 
     return (

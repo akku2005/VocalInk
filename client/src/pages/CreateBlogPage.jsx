@@ -307,7 +307,7 @@ const CreateBlogPage = () => {
                     {wordCount} words
                   </span>
                   <span className="hidden md:inline-flex items-center gap-1">
-                    <button onClick={() => setShowShortcuts(true)} className="underline hover:no-underline">Keyboard shortcuts</button>
+                    <button onClick={() => setShowShortcuts(true)} className="underline hover:no-underline cursor-pointer">Keyboard shortcuts</button>
                   </span>
                   {lastSavedAt && (
                     <span className="text-xs ml-2">Last saved {lastSavedAt.toLocaleTimeString()}</span>
@@ -407,7 +407,7 @@ const CreateBlogPage = () => {
                   <button
                     key={mood.id}
                     onClick={() => handleInputChange('mood', mood.id)}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-left cursor-pointer ${
                       formData.mood === mood.id
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-border hover:border-primary-200'
@@ -486,7 +486,7 @@ const CreateBlogPage = () => {
                           setFormData(prev => ({ ...prev, tags: [...prev.tags, t] }));
                           setTagQuery('');
                         }
-                      }} className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs">{t}</button>
+                      }} className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs cursor-pointer">{t}</button>
                     ))}
                   </div>
                 )}
@@ -498,7 +498,7 @@ const CreateBlogPage = () => {
                         {tag}
                         <button
                           onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 hover:text-error"
+                          className="ml-1 hover:text-error cursor-pointer"
                         >
                           ×
                         </button>
@@ -633,7 +633,7 @@ const CreateBlogPage = () => {
               {formData.tags.map((tag) => (
                 <Badge key={tag} variant="default" className="flex items-center gap-1">
                   {tag}
-                  <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-error">×</button>
+                                          <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-error cursor-pointer">×</button>
                 </Badge>
               ))}
             </div>
