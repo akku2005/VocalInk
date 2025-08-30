@@ -435,7 +435,7 @@ While AI tools are powerful, they work best when combined with human creativity 
                   <button
                     key={mood.id}
                     onClick={() => handleInputChange('mood', mood.id)}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-left cursor-pointer ${
                       formData.mood === mood.id
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-border hover:border-primary-200'
@@ -501,7 +501,7 @@ While AI tools are powerful, they work best when combined with human creativity 
                         {tag}
                         <button
                           onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 hover:text-error"
+                          className="ml-1 hover:text-error cursor-pointer"
                         >
                           ×
                         </button>
@@ -521,7 +521,7 @@ While AI tools are powerful, they work best when combined with human creativity 
                             setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
                           }
                         }}
-                        className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded hover:bg-secondary-200 transition-colors"
+                        className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded hover:bg-secondary-200 transition-colors cursor-pointer"
                       >
                         {tag}
                       </button>
