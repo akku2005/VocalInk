@@ -55,6 +55,7 @@ const SeriesPage = () => {
   const [viewMode, setViewMode] = useState(params.get("view") || "grid");
   const [sortBy, setSortBy] = useState(params.get("sort") || "recent");
   const [isLoading, setIsLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Enhanced sample series data with more realistic content
   const sampleSeries = [
@@ -901,7 +902,7 @@ const SeriesPage = () => {
     return Math.round((published / total) * 100);
   };
 
-  // SeriesCard component with improved design
+  // SeriesCard component with improved mobile design
   const SeriesCard = ({ series, viewMode }) => {
     const publishedEpisodes = getPublishedEpisodesCount(series.episodes);
     const totalReadTime = getTotalReadTime(
@@ -911,20 +912,20 @@ const SeriesPage = () => {
 
     if (viewMode === "list") {
       return (
-        <Card className="cursor-pointer group hover:shadow-lg transition-all duration-300 border border-[var(--border-color)] ">
+        <Card className="cursor-pointer group hover:shadow-lg transition-all duration-300 border border-[var(--border-color)]">
           <div className="flex flex-col lg:flex-row">
             {/* Cover Image */}
-            <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-400 rounded-l-2xl to-gray-400 flex items-center justify-center relative overflow-hidden">
+            <div className="w-full lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-400 rounded-t-lg lg:rounded-l-lg lg:rounded-t-none to-gray-400 flex items-center justify-center relative overflow-hidden">
               <div className="text-4xl opacity-30">📚</div>
 
               {/* Overlay Badges */}
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <div className="absolute top-3 left-3 flex flex-col gap-2">
                 <Badge
                   variant="outline"
                   className="text-xs px-2 py-1 text-white border border-white backdrop-blur-sm"
                 >
                   {getTemplateIcon(series.template)}
-                  <span className="ml-1 capitalize">
+                  <span className="ml-1 capitalize hidden sm:inline">
                     {series.template.replace("_", " ")}
                   </span>
                 </Badge>
@@ -934,13 +935,13 @@ const SeriesPage = () => {
                   )}`}
                 >
                   {getDifficultyIcon(series.difficulty)}
-                  <span className="ml-1 capitalize">{series.difficulty}</span>
+                  <span className="ml-1 capitalize hidden sm:inline">{series.difficulty}</span>
                 </Badge>
               </div>
 
               {/* Premium Badge */}
               {series.visibility === "premium" && (
-                <div className="absolute top-4 right-4">
+                <div className="absolute top-3 right-3">
                   <Badge
                     variant="warning"
                     className="text-xs px-2 py-1 border border-[var(--border-color)] backdrop-blur-sm"
@@ -951,7 +952,7 @@ const SeriesPage = () => {
               )}
 
               {/* Progress Bar */}
-              <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm p-3">
+              <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm p-2 sm:p-3">
                 <div className="flex items-center justify-between text-xs text-white mb-1">
                   <span>
                     {publishedEpisodes}/{series.episodes.length} episodes
@@ -968,13 +969,13 @@ const SeriesPage = () => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 flex flex-col">
-              <CardHeader className="flex-1">
+            <div className="flex-1 flex flex-col p-4 lg:p-6">
+              <div className="flex-1">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-3">
+                  <div className="flex-1 space-y-4">
                     {/* Tags */}
                     <div className="flex flex-wrap gap-2">
-                      {series.tags.slice(0, 3).map((tag, index) => (
+                      {series.tags.slice(0, window.innerWidth < 640 ? 2 : 3).map((tag, index) => (
                         <Badge
                           key={index}
                           variant="outline"
@@ -983,81 +984,82 @@ const SeriesPage = () => {
                           {tag}
                         </Badge>
                       ))}
-                      {series.tags.length > 3 && (
+                      {series.tags.length > (window.innerWidth < 640 ? 2 : 3) && (
                         <Badge
                           variant="outline"
                           className="text-xs px-2 py-1 border border-[var(--border-color)]"
                         >
-                          +{series.tags.length - 3}
+                          +{series.tags.length - (window.innerWidth < 640 ? 2 : 3)}
                         </Badge>
                       )}
                     </div>
 
                     {/* Title */}
-                    <CardTitle className="text-xl lg:text-2xl line-clamp-2 group-hover:text-primary-500 transition-colors">
+                    <CardTitle className="text-lg sm:text-xl lg:text-2xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
                       {series.title}
                     </CardTitle>
 
                     {/* Summary */}
-                    <p className="text-text-secondary line-clamp-3 text-base leading-relaxed">
+                    <p className="text-sm sm:text-base text-text-secondary line-clamp-3 leading-relaxed">
                       {series.summary}
                     </p>
                   </div>
 
                   {/* Bookmark Button */}
-                  <button className="p-2 bg-white/70 hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60 rounded-lg transition-colors flex-shrink-0 border border-[var(--border-color)]">
+                  <button className="p-2 bg-white/70 hover:bg-white/80 dark:bg-black/40 dark:hover:bg-black/60 rounded-lg transition-colors flex-shrink-0 border border-[var(--border-color)] cursor-pointer">
                     <Star
-                      className={`w-5 h-5 ${series.isBookmarked ? "fill-current text-primary-500" : "text-text-secondary"}`}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 ${series.isBookmarked ? "fill-current text-primary-500" : "text-text-secondary"}`}
                     />
                   </button>
                 </div>
-              </CardHeader>
+              </div>
 
-              <CardContent className="pt-0 mt-auto">
+              <div className="mt-auto pt-4 px-4 sm:px-6 pb-4 sm:pb-6">
                 {/* Author and Meta Info */}
-                <div className="flex items-center gap-6 text-sm text-text-secondary mb-4">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span className="font-medium">{series.author.name}</span>
                     {series.author.verified && (
-                      <Shield className="w-3 h-3 text-primary-500" />
+                      <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4" />
-                    <span>{series.category}</span>
+                    <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">{series.category}</span>
+                    <span className="sm:hidden">{series.category.slice(0, 8)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span>{totalReadTime} min total</span>
                   </div>
                 </div>
 
                 {/* Analytics */}
-                <div className="flex items-center justify-between pt-4 border-t border-[var(--border-color)]">
-                  <div className="flex items-center gap-4 text-sm text-text-secondary">
+                <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-[var(--border-color)]">
+                  <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-text-secondary">
                     <div className="flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="font-medium">
                         {formatNumber(series.analytics.totalViews)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
+                      <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="font-medium">
                         {formatNumber(series.analytics.subscribers)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="hidden sm:flex items-center gap-1">
                       <Heart className="w-4 h-4" />
                       <span className="font-medium">
                         {formatNumber(series.analytics.likes)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4" />
+                      <Star className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="font-medium">{series.rating}</span>
-                      <span className="opacity-75">
+                      <span className="opacity-75 hidden lg:inline">
                         ({series.totalRatings})
                       </span>
                     </div>
@@ -1072,7 +1074,7 @@ const SeriesPage = () => {
                     )}
                   </div>
                 </div>
-              </CardContent>
+              </div>
             </div>
           </div>
         </Card>
@@ -1083,28 +1085,28 @@ const SeriesPage = () => {
     return (
       <Card className="cursor-pointer group overflow-hidden hover:shadow-lg transition-all duration-300 border border-[var(--border-color)]">
         {/* Cover Image */}
-        <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400  flex items-center justify-center relative overflow-hidden">
-          <div className="text-4xl opacity-30">📚</div>
+        <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400 flex items-center justify-center relative overflow-hidden">
+          <div className="text-3xl sm:text-4xl opacity-30">📚</div>
 
           {/* Template and Difficulty Badges */}
           {/* Left Side */}
-          <div className="absolute top-4 left-4 flex items-center gap-2">
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
             <Badge
               variant="outline"
-              className="flex items-center text-xs px-2 py-1  text-white border border-white backdrop-blur-sm h-6"
+              className="flex items-center text-xs px-2 py-1 text-white border border-white backdrop-blur-sm h-6 w-fit"
             >
               {getTemplateIcon(series.template)}
-              <span className="ml-1 capitalize">
+              <span className="ml-1 capitalize hidden sm:inline">
                 {series.template.replace("_", " ")}
               </span>
             </Badge>
             <Badge
-              className={`text-xs px-2 py-1 backdrop-blur-sm ${getDifficultyColor(
+              className={`text-xs px-2 py-1 backdrop-blur-sm h-6 w-fit ${getDifficultyColor(
                 series.difficulty
               )}`}
             >
               {getDifficultyIcon(series.difficulty)}
-              <span className="ml-1 capitalize">{series.difficulty}</span>
+              <span className="ml-1 capitalize hidden sm:inline">{series.difficulty}</span>
             </Badge>
           </div>
 
@@ -1113,12 +1115,13 @@ const SeriesPage = () => {
             {series.visibility === "premium" && (
               <Badge
                 variant="warning"
-                className="flex items-center text-xs px-2 py-1    backdrop-blur-sm h-6"
+                className="flex items-center text-xs px-2 py-1 backdrop-blur-sm h-6 w-fit"
               >
-                Premium
+                <span className="hidden sm:inline">Premium</span>
+                <span className="sm:hidden">💎</span>
               </Badge>
             )}
-            <button className="flex items-center justify-center h-6 w-6 rounded-lg transition-all duration-200 shadow-sm border border-[var(--border-color)] bg-[var(--secondary-btn2)] cursor-pointer">
+            <button className="flex items-center justify-center h-8 w-8 rounded-lg transition-all duration-200 shadow-sm border border-[var(--border-color)] bg-[var(--secondary-btn2)] cursor-pointer">
               <Star
                 className={`w-4 h-4 ${
                   series.isBookmarked
@@ -1130,7 +1133,7 @@ const SeriesPage = () => {
           </div>
 
           {/* Progress Bar */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm p-3">
+          <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm p-2 sm:p-3">
             <div className="flex items-center justify-between text-xs text-white mb-1">
               <span>
                 {publishedEpisodes}/{series.episodes.length} episodes
@@ -1146,10 +1149,10 @@ const SeriesPage = () => {
           </div>
         </div>
 
-        <CardHeader className="space-y-4 sm:space-y-3">
+        <CardHeader className="space-y-4 p-4 sm:p-6">
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
-            {series.tags.slice(0, 2).map((tag, index) => (
+            {series.tags.slice(0, window.innerWidth < 640 ? 2 : 3).map((tag, index) => (
               <Badge
                 key={index}
                 variant="outline"
@@ -1158,65 +1161,69 @@ const SeriesPage = () => {
                 {tag}
               </Badge>
             ))}
-            {series.tags.length > 2 && (
+            {series.tags.length > (window.innerWidth < 640 ? 2 : 3) && (
               <Badge
                 variant="outline"
                 className="text-xs px-2 py-1 border border-[var(--border-color)]"
               >
-                +{series.tags.length - 2}
+                +{series.tags.length - (window.innerWidth < 640 ? 2 : 3)}
               </Badge>
             )}
           </div>
 
           {/* Title */}
-          <CardTitle className="text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
+          <CardTitle className="text-lg sm:text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
             {series.title}
           </CardTitle>
 
           {/* Summary */}
-          <p className="text-sm text-text-secondary line-clamp-2 leading-relaxed">
+          <p className="text-sm text-text-secondary line-clamp-2 sm:line-clamp-3 leading-relaxed">
             {series.summary}
           </p>
         </CardHeader>
 
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 p-4 sm:p-6">
           {/* Author and Category */}
-          <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
-            <div className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="font-medium">{series.author.name}</span>
               {series.author.verified && (
-                <Shield className="w-2 h-2 text-primary-500" />
+                <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <Layers className="w-3 h-3" />
-              <span>{series.category}</span>
+            <div className="flex items-center gap-2">
+              <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">{series.category}</span>
+              <span className="sm:hidden">{series.category.slice(0, 8)}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-2">
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>{totalReadTime} min</span>
             </div>
           </div>
 
           {/* Analytics */}
-          <div className="flex items-center justify-between pt-4 border-t border-[var(--border-color)]">
-            <div className="flex items-center gap-3 text-sm text-text-secondary">
+          <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-[var(--border-color)]">
+            <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-text-secondary">
               <div className="flex items-center gap-1">
-                <Eye className="w-4 h-4" />
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="font-medium">
                   {formatNumber(series.analytics.totalViews)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
+                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="font-medium">
                   {formatNumber(series.analytics.subscribers)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <Star className="w-4 h-4" />
+                <Star className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="font-medium">{series.rating}</span>
+                <span className="opacity-75 hidden lg:inline">
+                  ({series.totalRatings})
+                </span>
               </div>
             </div>
             <div className="text-xs text-text-secondary">
@@ -1234,13 +1241,13 @@ const SeriesPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8">
       {/* Header Section */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl lg:text-5xl font-bold leading-[1.15] md:leading-[1.1] pb-1 bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent">
+      <div className="text-center space-y-3 sm:space-y-4 py-4 sm:py-8">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent">
           Discover Series
         </h1>
-        <p className="text-lg text-text-secondary max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg text-text-secondary max-w-2xl mx-auto px-4">
           Explore curated collections of interconnected content designed to take
           you on a learning journey. From educational courses to story arcs,
           find series that match your interests and skill level.
@@ -1248,16 +1255,17 @@ const SeriesPage = () => {
       </div>
 
       {/* Search and Actions Bar */}
-      <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center bg-surface/50 backdrop-blur-sm rounded-xl p-6 border border-[var(--border-color)]">
-        <div className="flex-1 relative max-w-lg">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--light-text-color2)]" />
+      <div className="flex flex-col gap-4 bg-surface/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-[var(--border-color)]">
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[var(--light-text-color2)]" />
           <Input
             type="text"
             placeholder="Search series, authors, or topics..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search series"
-            className="pl-11 h-12 text-base text-[var(--light-text-color2)] placeholder:text-[var(--light-text-color)]
+            className="pl-10 sm:pl-11 h-10 sm:h-12 text-sm sm:text-base text-[var(--light-text-color2)] placeholder:text-[var(--light-text-color)]
              focus:outline-none focus:ring-0 focus-visible:ring-0 border border-[var(--border-color)]"
           />
           {searchQuery && (
@@ -1271,154 +1279,173 @@ const SeriesPage = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Sort */}
-          <div className="flex items-center gap-2">
-            <ArrowUpDown className="w-5 h-5 text-primary-500" />
-            <label htmlFor="sort" className="text-sm text-text-secondary">
-              Sort by
-            </label>
-            <DiscoverSeriesDropDown sortBy={sortBy} setSortBy={setSortBy} />
-          </div>
+        {/* Actions Row */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+          {/* Sort and Filter Toggle */}
+          <div className="flex items-center gap-3">
+            {/* Sort */}
+            <div className="flex items-center gap-2 flex-1 sm:flex-none">
+              <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+              <label htmlFor="sort" className="text-sm text-text-secondary hidden sm:inline">
+                Sort by
+              </label>
+              <DiscoverSeriesDropDown sortBy={sortBy} setSortBy={setSortBy} />
+            </div>
 
-          {/* View Mode Toggle */}
-          <div
-            className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]"
-            role="tablist"
-            aria-label="View mode"
-          >
+            {/* Mobile Filter Toggle */}
             <button
-              onClick={() => setViewMode("grid")}
-              role="tab"
-              aria-selected={viewMode === "grid"}
-              aria-controls="series-grid"
-              className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
-                viewMode === "grid"
-                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm hover:bg-[var(--secondary-btn-hover2)]"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
-              }`}
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex sm:hidden items-center gap-2 px-3 py-2 bg-background rounded-lg border border-[var(--border-color)] text-sm"
             >
-              <Grid3X3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              role="tab"
-              aria-selected={viewMode === "list"}
-              aria-controls="series-grid"
-              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
-                viewMode === "list"
-                  ? "bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)] text-[var(--text-color)]"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
-              }`}
-            >
-              <List className="w-4 h-4" />
+              <Filter className="w-4 h-4" />
+              Filters
             </button>
           </div>
 
-          <Link to="/create-series">
-            <Button className="flex items-center gap-2 h-12 px-6 bg-indigo-500 hover:bg-indigo-600 cursor-pointer">
-              <Plus className="w-4 h-4" />
-              Create Series
-            </Button>
-          </Link>
+          {/* View Mode and Create Button */}
+          <div className="flex items-center gap-3 justify-between sm:justify-end">
+            {/* View Mode Toggle - Hidden on mobile */}
+            <div
+              className="hidden sm:flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]"
+              role="tablist"
+              aria-label="View mode"
+            >
+              <button
+                onClick={() => setViewMode("grid")}
+                role="tab"
+                aria-selected={viewMode === "grid"}
+                aria-controls="series-grid"
+                className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm hover:bg-[var(--secondary-btn-hover2)]"
+                    : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                }`}
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                role="tab"
+                aria-selected={viewMode === "list"}
+                aria-controls="series-grid"
+                className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
+                  viewMode === "list"
+                    ? "bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)] text-[var(--text-color)]"
+                    : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
+            <Link to="/create-series">
+              <Button className="flex items-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-indigo-500 hover:bg-indigo-600 cursor-pointer text-sm sm:text-base">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Create Series</span>
+                <span className="sm:hidden">Create</span>
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Filters Section */}
-      <div className="space-y-4">
+      {/* Filters Section - Mobile Collapsible, Desktop Always Visible */}
+      <div className={`space-y-4 sm:space-y-6 ${showFilters ? 'block' : 'hidden sm:block'}`}>
         {/* Categories */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-5 h-5 text-primary-500" />
-            <span className="text-base font-semibold text-text-primary">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+            <span className="text-sm sm:text-base font-semibold text-text-primary">
               Categories:
             </span>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <Badge
-              key={category.id}
-              variant={selectedCategory === category.id ? "default" : "outline"}
-              className={`cursor-pointer transition-all duration-200 px-4 py-2 text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]${
-                selectedCategory === category.id
-                  ? " bg-primary-500 text-[var(--text-color)]  hover:bg-[var(--secondary-btn-hover)]"
-                  : ""
-              }`}
-              onClick={() => setSelectedCategory(category.id)}
-              aria-pressed={selectedCategory === category.id}
-            >
-              {category.name}{" "}
-              <span className="ml-1 opacity-75">({category.count})</span>
-            </Badge>
-          ))}
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <Badge
+                key={category.id}
+                variant={selectedCategory === category.id ? "default" : "outline"}
+                className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]${
+                  selectedCategory === category.id
+                    ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]"
+                    : ""
+                }`}
+                onClick={() => setSelectedCategory(category.id)}
+                aria-pressed={selectedCategory === category.id}
+              >
+                <span className="hidden sm:inline">{category.name}</span>
+                <span className="sm:hidden">{category.name.replace("Series", "").trim()}</span>
+                <span className="ml-1 opacity-75">({category.count})</span>
+              </Badge>
+            ))}
+          </div>
         </div>
 
         {/* Templates */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-primary-500" />
-            <span className="text-base font-semibold text-text-primary">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+            <span className="text-sm sm:text-base font-semibold text-text-primary">
               Templates:
             </span>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {templates.map((template) => (
-            <Badge
-              key={template.id}
-              variant={selectedTemplate === template.id ? "default" : "outline"}
-              className={`cursor-pointer transition-all duration-200 px-4 py-2 text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] ${
-                selectedTemplate === template.id
-                  ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
-                  : ""
-              }`}
-              onClick={() => setSelectedTemplate(template.id)}
-              aria-pressed={selectedTemplate === template.id}
-            >
-              {template.name}{" "}
-              <span className="ml-1 opacity-75">({template.count})</span>
-            </Badge>
-          ))}
+          <div className="flex flex-wrap gap-2">
+            {templates.map((template) => (
+              <Badge
+                key={template.id}
+                variant={selectedTemplate === template.id ? "default" : "outline"}
+                className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] ${
+                  selectedTemplate === template.id
+                    ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
+                    : ""
+                }`}
+                onClick={() => setSelectedTemplate(template.id)}
+                aria-pressed={selectedTemplate === template.id}
+              >
+                <span className="hidden sm:inline">{template.name}</span>
+                <span className="sm:hidden">{template.name.split(" ")[0]}</span>
+                <span className="ml-1 opacity-75">({template.count})</span>
+              </Badge>
+            ))}
+          </div>
         </div>
 
         {/* Difficulty Levels */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-primary-500" />
-            <span className="text-base font-semibold text-text-primary">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+            <span className="text-sm sm:text-base font-semibold text-text-primary">
               Difficulty:
             </span>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {difficulties.map((difficulty) => (
-            <Badge
-              key={difficulty.id}
-              variant={
-                selectedDifficulty === difficulty.id ? "default" : "outline"
-              }
-              className={`cursor-pointer transition-all duration-200 px-4 py-2 text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]${
-                selectedDifficulty === difficulty.id
-                  ? " bg-primary-500  hover:bg-[var(--secondary-btn-hover2)]"
-                  : ""
-              }`}
-              onClick={() => setSelectedDifficulty(difficulty.id)}
-              aria-pressed={selectedDifficulty === difficulty.id}
-            >
-              {difficulty.name}{" "}
-              <span className="ml-1 opacity-75">({difficulty.count})</span>
-            </Badge>
-          ))}
+          <div className="flex flex-wrap gap-2">
+            {difficulties.map((difficulty) => (
+              <Badge
+                key={difficulty.id}
+                variant={
+                  selectedDifficulty === difficulty.id ? "default" : "outline"
+                }
+                className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]${
+                  selectedDifficulty === difficulty.id
+                    ? " bg-primary-500 hover:bg-[var(--secondary-btn-hover2)]"
+                    : ""
+                }`}
+                onClick={() => setSelectedDifficulty(difficulty.id)}
+                aria-pressed={selectedDifficulty === difficulty.id}
+              >
+                {difficulty.name}
+                <span className="ml-1 opacity-75">({difficulty.count})</span>
+              </Badge>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Results Summary */}
       <div
-        className="flex items-center justify-between py-4 border-b border-[var(--border-color)]"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 sm:py-4 border-b border-[var(--border-color)]"
         aria-live="polite"
       >
-        <div className="text-text-secondary">
+        <div className="text-sm sm:text-base text-text-secondary">
           Showing{" "}
           <span className="font-semibold text-text-primary">
             {filteredAndSortedSeries.length}
@@ -1429,7 +1456,7 @@ const SeriesPage = () => {
           </span>{" "}
           series
         </div>
-        <div className="text-sm text-text-secondary">
+        <div className="text-xs sm:text-sm text-text-secondary">
           Updated {new Date().toLocaleDateString()}
         </div>
       </div>
@@ -1437,7 +1464,11 @@ const SeriesPage = () => {
       {/* Loading State */}
       {isLoading && (
         <div
-          className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}
+          className={`grid gap-4 sm:gap-6 ${
+            viewMode === "grid" 
+              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3" 
+              : "grid-cols-1"
+          }`}
         >
           {Array.from({ length: 6 }).map((_, idx) => (
             <SeriesCardSkeleton key={idx} />
@@ -1449,9 +1480,9 @@ const SeriesPage = () => {
       {!isLoading && filteredAndSortedSeries.length > 0 && (
         <div
           id="series-grid"
-          className={`grid gap-6 ${
+          className={`grid gap-4 sm:gap-6 ${
             viewMode === "grid"
-              ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
               : "grid-cols-1"
           }`}
         >
@@ -1463,14 +1494,14 @@ const SeriesPage = () => {
 
       {/* Empty State */}
       {!isLoading && filteredAndSortedSeries.length === 0 && (
-        <div className="text-center py-16">
-          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
-            <Layers className="w-10 h-10 text-primary-600" />
+        <div className="text-center py-12 sm:py-16 px-4">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
+            <Layers className="w-8 h-8 sm:w-10 sm:h-10 text-primary-600" />
           </div>
-          <h3 className="text-2xl font-bold text-text-primary mb-2">
+          <h3 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
             No series found
           </h3>
-          <p className="text-text-secondary mb-6 max-w-md mx-auto">
+          <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto">
             We couldn't find any series matching your search criteria. Try
             adjusting your filters or search terms.
           </p>
@@ -1482,8 +1513,9 @@ const SeriesPage = () => {
               setSelectedTemplate("all");
               setSelectedDifficulty("all");
               setSortBy("recent");
+              setShowFilters(false);
             }}
-            className="px-6 py-3"
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
           >
             Clear all filters
           </Button>

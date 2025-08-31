@@ -106,7 +106,7 @@ const Toast = ({
           {action && (
             <button
               onClick={handleAction}
-              className="mt-2 text-sm font-medium underline hover:no-underline transition-all text-text-primary hover:text-primary-500"
+              className="mt-2 text-sm font-medium underline hover:no-underline transition-all text-text-primary hover:text-primary-500 cursor-pointer"
             >
               {action.text}
             </button>
@@ -115,7 +115,7 @@ const Toast = ({
 
         <button
           onClick={handleClose}
-          className="flex-shrink-0 p-1 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg transition-all duration-200"
+          className="flex-shrink-0 p-1 hover:bg-white/20 dark:hover:bg-white/10 rounded-lg transition-all duration-200 cursor-pointer"
           aria-label="Close notification"
         >
           <X className="w-4 h-4 text-text-secondary" />

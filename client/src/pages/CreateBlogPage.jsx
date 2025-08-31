@@ -615,7 +615,7 @@ const CreateBlogPage = () => {
                         {tag}
                         <button
                           onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 hover:text-error"
+                          className="ml-1 hover:text-error cursor-pointer"
                         >
                           ×
                         </button>

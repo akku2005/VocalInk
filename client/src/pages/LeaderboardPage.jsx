@@ -331,7 +331,7 @@ const LeaderboardPage = () => {
             <button
               key={range.value}
               onClick={() => setTimeRange(range.value)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
                 timeRange === range.value
                   ? 'bg-primary-500 text-white shadow-sm'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface'
@@ -352,7 +352,7 @@ const LeaderboardPage = () => {
               <button
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${
                   activeCategory === category.id
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
