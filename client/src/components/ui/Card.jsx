@@ -1,11 +1,11 @@
-import { forwardRef } from 'react';
-import { cn } from '../../utils/cn';
+import { forwardRef } from "react";
+import { cn } from "../../utils/cn";
 
 const Card = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-xl glassmorphism-card theme-transition hover:shadow-lg transition-all duration-300 ease-in-out",
+      "rounded-xl glassmorphism-card theme-transition  transition-all duration-300 ease-in-out",
       className
     )}
     {...props}
@@ -25,7 +25,10 @@ CardHeader.displayName = "CardHeader";
 const CardTitle = forwardRef(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("text-lg font-semibold leading-tight tracking-tight text-text-primary", className)}
+    className={cn(
+      "text-lg font-semibold leading-tight tracking-tight text-text-primary",
+      className
+    )}
     {...props}
   />
 ));
@@ -36,4 +39,4 @@ const CardContent = forwardRef(({ className, ...props }, ref) => (
 ));
 CardContent.displayName = "CardContent";
 
-export { Card, CardHeader, CardTitle, CardContent }; 
+export { Card, CardHeader, CardTitle, CardContent };

@@ -379,7 +379,7 @@ const NotificationsPage = () => {
                     selectedNotifications.forEach((id) => markAsRead(id));
                     setSelectedNotifications(new Set());
                   }}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 cursor-pointer border border-[var(--border-color)] text-[var(--text-color)]  hover:bg-[var(--secondary-btn-hover)]"
                 >
                   <Check className="w-4 h-4" />
                   Mark as read
@@ -388,7 +388,7 @@ const NotificationsPage = () => {
                   variant="outline"
                   size="sm"
                   onClick={deleteSelected}
-                  className="flex items-center gap-1 text-error hover:text-error"
+                  className="flex items-center gap-1 text-error hover:text-error cursor-pointer border border-[var(--border-color)] text-[var(--text-color)]  hover:bg-[var(--secondary-btn-hover)]"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete
@@ -436,13 +436,13 @@ const NotificationsPage = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-text-primary mb-1">
+                          <h3 className="font-medium text-text-primary mb-1">
                             {notification.title}
                             {!notification.read && (
                               <span className="ml-2 inline-block w-2 h-2 bg-primary-500 rounded-full"></span>
                             )}
                           </h3>
-                          <p className="text-sm text-text-secondary mb-2 leading-relaxed">
+                          <p className="text-sm  mb-2 leading-relaxed font-normal  text-[var(--text-color)] ">
                             {notification.message}
                           </p>
                           <div className="flex items-center gap-4 text-xs text-text-secondary">
@@ -474,7 +474,7 @@ const NotificationsPage = () => {
                               e.stopPropagation();
                               deleteNotification(notification.id);
                             }}
-                            className="text-error hover:text-error cursor-pointer hover:bg-[var(--secondary-btn-hover2)]"
+                            className="text-error hover:text-error cursor-pointer hover:bg-[var(--secondary-btn-hover)]"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

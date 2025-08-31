@@ -1,17 +1,22 @@
-import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Badge from '../components/ui/Badge';
-import { apiService } from '../services/api';
-import { 
-  Save, 
-  Eye, 
-  Zap, 
-  Mic, 
-  Volume2, 
-  Globe, 
-  Tag, 
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import Badge from "../components/ui/Badge";
+import { apiService } from "../services/api";
+import {
+  Save,
+  Eye,
+  Zap,
+  Mic,
+  Volume2,
+  Globe,
+  Tag,
   BookOpen,
   Sparkles,
   Palette,
@@ -20,10 +25,11 @@ import {
   Clock,
   AlertCircle,
   CheckCircle,
-  Loader2
-} from 'lucide-react';
-import RichTextEditor from '../components/ui/RichTextEditor';
-import Modal from '../components/ui/Modal';
+  Loader2,
+} from "lucide-react";
+import RichTextEditor from "../components/ui/RichTextEditor";
+import Modal from "../components/ui/Modal";
+import CustomDropdown from "../components/ui/CustomDropdown";
 
 const debounce = (fn, delay) => {
   let t;
@@ -35,79 +41,95 @@ const debounce = (fn, delay) => {
 
 const CreateBlogPage = () => {
   const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    summary: '',
+    title: "",
+    content: "",
+    summary: "",
     tags: [],
-    mood: '',
-    language: 'en',
-    series: '',
+    mood: "",
+    language: "en",
+    series: "",
     isPublic: true,
     allowComments: true,
     generateTTS: false,
-    coverImage: ''
+    coverImage: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
-  const [currentTag, setCurrentTag] = useState('');
+  const [currentTag, setCurrentTag] = useState("");
   const [showPublish, setShowPublish] = useState(false);
   const [errors, setErrors] = useState([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [canvasTheme, setCanvasTheme] = useState('white'); // 'white' | 'sepia' | 'dark'
+  const [canvasTheme, setCanvasTheme] = useState("white"); // 'white' | 'sepia' | 'dark'
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [tagQuery, setTagQuery] = useState('');
+  const [tagQuery, setTagQuery] = useState("");
 
   const suggestedTags = [
-    'Technology', 'AI', 'Programming', 'Design', 'Business', 'Marketing',
-    'Health', 'Fitness', 'Travel', 'Food', 'Lifestyle', 'Education',
-    'Science', 'Environment', 'Politics', 'Entertainment', 'Sports'
+    "Technology",
+    "AI",
+    "Programming",
+    "Design",
+    "Business",
+    "Marketing",
+    "Health",
+    "Fitness",
+    "Travel",
+    "Food",
+    "Lifestyle",
+    "Education",
+    "Science",
+    "Environment",
+    "Politics",
+    "Entertainment",
+    "Sports",
   ];
 
   const allTags = suggestedTags;
   const filteredTags = allTags
-    .filter(t => t.toLowerCase().includes(tagQuery.toLowerCase()))
-    .filter(t => !formData.tags.includes(t))
+    .filter((t) => t.toLowerCase().includes(tagQuery.toLowerCase()))
+    .filter((t) => !formData.tags.includes(t))
     .slice(0, 6);
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleAddTag = () => {
     if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        tags: [...prev.tags, currentTag.trim()]
+        tags: [...prev.tags, currentTag.trim()],
       }));
-      setCurrentTag('');
+      setCurrentTag("");
     }
   };
 
   const handleRemoveTag = (tagToRemove) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
   };
 
   const handleCoverUpload = async () => {
     try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
       input.onchange = async () => {
         const file = input.files?.[0];
         if (!file) return;
-        const resp = await apiService.upload('/uploads/image', file);
-        const url = resp.data.url.startsWith('http') ? resp.data.url : `/api${resp.data.url}`;
-        handleInputChange('coverImage', url);
+        const resp = await apiService.upload("/uploads/image", file);
+        const url = resp.data.url.startsWith("http")
+          ? resp.data.url
+          : `/api${resp.data.url}`;
+        handleInputChange("coverImage", url);
       };
       input.click();
     } catch (e) {
-      console.error('Cover upload failed', e);
+      console.error("Cover upload failed", e);
     }
   };
 
@@ -115,11 +137,11 @@ const CreateBlogPage = () => {
     if (!formData.content.trim()) return;
     setAiGenerating(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const mockSummary = `This article explores ${formData.title.toLowerCase()} and provides insights into the latest trends and developments. Readers will discover practical tips and actionable strategies to implement in their own work.`;
-      setFormData(prev => ({ ...prev, summary: mockSummary }));
+      setFormData((prev) => ({ ...prev, summary: mockSummary }));
     } catch (error) {
-      console.error('Error generating summary:', error);
+      console.error("Error generating summary:", error);
     } finally {
       setAiGenerating(false);
     }
@@ -129,10 +151,10 @@ const CreateBlogPage = () => {
     if (!formData.content.trim()) return;
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      console.log('TTS generated successfully');
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      console.log("TTS generated successfully");
     } catch (error) {
-      console.error('Error generating TTS:', error);
+      console.error("Error generating TTS:", error);
     } finally {
       setLoading(false);
     }
@@ -142,47 +164,47 @@ const CreateBlogPage = () => {
     setLoading(true);
     try {
       const moodMap = {
-        motivational: 'Motivational',
-        thoughtful: 'Thoughtful',
-        educational: 'Educational',
+        motivational: "Motivational",
+        thoughtful: "Thoughtful",
+        educational: "Educational",
       };
       const payload = {
         title: formData.title,
         content: formData.content,
         summary: formData.summary,
         tags: formData.tags,
-        mood: moodMap[formData.mood] || 'Other',
-        language: formData.language || 'en',
+        mood: moodMap[formData.mood] || "Other",
+        language: formData.language || "en",
         seriesId: formData.series || undefined,
-        status: isDraft ? 'draft' : 'published',
+        status: isDraft ? "draft" : "published",
         coverImage: formData.coverImage || undefined,
       };
-      const res = await apiService.post('/blogs/addBlog', payload);
-      console.log('Blog saved:', res.data);
+      const res = await apiService.post("/blogs/addBlog", payload);
+      console.log("Blog saved:", res.data);
       if (!isDraft) {
-        localStorage.removeItem('createBlogDraft');
+        localStorage.removeItem("createBlogDraft");
       }
     } catch (error) {
-      console.error('Error saving blog:', error);
+      console.error("Error saving blog:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const plainText = (formData.content || '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;/g, ' ')
+  const plainText = (formData.content || "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;/g, " ")
     .trim();
   const wordCount = plainText.split(/\s+/).filter(Boolean).length;
   const readTime = Math.ceil(wordCount / 200);
 
   const validateBeforePublish = () => {
     const e = [];
-    if (!formData.title.trim()) e.push('Title is required');
-    if (!plainText) e.push('Content cannot be empty');
-    if (formData.tags.length === 0) e.push('Add at least one tag');
+    if (!formData.title.trim()) e.push("Title is required");
+    if (!plainText) e.push("Content cannot be empty");
+    if (formData.tags.length === 0) e.push("Add at least one tag");
     setErrors(e);
     return e.length === 0;
   };
@@ -200,22 +222,22 @@ const CreateBlogPage = () => {
 
   const debouncedPersist = debounce((data) => {
     try {
-      localStorage.setItem('createBlogDraft', JSON.stringify(data));
+      localStorage.setItem("createBlogDraft", JSON.stringify(data));
       setLastSavedAt(new Date());
     } catch (e) {
-      console.warn('Persist draft failed', e);
+      console.warn("Persist draft failed", e);
     }
   }, 800);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('createBlogDraft');
+      const saved = localStorage.getItem("createBlogDraft");
       if (saved) {
         const parsed = JSON.parse(saved);
-        setFormData(prev => ({ ...prev, ...parsed }));
+        setFormData((prev) => ({ ...prev, ...parsed }));
       }
     } catch (e) {
-      console.warn('Failed to restore draft', e);
+      console.warn("Failed to restore draft", e);
     }
   }, []);
 
@@ -224,45 +246,83 @@ const CreateBlogPage = () => {
   }, [formData]);
 
   const moods = [
-    { id: 'motivational', name: 'Motivational', icon: '🚀', color: 'bg-orange-100 text-orange-800' },
-    { id: 'thoughtful', name: 'Thoughtful', icon: '🤔', color: 'bg-blue-100 text-blue-800' },
-    { id: 'humorous', name: 'Humorous', icon: '😄', color: 'bg-yellow-100 text-yellow-800' },
-    { id: 'educational', name: 'Educational', icon: '📚', color: 'bg-green-100 text-green-800' },
-    { id: 'inspirational', name: 'Inspirational', icon: '✨', color: 'bg-purple-100 text-purple-800' },
-    { id: 'technical', name: 'Technical', icon: '⚙️', color: 'bg-gray-100 text-gray-800' }
+    {
+      id: "motivational",
+      name: "Motivational",
+      icon: "🚀",
+      color: "bg-orange-100 text-orange-800",
+    },
+    {
+      id: "thoughtful",
+      name: "Thoughtful",
+      icon: "🤔",
+      color: "bg-blue-100 text-blue-800",
+    },
+    {
+      id: "humorous",
+      name: "Humorous",
+      icon: "😄",
+      color: "bg-yellow-100 text-yellow-800",
+    },
+    {
+      id: "educational",
+      name: "Educational",
+      icon: "📚",
+      color: "bg-green-100 text-green-800",
+    },
+    {
+      id: "inspirational",
+      name: "Inspirational",
+      icon: "✨",
+      color: "bg-purple-100 text-purple-800",
+    },
+    {
+      id: "technical",
+      name: "Technical",
+      icon: "⚙️",
+      color: "bg-gray-100 text-gray-800",
+    },
+  ];
+  const visibilityOptions = [
+    { id: "public", name: "Public" },
+    { id: "private", name: "Private" },
   ];
 
   const languages = [
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-    { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-    { code: 'fr', name: 'French', flag: '🇫🇷' },
-    { code: 'de', name: 'German', flag: '🇩🇪' },
-    { code: 'it', name: 'Italian', flag: '🇮🇹' },
-    { code: 'pt', name: 'Portuguese', flag: '🇵🇹' },
-    { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-    { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-    { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-    { code: 'hi', name: 'Hindi', flag: '🇮🇳' }
+    { code: "en", name: "English", flag: "🇺🇸" },
+    { code: "es", name: "Spanish", flag: "🇪🇸" },
+    { code: "fr", name: "French", flag: "🇫🇷" },
+    { code: "de", name: "German", flag: "🇩🇪" },
+    { code: "it", name: "Italian", flag: "🇮🇹" },
+    { code: "pt", name: "Portuguese", flag: "🇵🇹" },
+    { code: "ja", name: "Japanese", flag: "🇯🇵" },
+    { code: "ko", name: "Korean", flag: "🇰🇷" },
+    { code: "zh", name: "Chinese", flag: "🇨🇳" },
+    { code: "hi", name: "Hindi", flag: "🇮🇳" },
   ];
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Create New Blog Post</h1>
-          <p className="text-text-secondary">Share your thoughts with the VocalInk community</p>
+          <h1 className="text-3xl font-bold text-text-primary">
+            Create New Blog Post
+          </h1>
+          <p className="text-text-secondary">
+            Share your thoughts with the VocalInk community
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setPreviewMode(!previewMode)}
             className="flex items-center gap-2"
           >
             <Eye className="w-4 h-4" />
-            {previewMode ? 'Edit' : 'Preview'}
+            {previewMode ? "Edit" : "Preview"}
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => handleSave(true)}
             loading={loading}
             className="flex items-center gap-2"
@@ -270,7 +330,7 @@ const CreateBlogPage = () => {
             <Save className="w-4 h-4" />
             Save Draft
           </Button>
-          <Button 
+          <Button
             onClick={openPublish}
             loading={loading}
             className="flex items-center gap-2"
@@ -287,12 +347,14 @@ const CreateBlogPage = () => {
             <CardContent className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">Title *</label>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Title *
+                  </label>
                   <input
                     type="text"
                     placeholder="Title"
                     value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    onChange={(e) => handleInputChange("title", e.target.value)}
                     className="w-full bg-transparent outline-none text-3xl lg:text-4xl font-extrabold tracking-tight placeholder:text-text-secondary border-b border-transparent focus:border-border pb-2"
                   />
                 </div>
@@ -307,23 +369,37 @@ const CreateBlogPage = () => {
                     {wordCount} words
                   </span>
                   <span className="hidden md:inline-flex items-center gap-1">
-                    <button onClick={() => setShowShortcuts(true)} className="underline hover:no-underline">Keyboard shortcuts</button>
+                    <button
+                      onClick={() => setShowShortcuts(true)}
+                      className="underline hover:no-underline"
+                    >
+                      Keyboard shortcuts
+                    </button>
                   </span>
                   {lastSavedAt && (
-                    <span className="text-xs ml-2">Last saved {lastSavedAt.toLocaleTimeString()}</span>
+                    <span className="text-xs ml-2">
+                      Last saved {lastSavedAt.toLocaleTimeString()}
+                    </span>
                   )}
                   <span className="ml-auto inline-flex items-center gap-2">
                     <span>Canvas</span>
-                    <select
+                    <CustomDropdown
                       value={canvasTheme}
-                      onChange={(e) => setCanvasTheme(e.target.value)}
-                      className="px-2 py-1 rounded border border-border bg-background"
+                      onChange={setCanvasTheme}
+                      options={[
+                        { id: "white", name: "White" },
+                        { id: "sepia", name: "Sepia" },
+                        { id: "dark", name: "Dark" },
+                      ]}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsFullscreen(true)}
+                      className=" border border-[var(--border-color)]"
                     >
-                      <option value="white">White</option>
-                      <option value="sepia">Sepia</option>
-                      <option value="dark">Dark</option>
-                    </select>
-                    <Button variant="outline" size="sm" onClick={() => setIsFullscreen(true)}>Full screen</Button>
+                      Full screen
+                    </Button>
                   </span>
                 </div>
               </div>
@@ -332,9 +408,9 @@ const CreateBlogPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+              <CardTitle className="flex items-center justify-between ">
                 <span>Content *</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ">
                   <Button
                     variant="outline"
                     size="sm"
@@ -362,13 +438,16 @@ const CreateBlogPage = () => {
               {!previewMode ? (
                 <RichTextEditor
                   value={formData.content}
-                  onChange={(html) => handleInputChange('content', html)}
-                  className={`${canvasTheme === 'white' ? '' : canvasTheme === 'sepia' ? 'sepia' : 'dark'} min-h-96`}
+                  onChange={(html) => handleInputChange("content", html)}
+                  className={`${canvasTheme === "white" ? "" : canvasTheme === "sepia" ? "sepia" : "dark"} min-h-96`}
                 />
               ) : (
                 <div
                   className="prose max-w-none"
-                  dangerouslySetInnerHTML={{ __html: formData.content || '<p><em>No content yet</em></p>' }}
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      formData.content || "<p><em>No content yet</em></p>",
+                  }}
                 />
               )}
             </CardContent>
@@ -383,10 +462,14 @@ const CreateBlogPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <p className="text-text-primary leading-relaxed">{formData.summary}</p>
+                <p className="text-text-primary leading-relaxed">
+                  {formData.summary}
+                </p>
                 <div className="mt-4 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-success" />
-                  <span className="text-sm text-success">Summary generated successfully</span>
+                  <span className="text-sm text-success">
+                    Summary generated successfully
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -406,15 +489,17 @@ const CreateBlogPage = () => {
                 {moods.map((mood) => (
                   <button
                     key={mood.id}
-                    onClick={() => handleInputChange('mood', mood.id)}
+                    onClick={() => handleInputChange("mood", mood.id)}
                     className={`p-3 rounded-lg border-2 transition-all duration-200 text-left ${
                       formData.mood === mood.id
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-border hover:border-primary-200'
+                        ? "  bg-primary-50"
+                        : " border border-[var(--border-color)] hover:border-primary-200"
                     }`}
                   >
                     <div className="text-lg mb-1">{mood.icon}</div>
-                    <div className="text-sm font-medium text-text-primary">{mood.name}</div>
+                    <div className="text-sm font-medium text-text-primary">
+                      {mood.name}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -431,7 +516,7 @@ const CreateBlogPage = () => {
             <CardContent className="p-6">
               <select
                 value={formData.language}
-                onChange={(e) => handleInputChange('language', e.target.value)}
+                onChange={(e) => handleInputChange("language", e.target.value)}
                 className="w-full p-3 border border-border rounded-lg bg-background text-text-primary"
               >
                 {languages.map((lang) => (
@@ -459,34 +544,62 @@ const CreateBlogPage = () => {
                     value={tagQuery}
                     onChange={(e) => setTagQuery(e.target.value)}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         const tag = tagQuery.trim();
-                        if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
-                          setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
-                          setTagQuery('');
+                        if (
+                          tag &&
+                          !formData.tags.includes(tag) &&
+                          formData.tags.length < 5
+                        ) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            tags: [...prev.tags, tag],
+                          }));
+                          setTagQuery("");
                         }
                       }
                     }}
                     className="flex-1"
                   />
-                  <Button onClick={() => {
-                    const tag = tagQuery.trim();
-                    if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
-                      setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
-                      setTagQuery('');
-                    }
-                  }} size="sm">Add</Button>
+                  <Button
+                    onClick={() => {
+                      const tag = tagQuery.trim();
+                      if (
+                        tag &&
+                        !formData.tags.includes(tag) &&
+                        formData.tags.length < 5
+                      ) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          tags: [...prev.tags, tag],
+                        }));
+                        setTagQuery("");
+                      }
+                    }}
+                    size="sm"
+                  >
+                    Add
+                  </Button>
                 </div>
 
                 {filteredTags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {filteredTags.map((t) => (
-                      <button key={t} onClick={() => {
-                        if (formData.tags.length < 5) {
-                          setFormData(prev => ({ ...prev, tags: [...prev.tags, t] }));
-                          setTagQuery('');
-                        }
-                      }} className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs">{t}</button>
+                      <button
+                        key={t}
+                        onClick={() => {
+                          if (formData.tags.length < 5) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              tags: [...prev.tags, t],
+                            }));
+                            setTagQuery("");
+                          }
+                        }}
+                        className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs"
+                      >
+                        {t}
+                      </button>
                     ))}
                   </div>
                 )}
@@ -494,7 +607,11 @@ const CreateBlogPage = () => {
                 {formData.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {formData.tags.map((tag) => (
-                      <Badge key={tag} variant="default" className="flex items-center gap-1">
+                      <Badge
+                        key={tag}
+                        variant="default"
+                        className="flex items-center gap-1"
+                      >
                         {tag}
                         <button
                           onClick={() => handleRemoveTag(tag)}
@@ -505,20 +622,30 @@ const CreateBlogPage = () => {
                       </Badge>
                     ))}
                     {formData.tags.length >= 5 && (
-                      <span className="text-xs text-text-secondary">Max 5 tags</span>
+                      <span className="text-xs text-text-secondary">
+                        Max 5 tags
+                      </span>
                     )}
                   </div>
                 )}
 
                 <div>
-                  <p className="text-sm text-text-secondary mb-2">Suggested tags:</p>
+                  <p className="text-sm text-text-secondary mb-2">
+                    Suggested tags:
+                  </p>
                   <div className="flex flex-wrap gap-1">
                     {suggestedTags.slice(0, 8).map((tag) => (
                       <button
                         key={tag}
                         onClick={() => {
-                          if (!formData.tags.includes(tag) && formData.tags.length < 5) {
-                            setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                          if (
+                            !formData.tags.includes(tag) &&
+                            formData.tags.length < 5
+                          ) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              tags: [...prev.tags, tag],
+                            }));
                           }
                         }}
                         className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded hover:bg-secondary-200 transition-colors"
@@ -544,15 +671,15 @@ const CreateBlogPage = () => {
                 type="text"
                 placeholder="Add to a series..."
                 value={formData.series}
-                onChange={(e) => handleInputChange('series', e.target.value)}
+                onChange={(e) => handleInputChange("series", e.target.value)}
               />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-primary-500" />
+              <CardTitle className="flex items-center gap-2 ">
+                <Globe className="w-5 h-5 text-primary-500 " />
                 Settings
               </CardTitle>
             </CardHeader>
@@ -561,28 +688,40 @@ const CreateBlogPage = () => {
                 <input
                   type="checkbox"
                   checked={formData.isPublic}
-                  onChange={(e) => handleInputChange('isPublic', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange("isPublic", e.target.checked)
+                  }
                   className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
                 />
-                <span className="text-sm text-text-primary">Make this post public</span>
+                <span className="text-sm text-text-primary">
+                  Make this post public
+                </span>
               </label>
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   checked={formData.allowComments}
-                  onChange={(e) => handleInputChange('allowComments', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange("allowComments", e.target.checked)
+                  }
                   className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
                 />
-                <span className="text-sm text-text-primary">Allow comments</span>
+                <span className="text-sm text-text-primary">
+                  Allow comments
+                </span>
               </label>
               <label className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   checked={formData.generateTTS}
-                  onChange={(e) => handleInputChange('generateTTS', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange("generateTTS", e.target.checked)
+                  }
                   className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
                 />
-                <span className="text-sm text-text-primary">Generate audio version</span>
+                <span className="text-sm text-text-primary">
+                  Generate audio version
+                </span>
               </label>
             </CardContent>
           </Card>
@@ -608,32 +747,60 @@ const CreateBlogPage = () => {
       </div>
 
       {/* Publish Modal */}
-      <Modal isOpen={showPublish} onClose={() => setShowPublish(false)} title="Publish story">
+      <Modal
+        isOpen={showPublish}
+        onClose={() => setShowPublish(false)}
+        title="Publish story"
+      >
         <div className="space-y-4">
           {errors.length > 0 && (
             <div className="p-3 rounded border border-error/40 text-error text-sm">
               <ul className="list-disc pl-5">
-                {errors.map((er) => <li key={er}>{er}</li>)}
+                {errors.map((er) => (
+                  <li key={er}>{er}</li>
+                ))}
               </ul>
             </div>
           )}
 
           <div className="space-y-2">
             <label className="text-sm text-text-secondary">Title</label>
-            <Input value={formData.title} onChange={(e) => handleInputChange('title', e.target.value)} placeholder="Add a title" />
+            <Input
+              value={formData.title}
+              onChange={(e) => handleInputChange("title", e.target.value)}
+              placeholder="Add a title"
+            />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">Tags (up to 5)</label>
+            <label className="text-sm text-text-secondary">
+              Tags (up to 5)
+            </label>
             <div className="flex gap-2">
-              <Input value={currentTag} onChange={(e) => setCurrentTag(e.target.value)} placeholder="Add a tag" onKeyPress={(e) => e.key === 'Enter' && handleAddTag()} />
-              <Button size="sm" onClick={handleAddTag}>Add</Button>
+              <Input
+                value={currentTag}
+                onChange={(e) => setCurrentTag(e.target.value)}
+                placeholder="Add a tag"
+                onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+              />
+              <Button size="sm" onClick={handleAddTag}>
+                Add
+              </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-1">
               {formData.tags.map((tag) => (
-                <Badge key={tag} variant="default" className="flex items-center gap-1">
+                <Badge
+                  key={tag}
+                  variant="default"
+                  className="flex items-center gap-1"
+                >
                   {tag}
-                  <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-error">×</button>
+                  <button
+                    onClick={() => handleRemoveTag(tag)}
+                    className="ml-1 hover:text-error"
+                  >
+                    ×
+                  </button>
                 </Badge>
               ))}
             </div>
@@ -642,28 +809,53 @@ const CreateBlogPage = () => {
           <div className="space-y-2">
             <label className="text-sm text-text-secondary">Cover image</label>
             <div className="flex gap-2">
-              <Input value={formData.coverImage} onChange={(e) => handleInputChange('coverImage', e.target.value)} placeholder="Paste image URL" />
-              <Button variant="outline" onClick={handleCoverUpload}>Upload</Button>
+              <Input
+                value={formData.coverImage}
+                onChange={(e) =>
+                  handleInputChange("coverImage", e.target.value)
+                }
+                placeholder="Paste image URL"
+              />
+              <Button variant="outline" onClick={handleCoverUpload}>
+                Upload
+              </Button>
             </div>
-            {formData.coverImage && <img src={formData.coverImage} alt="Cover" className="mt-2 w-full rounded border border-border" />}
+            {formData.coverImage && (
+              <img
+                src={formData.coverImage}
+                alt="Cover"
+                className="mt-2 w-full rounded border border-border"
+              />
+            )}
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">Visibility</label>
-            <select value={formData.isPublic ? 'public' : 'private'} onChange={(e) => handleInputChange('isPublic', e.target.value === 'public')} className="w-full p-3 border border-border rounded-lg bg-background text-text-primary">
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-            </select>
+            <CustomDropdown
+              label="Visibility"
+              value={formData.isPublic ? "public" : "private"}
+              onChange={(val) =>
+                handleInputChange("isPublic", val === "public")
+              }
+              options={visibilityOptions}
+            />
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={() => setShowPublish(false)}>Cancel</Button>
-          <Button onClick={confirmPublish} disabled={loading} loading={loading}>Publish</Button>
+          <Button variant="outline" onClick={() => setShowPublish(false)}>
+            Cancel
+          </Button>
+          <Button onClick={confirmPublish} disabled={loading} loading={loading}>
+            Publish
+          </Button>
         </div>
       </Modal>
 
       {/* Shortcuts Modal */}
-      <Modal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} title="Keyboard shortcuts">
+      <Modal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+        title="Keyboard shortcuts"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div>
             <div className="font-medium mb-1">Formatting</div>
@@ -687,7 +879,9 @@ const CreateBlogPage = () => {
           </div>
         </div>
         <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={() => setShowShortcuts(false)}>Close</Button>
+          <Button variant="outline" onClick={() => setShowShortcuts(false)}>
+            Close
+          </Button>
         </div>
       </Modal>
 
@@ -695,27 +889,36 @@ const CreateBlogPage = () => {
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto p-4 h-full flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-text-secondary">Distraction-free mode</div>
+            <div className="flex items-center justify-between mt-20">
+              <div className="text-sm text-text-secondary">
+                Distraction-free mode
+              </div>
               <div className="flex items-center gap-2">
-                <select
+                <CustomDropdown
                   value={canvasTheme}
-                  onChange={(e) => setCanvasTheme(e.target.value)}
-                  className="px-2 py-1 rounded border border-border bg-background"
+                  onChange={setCanvasTheme}
+                  options={[
+                    { id: "white", name: "White" },
+                    { id: "sepia", name: "Sepia" },
+                    { id: "dark", name: "Dark" },
+                  ]}
+                />
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFullscreen(false)}
                 >
-                  <option value="white">White</option>
-                  <option value="sepia">Sepia</option>
-                  <option value="dark">Dark</option>
-                </select>
-                <Button variant="outline" size="sm" onClick={() => setIsFullscreen(false)}>Exit</Button>
+                  Exit
+                </Button>
               </div>
             </div>
             <div className="flex-1 overflow-auto">
               <div className="p-2">
                 <RichTextEditor
                   value={formData.content}
-                  onChange={(html) => handleInputChange('content', html)}
-                  className={`${canvasTheme === 'white' ? '' : canvasTheme === 'sepia' ? 'sepia' : 'dark'} min-h-[70vh]`}
+                  onChange={(html) => handleInputChange("content", html)}
+                  className={`${canvasTheme === "white" ? "" : canvasTheme === "sepia" ? "sepia" : "dark"} min-h-[70vh]`}
                 />
               </div>
             </div>
@@ -726,4 +929,4 @@ const CreateBlogPage = () => {
   );
 };
 
-export default CreateBlogPage; 
+export default CreateBlogPage;

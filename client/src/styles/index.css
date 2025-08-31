@@ -25,6 +25,7 @@
   --secondary-btn2: rgb(228, 225, 225);
   --secondary-btn-hover: rgb(236, 236, 236);
   --secondary-btn-hover2:rgb(216, 216, 216);
+   --secondary-btn-hover3:rgb(201, 201, 201);
   --text-color:rgb(39, 39, 39);
   --light-text-color:rgb(151, 151, 151);
   --light-text-color2:rgb(32, 32, 32);
@@ -51,6 +52,7 @@
   --secondary-btn2: rgba(240, 239, 239, 0.1);
    --secondary-btn-hover: rgba(255, 255, 255, 0.2);
    --secondary-btn-hover2: rgba(255, 255, 255, 0.2);
+   --secondary-btn-hover3: rgba(65, 64, 64, 0.2);
    --text-color:rgb(241, 235, 235);
    --light-text-color:rgb(180, 180, 180);
    --light-text-color2:rgb(204, 203, 203);
@@ -68,6 +70,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 0, 0, 0.1);
+ 
 }
 
 [data-theme="dark"] .glassmorphism {
@@ -84,7 +87,14 @@
   -webkit-backdrop-filter: blur(15px);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 16px;
+  overflow: visible;
+ 
 }
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50; }
 
 [data-theme="dark"] .glassmorphism-card {
   background: rgba(255, 255, 255, 0.05);
