@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
-
+import { ChevronDown } from "lucide-react";
 export default function CustomDropdown({
   label,
   value,
@@ -12,65 +11,77 @@ export default function CustomDropdown({
   className = "",
 }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  const triggerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [dropdownPosition, setDropdownPosition] = useState("bottom");
 
-  // Close on outside click
   useEffect(() => {
+    if (!open) return;
+
+    const handlePosition = () => {
+      if (!dropdownRef.current) return;
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const dropdownHeight = Math.min(options.length * 40, 300);
+      if (spaceBelow < dropdownHeight) {
+        setDropdownPosition("top");
+      } else {
+        setDropdownPosition("bottom");
+      }
+    };
+
+    handlePosition();
+    window.addEventListener("resize", handlePosition);
+    window.addEventListener("scroll", handlePosition, true);
     const handleClickOutside = (event) => {
-      if (triggerRef.current && !triggerRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  // Capture trigger position when opening
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    }
-  }, [open]);
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      window.removeEventListener("resize", handlePosition);
+      window.removeEventListener("scroll", handlePosition, true);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open, options.length]);
 
   const selectedOption = options.find((opt) => opt[optionValueKey] === value);
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full" ref={dropdownRef}>
       {label && (
         <label className="block text-sm font-medium text-text-primary mb-2">
           {label}
         </label>
       )}
       <div
-        ref={triggerRef}
-        onClick={() => setOpen((prev) => !prev)}
-        className={`relative w-full border border-[var(--border-color)] 
-          rounded-lg bg-background text-text-primary cursor-pointer ${className}`}
+        className={`relative w-full border border-[var(--border-color)] rounded-lg  text-text-primary cursor-pointer ${className}`}
       >
-        <div className="px-3 py-1.5 flex justify-between items-center">
+        {/* Selected value */}
+        <div
+          onClick={() => setOpen((prev) => !prev)}
+          className="px-3 py-1.5 flex justify-between items-center z-50"
+        >
           <span>
             {selectedOption ? selectedOption[optionLabelKey] : placeholder}
           </span>
-          <span className="ml-2 text-gray-400">▾</span>
+          <ChevronDown
+            className={`w-4 h-4 transition-transform duration-200 ${
+              open ? "rotate-180" : ""
+            }`}
+          />
         </div>
-      </div>
 
-      {open &&
-        createPortal(
+        {/* Dropdown menu */}
+        {open && (
           <div
-            className="absolute border border-[var(--border-color)] bg-background 
-              rounded-lg shadow-lg z-[9999] max-h-48 overflow-y-auto"
+            className={`absolute left-0 w-full mt-1 border border-[var(--border-color)] bg-[var(--background)] rounded-lg shadow-lg z-[9999] overflow-y-auto`}
             style={{
-              top: coords.top,
-              left: coords.left,
-              width: coords.width,
-              position: "absolute",
+              top: dropdownPosition === "bottom" ? "100%" : "auto",
+              bottom: dropdownPosition === "top" ? "100%" : "auto",
+              maxHeight: "300px",
             }}
           >
             {options.map((opt) => (
@@ -81,19 +92,19 @@ export default function CustomDropdown({
                   setOpen(false);
                 }}
                 className={`px-3 py-1 m-1.5 rounded 
-                  hover:bg-[var(--secondary-btn-hover2)] cursor-pointer 
-                  bg-[--background] ${
-                    value === opt[optionValueKey]
-                      ? "bg-[var(--secondary-btn-hover3)] text-text-primary font-medium"
-                      : ""
-                  }`}
+                     cursor-pointer 
+                    bg-[--background] ${
+                      value === opt[optionValueKey]
+                        ? "bg-[var(--secondary-btn-hover3)]  text-text-primary font-medium "
+                        : " hover:bg-[var(--secondary-btn-hover2)]"
+                    }`}
               >
                 {opt[optionLabelKey]}
               </div>
             ))}
-          </div>,
-          document.body
+          </div>
         )}
+      </div>
     </div>
   );
 }

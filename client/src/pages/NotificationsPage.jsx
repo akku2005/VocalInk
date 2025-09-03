@@ -418,10 +418,10 @@ const NotificationsPage = () => {
                   <button
                     key={type.id}
                     onClick={() => setFilter(type.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap  cursor-pointer${
                       filter === type.id
-                        ? "bg-primary-500 text-white shadow-sm"
-                        : "bg-gray-100 dark:bg-gray-800 text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-700"
+                        ? " bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover3)] shadow-sm"
+                        : " bg-[var(--secondary-btn)] hover:bg-[var(--secondary-btn-hover2)] text-text-secondary  "
                     }`}
                   >
                     {type.name} ({type.count})

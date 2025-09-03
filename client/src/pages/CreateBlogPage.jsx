@@ -316,7 +316,7 @@ const CreateBlogPage = () => {
           <Button
             variant="outline"
             onClick={() => setPreviewMode(!previewMode)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover2)]"
           >
             <Eye className="w-4 h-4" />
             {previewMode ? "Edit" : "Preview"}
@@ -325,7 +325,7 @@ const CreateBlogPage = () => {
             variant="outline"
             onClick={() => handleSave(true)}
             loading={loading}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover2)]"
           >
             <Save className="w-4 h-4" />
             Save Draft
@@ -333,7 +333,7 @@ const CreateBlogPage = () => {
           <Button
             onClick={openPublish}
             loading={loading}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)] text-[var(--text-color)]"
           >
             <BookOpen className="w-4 h-4" />
             Publish
@@ -355,7 +355,7 @@ const CreateBlogPage = () => {
                     placeholder="Title"
                     value={formData.title}
                     onChange={(e) => handleInputChange("title", e.target.value)}
-                    className="w-full bg-transparent outline-none text-3xl lg:text-4xl font-extrabold tracking-tight placeholder:text-text-secondary border-b border-transparent focus:border-border pb-2"
+                    className="w-full bg-transparent outline-none text-3xl lg:text-4xl font-extrabold tracking-tight placeholder:text-[var(--placeholder-texts)] border-b border-transparent focus:border-border pb-2"
                   />
                 </div>
 
@@ -409,14 +409,14 @@ const CreateBlogPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between ">
-                <span>Content *</span>
+                <span className="font-medium">Content *</span>
                 <div className="flex items-center gap-2 ">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={generateAISummary}
                     loading={aiGenerating}
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 hover:bg-[var(--secondary-btn-hover2)]"
                   >
                     <Sparkles className="w-4 h-4" />
                     AI Summary
@@ -426,7 +426,7 @@ const CreateBlogPage = () => {
                     size="sm"
                     onClick={generateTTS}
                     loading={loading}
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 hover:bg-[var(--secondary-btn-hover2)]"
                   >
                     <Volume2 className="w-4 h-4" />
                     Generate TTS
@@ -479,7 +479,7 @@ const CreateBlogPage = () => {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-medium">
                 <Palette className="w-5 h-5 text-primary-500" />
                 Mood
               </CardTitle>
@@ -508,29 +508,26 @@ const CreateBlogPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-medium">
                 <Globe className="w-5 h-5 text-primary-500" />
                 Language
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <select
-                value={formData.language}
-                onChange={(e) => handleInputChange("language", e.target.value)}
-                className="w-full p-3 border border-border rounded-lg bg-background text-text-primary"
-              >
-                {languages.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.flag} {lang.name}
-                  </option>
-                ))}
-              </select>
+              <CustomDropdown
+                label="Language"
+                value={formData.language} // selected value
+                onChange={(val) => handleInputChange("language", val)} // update formData
+                options={languages} // your array of languages
+                optionLabelKey="name" // which key should be shown as label
+                optionValueKey="code" // which key should be used as value
+              />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-medium">
                 <Tag className="w-5 h-5 text-primary-500" />
                 Tags
               </CardTitle>
@@ -559,9 +556,10 @@ const CreateBlogPage = () => {
                         }
                       }
                     }}
-                    className="flex-1"
+                    className="flex-1 border border-[var(--border-color)]"
                   />
                   <Button
+                    className="border-none text-[var(--text-color)] bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)] py-1"
                     onClick={() => {
                       const tag = tagQuery.trim();
                       if (
@@ -661,13 +659,14 @@ const CreateBlogPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-medium">
                 <BookOpen className="w-5 h-5 text-primary-500" />
                 Series (Optional)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <Input
+                className="border border-[var(--border-color)] text-[var(--text-color)]"
                 type="text"
                 placeholder="Add to a series..."
                 value={formData.series}
@@ -678,7 +677,7 @@ const CreateBlogPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 ">
+              <CardTitle className="flex items-center gap-2 font-medium">
                 <Globe className="w-5 h-5 text-primary-500 " />
                 Settings
               </CardTitle>
@@ -728,7 +727,7 @@ const CreateBlogPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 font-medium">
                 <AlertCircle className="w-5 h-5" />
                 Publishing Tips
               </CardTitle>
@@ -779,11 +778,16 @@ const CreateBlogPage = () => {
             <div className="flex gap-2">
               <Input
                 value={currentTag}
+                className="border border-[var(--border-color)] text-[var(--text-color)] "
                 onChange={(e) => setCurrentTag(e.target.value)}
                 placeholder="Add a tag"
                 onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
               />
-              <Button size="sm" onClick={handleAddTag}>
+              <Button
+                size="sm"
+                onClick={handleAddTag}
+                className="border-none text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] bg-[var(--secondary-btn2)]"
+              >
                 Add
               </Button>
             </div>
@@ -814,9 +818,14 @@ const CreateBlogPage = () => {
                 onChange={(e) =>
                   handleInputChange("coverImage", e.target.value)
                 }
+                className="text-[var(--text-color)] border border-[var(--border-color)] "
                 placeholder="Paste image URL"
               />
-              <Button variant="outline" onClick={handleCoverUpload}>
+              <Button
+                variant="outline"
+                className=" border-none text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] bg-[var(--secondary-btn2)] py-1"
+                onClick={handleCoverUpload}
+              >
                 Upload
               </Button>
             </div>
@@ -841,10 +850,19 @@ const CreateBlogPage = () => {
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={() => setShowPublish(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setShowPublish(false)}
+            className="hover:bg-[var(--secondary-btn-hover2)] bg-[var(--secondary-btn2)] border-none"
+          >
             Cancel
           </Button>
-          <Button onClick={confirmPublish} disabled={loading} loading={loading}>
+          <Button
+            onClick={confirmPublish}
+            disabled={loading}
+            loading={loading}
+            className="bg-indigo-500 hover:bg-indigo-600"
+          >
             Publish
           </Button>
         </div>

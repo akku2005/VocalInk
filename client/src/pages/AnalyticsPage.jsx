@@ -1,15 +1,21 @@
-import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
-import Button from '../components/ui/Button';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  Eye, 
-  Heart, 
-  MessageCircle, 
-  Share, 
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
+import CustomDropdown from "../components/ui/CustomDropdown";
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Eye,
+  Heart,
+  MessageCircle,
+  Share,
   Clock,
   Calendar,
   BarChart3,
@@ -17,13 +23,19 @@ import {
   Activity,
   Target,
   Award,
-  BookOpen
-} from 'lucide-react';
+  BookOpen,
+} from "lucide-react";
 
 const AnalyticsPage = () => {
-  const [timeRange, setTimeRange] = useState('30d');
+  const [timeRange, setTimeRange] = useState("30d");
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const timeOptions = [
+    { id: "7d", name: "Last 7 days" },
+    { id: "30d", name: "Last 30 days" },
+    { id: "90d", name: "Last 90 days" },
+    { id: "1y", name: "Last year" },
+  ];
 
   useEffect(() => {
     // Simulate API call
@@ -36,88 +48,88 @@ const AnalyticsPage = () => {
           totalShares: 1890,
           avgReadTime: 4.2,
           bounceRate: 23.5,
-          engagementRate: 8.7
+          engagementRate: 8.7,
         },
         trends: {
           views: { current: 89234, previous: 78456, change: 13.7 },
           likes: { current: 15420, previous: 14230, change: 8.4 },
           comments: { current: 3240, previous: 2890, change: 12.1 },
-          shares: { current: 1890, previous: 1650, change: 14.5 }
+          shares: { current: 1890, previous: 1650, change: 14.5 },
         },
         topPosts: [
           {
             id: 1,
-            title: 'The Future of AI in Content Creation',
+            title: "The Future of AI in Content Creation",
             views: 15420,
             likes: 1240,
             comments: 89,
             shares: 156,
             avgReadTime: 6.2,
-            engagementRate: 9.8
+            engagementRate: 9.8,
           },
           {
             id: 2,
-            title: 'Building a Successful Blog Series',
+            title: "Building a Successful Blog Series",
             views: 12340,
             likes: 890,
             comments: 67,
             shares: 123,
             avgReadTime: 8.1,
-            engagementRate: 8.7
+            engagementRate: 8.7,
           },
           {
             id: 3,
-            title: 'Voice-to-Text: The Next Big Thing',
+            title: "Voice-to-Text: The Next Big Thing",
             views: 9876,
             likes: 756,
             comments: 45,
             shares: 98,
             avgReadTime: 5.4,
-            engagementRate: 9.1
-          }
+            engagementRate: 9.1,
+          },
         ],
         audienceInsights: {
           demographics: {
             ageGroups: [
-              { range: '18-24', percentage: 25 },
-              { range: '25-34', percentage: 35 },
-              { range: '35-44', percentage: 22 },
-              { range: '45+', percentage: 18 }
+              { range: "18-24", percentage: 25 },
+              { range: "25-34", percentage: 35 },
+              { range: "35-44", percentage: 22 },
+              { range: "45+", percentage: 18 },
             ],
             locations: [
-              { country: 'United States', percentage: 45 },
-              { country: 'United Kingdom', percentage: 18 },
-              { country: 'Canada', percentage: 12 },
-              { country: 'Australia', percentage: 8 },
-              { country: 'Others', percentage: 17 }
-            ]
+              { country: "United States", percentage: 45 },
+              { country: "United Kingdom", percentage: 18 },
+              { country: "Canada", percentage: 12 },
+              { country: "Australia", percentage: 8 },
+              { country: "Others", percentage: 17 },
+            ],
           },
           devices: [
-            { type: 'Desktop', percentage: 52 },
-            { type: 'Mobile', percentage: 38 },
-            { type: 'Tablet', percentage: 10 }
+            { type: "Desktop", percentage: 52 },
+            { type: "Mobile", percentage: 38 },
+            { type: "Tablet", percentage: 10 },
           ],
           sources: [
-            { source: 'Direct', percentage: 35 },
-            { source: 'Social Media', percentage: 28 },
-            { source: 'Search', percentage: 22 },
-            { source: 'Referral', percentage: 15 }
-          ]
+            { source: "Direct", percentage: 35 },
+            { source: "Social Media", percentage: 28 },
+            { source: "Search", percentage: 22 },
+            { source: "Referral", percentage: 15 },
+          ],
         },
         engagementMetrics: {
           scrollDepth: [
-            { depth: '25%', percentage: 85 },
-            { depth: '50%', percentage: 62 },
-            { depth: '75%', percentage: 38 },
-            { depth: '100%', percentage: 24 }
+            { depth: "25%", percentage: 85 },
+            { depth: "50%", percentage: 62 },
+            { depth: "75%", percentage: 38 },
+            { depth: "100%", percentage: 24 },
           ],
           timeOnPage: [
-            { range: '0-30s', percentage: 25 },
-            { range: '30s-2min', percentage: 35 },
-            { range: '2-5min', percentage: 28 },
-            { range: '5min+', percentage: 12 }
-          ]
-        }
+            { range: "0-30s", percentage: 25 },
+            { range: "30s-2min", percentage: 35 },
+            { range: "2-5min", percentage: 28 },
+            { range: "5min+", percentage: 12 },
+          ],
+        },
       });
       setLoading(false);
     }, 1000);
@@ -149,9 +161,9 @@ const AnalyticsPage = () => {
   };
 
   const getTrendColor = (change) => {
-    if (change > 0) return 'text-success';
-    if (change < 0) return 'text-error';
-    return 'text-text-secondary';
+    if (change > 0) return "text-success";
+    if (change < 0) return "text-error";
+    return "text-text-secondary";
   };
 
   return (
@@ -159,20 +171,23 @@ const AnalyticsPage = () => {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Analytics Dashboard</h1>
-          <p className="text-text-secondary">Track your content performance and audience insights</p>
+          <h1 className="text-3xl font-bold text-text-primary">
+            Analytics Dashboard
+          </h1>
+          <p className="text-text-secondary">
+            Track your content performance and audience insights
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <CustomDropdown
             value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="px-3 py-2 border border-border rounded-lg bg-background text-text-primary"
-          >
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="1y">Last year</option>
-          </select>
+            onChange={(val) => setTimeRange(val)}
+            options={timeOptions}
+            optionLabelKey="name"
+            optionValueKey="id"
+            placeholder="Select time range"
+            className="w-full"
+          />
           <Button variant="outline">
             <Calendar className="w-4 h-4 mr-2" />
             Export Report
@@ -191,12 +206,17 @@ const AnalyticsPage = () => {
             <div className="text-2xl font-bold text-primary-500">
               {analytics.overview.totalViews.toLocaleString()}
             </div>
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 mt-1 font-medium">
               {getTrendIcon(analytics.trends.views.change)}
-              <span className={`text-sm ${getTrendColor(analytics.trends.views.change)}`}>
-                {analytics.trends.views.change > 0 ? '+' : ''}{analytics.trends.views.change}%
+              <span
+                className={`text-sm ${getTrendColor(analytics.trends.views.change)}`}
+              >
+                {analytics.trends.views.change > 0 ? "+" : ""}
+                {analytics.trends.views.change}%
               </span>
-              <span className="text-sm text-text-secondary">vs last period</span>
+              <span className="text-sm text-text-secondary">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -212,10 +232,15 @@ const AnalyticsPage = () => {
             </div>
             <div className="flex items-center gap-1 mt-1">
               {getTrendIcon(analytics.trends.likes.change)}
-              <span className={`text-sm ${getTrendColor(analytics.trends.likes.change)}`}>
-                {analytics.trends.likes.change > 0 ? '+' : ''}{analytics.trends.likes.change}%
+              <span
+                className={`text-sm ${getTrendColor(analytics.trends.likes.change)}`}
+              >
+                {analytics.trends.likes.change > 0 ? "+" : ""}
+                {analytics.trends.likes.change}%
               </span>
-              <span className="text-sm text-text-secondary">vs last period</span>
+              <span className="text-sm text-text-secondary">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -231,10 +256,15 @@ const AnalyticsPage = () => {
             </div>
             <div className="flex items-center gap-1 mt-1">
               {getTrendIcon(analytics.trends.comments.change)}
-              <span className={`text-sm ${getTrendColor(analytics.trends.comments.change)}`}>
-                {analytics.trends.comments.change > 0 ? '+' : ''}{analytics.trends.comments.change}%
+              <span
+                className={`text-sm ${getTrendColor(analytics.trends.comments.change)}`}
+              >
+                {analytics.trends.comments.change > 0 ? "+" : ""}
+                {analytics.trends.comments.change}%
               </span>
-              <span className="text-sm text-text-secondary">vs last period</span>
+              <span className="text-sm text-text-secondary">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -250,10 +280,15 @@ const AnalyticsPage = () => {
             </div>
             <div className="flex items-center gap-1 mt-1">
               {getTrendIcon(analytics.trends.shares.change)}
-              <span className={`text-sm ${getTrendColor(analytics.trends.shares.change)}`}>
-                {analytics.trends.shares.change > 0 ? '+' : ''}{analytics.trends.shares.change}%
+              <span
+                className={`text-sm ${getTrendColor(analytics.trends.shares.change)}`}
+              >
+                {analytics.trends.shares.change > 0 ? "+" : ""}
+                {analytics.trends.shares.change}%
               </span>
-              <span className="text-sm text-text-secondary">vs last period</span>
+              <span className="text-sm text-text-secondary">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -263,13 +298,13 @@ const AnalyticsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <Clock className="w-5 h-5 text-primary-500" />
               Average Read Time
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary-500 mb-2">
+            <div className="text-3xl font-medium text-primary-500 mb-2 ">
               {analytics.overview.avgReadTime} min
             </div>
             <p className="text-sm text-text-secondary">
@@ -280,13 +315,13 @@ const AnalyticsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <Target className="w-5 h-5 text-success" />
               Engagement Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success mb-2">
+            <div className="text-3xl font-medium text-success mb-2 ">
               {analytics.overview.engagementRate}%
             </div>
             <p className="text-sm text-text-secondary">
@@ -297,13 +332,13 @@ const AnalyticsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <Activity className="w-5 h-5 text-warning" />
               Bounce Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-warning mb-2">
+            <div className="text-3xl font-medium text-warning mb-2">
               {analytics.overview.bounceRate}%
             </div>
             <p className="text-sm text-text-secondary">
@@ -316,7 +351,7 @@ const AnalyticsPage = () => {
       {/* Top Performing Posts */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 font-medium">
             <Award className="w-5 h-5 text-primary-500" />
             Top Performing Posts
           </CardTitle>
@@ -324,13 +359,20 @@ const AnalyticsPage = () => {
         <CardContent>
           <div className="space-y-4">
             {analytics.topPosts.map((post, index) => (
-              <div key={post.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-surface transition-colors">
+              <div
+                key={post.id}
+                className="flex items-center justify-between p-4 rounded-lg border border-[var(--border-color)] hover:bg-surface transition-colors"
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-bold text-primary-600">#{index + 1}</span>
+                    <span className="text-sm font-medium text-primary-600">
+                      #{index + 1}
+                    </span>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-text-primary">{post.title}</h3>
+                    <h3 className="font-medium text-text-primary">
+                      {post.title}
+                    </h3>
                     <div className="flex items-center gap-4 text-sm text-text-secondary mt-1">
                       <span className="flex items-center gap-1">
                         <Eye className="w-4 h-4" />
@@ -352,7 +394,9 @@ const AnalyticsPage = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-success">{post.engagementRate}%</div>
+                  <div className="text-lg font-medium text-success">
+                    {post.engagementRate}%
+                  </div>
                   <div className="text-sm text-text-secondary">Engagement</div>
                 </div>
               </div>
@@ -366,7 +410,7 @@ const AnalyticsPage = () => {
         {/* Demographics */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <Users className="w-5 h-5 text-primary-500" />
               Audience Demographics
             </CardTitle>
@@ -374,34 +418,56 @@ const AnalyticsPage = () => {
           <CardContent>
             <div className="space-y-6">
               <div>
-                <h4 className="font-semibold text-text-primary mb-3">Age Groups</h4>
+                <h4 className="font-medium text-text-primary mb-3">
+                  Age Groups
+                </h4>
                 <div className="space-y-2">
-                  {analytics.audienceInsights.demographics.ageGroups.map((group) => (
-                    <div key={group.range} className="flex items-center justify-between">
-                      <span className="text-sm text-text-secondary">{group.range}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 bg-secondary-100 rounded-full h-2">
-                          <div 
-                            className="bg-primary-500 h-2 rounded-full"
-                            style={{ width: `${group.percentage}%` }}
-                          ></div>
+                  {analytics.audienceInsights.demographics.ageGroups.map(
+                    (group) => (
+                      <div
+                        key={group.range}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-sm text-text-secondary">
+                          {group.range}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 bg-secondary-100 rounded-full h-2">
+                            <div
+                              className="bg-primary-500 h-2 rounded-full"
+                              style={{ width: `${group.percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium text-text-primary w-8">
+                            {group.percentage}%
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-text-primary w-8">{group.percentage}%</span>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
 
               <div>
-                <h4 className="font-semibold text-text-primary mb-3">Top Locations</h4>
+                <h4 className="font-medium text-text-primary mb-3">
+                  Top Locations
+                </h4>
                 <div className="space-y-2">
-                  {analytics.audienceInsights.demographics.locations.map((location) => (
-                    <div key={location.country} className="flex items-center justify-between">
-                      <span className="text-sm text-text-secondary">{location.country}</span>
-                      <span className="text-sm font-medium text-text-primary">{location.percentage}%</span>
-                    </div>
-                  ))}
+                  {analytics.audienceInsights.demographics.locations.map(
+                    (location) => (
+                      <div
+                        key={location.country}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-sm text-text-secondary">
+                          {location.country}
+                        </span>
+                        <span className="text-sm font-medium text-text-primary">
+                          {location.percentage}%
+                        </span>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -411,7 +477,7 @@ const AnalyticsPage = () => {
         {/* Traffic Sources & Devices */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <BarChart3 className="w-5 h-5 text-primary-500" />
               Traffic Sources & Devices
             </CardTitle>
@@ -419,19 +485,28 @@ const AnalyticsPage = () => {
           <CardContent>
             <div className="space-y-6">
               <div>
-                <h4 className="font-semibold text-text-primary mb-3">Traffic Sources</h4>
+                <h4 className="font-medium text-text-primary mb-3">
+                  Traffic Sources
+                </h4>
                 <div className="space-y-2">
                   {analytics.audienceInsights.sources.map((source) => (
-                    <div key={source.source} className="flex items-center justify-between">
-                      <span className="text-sm text-text-secondary">{source.source}</span>
+                    <div
+                      key={source.source}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-sm text-text-secondary">
+                        {source.source}
+                      </span>
                       <div className="flex items-center gap-2">
                         <div className="w-24 bg-secondary-100 rounded-full h-2">
-                          <div 
+                          <div
                             className="bg-accent h-2 rounded-full"
                             style={{ width: `${source.percentage}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm font-medium text-text-primary w-8">{source.percentage}%</span>
+                        <span className="text-sm font-medium text-text-primary w-8">
+                          {source.percentage}%
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -439,12 +514,19 @@ const AnalyticsPage = () => {
               </div>
 
               <div>
-                <h4 className="font-semibold text-text-primary mb-3">Devices</h4>
+                <h4 className="font-medium text-text-primary mb-3">Devices</h4>
                 <div className="space-y-2">
                   {analytics.audienceInsights.devices.map((device) => (
-                    <div key={device.type} className="flex items-center justify-between">
-                      <span className="text-sm text-text-secondary">{device.type}</span>
-                      <span className="text-sm font-medium text-text-primary">{device.percentage}%</span>
+                    <div
+                      key={device.type}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-sm text-text-secondary">
+                        {device.type}
+                      </span>
+                      <span className="text-sm font-medium text-text-primary">
+                        {device.percentage}%
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -458,7 +540,7 @@ const AnalyticsPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <PieChart className="w-5 h-5 text-primary-500" />
               Scroll Depth
             </CardTitle>
@@ -466,16 +548,23 @@ const AnalyticsPage = () => {
           <CardContent>
             <div className="space-y-3">
               {analytics.engagementMetrics.scrollDepth.map((metric) => (
-                <div key={metric.depth} className="flex items-center justify-between">
-                  <span className="text-sm text-text-secondary">{metric.depth}</span>
+                <div
+                  key={metric.depth}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-sm text-text-secondary">
+                    {metric.depth}
+                  </span>
                   <div className="flex items-center gap-2">
                     <div className="w-24 bg-secondary-100 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-success h-2 rounded-full"
                         style={{ width: `${metric.percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm font-medium text-text-primary w-8">{metric.percentage}%</span>
+                    <span className="text-sm font-medium text-text-primary w-8">
+                      {metric.percentage}%
+                    </span>
                   </div>
                 </div>
               ))}
@@ -485,7 +574,7 @@ const AnalyticsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 font-medium">
               <Clock className="w-5 h-5 text-primary-500" />
               Time on Page
             </CardTitle>
@@ -493,16 +582,23 @@ const AnalyticsPage = () => {
           <CardContent>
             <div className="space-y-3">
               {analytics.engagementMetrics.timeOnPage.map((metric) => (
-                <div key={metric.range} className="flex items-center justify-between">
-                  <span className="text-sm text-text-secondary">{metric.range}</span>
+                <div
+                  key={metric.range}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-sm text-text-secondary">
+                    {metric.range}
+                  </span>
                   <div className="flex items-center gap-2">
                     <div className="w-24 bg-secondary-100 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-warning h-2 rounded-full"
                         style={{ width: `${metric.percentage}%` }}
                       ></div>
                     </div>
-                    <span className="text-sm font-medium text-text-primary w-8">{metric.percentage}%</span>
+                    <span className="text-sm font-medium text-text-primary w-8">
+                      {metric.percentage}%
+                    </span>
                   </div>
                 </div>
               ))}
@@ -514,4 +610,4 @@ const AnalyticsPage = () => {
   );
 };
 
-export default AnalyticsPage; 
+export default AnalyticsPage;
