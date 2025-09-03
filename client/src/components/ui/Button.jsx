@@ -18,15 +18,15 @@ const Button = forwardRef(
 
     const variants = {
       primary:
-        "bg-primary-500 hover:bg-primary-600 text-white focus:ring-primary-500 shadow-sm hover:shadow-md",
+        "bg-primary hover:bg-primary/80 text-white focus:ring-primary shadow-sm hover:shadow-md",
       secondary:
         "bg-secondary-100 dark:bg-white/20 hover:bg-secondary-200 dark:hover:bg-white/30 text-secondary-900 dark:text-white focus:ring-secondary-500 border border-secondary-200 dark:border-white/20",
       ghost:
-        "hover:bg-primary-50 dark:hover:bg-white/10 text-text-primary focus:ring-primary-500",
+        "hover:bg-primary/10 dark:hover:bg-white/10 text-text-primary focus:ring-primary",
       outline:
         "border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover2)] text-text-primary backdrop-blur-sm",
       danger:
-        "bg-error hover:bg-red-600 text-white focus:ring-error shadow-sm hover:shadow-md",
+        "bg-error hover:bg-error/80 text-white focus:ring-error shadow-sm hover:shadow-md",
     };
 
     const sizes = {

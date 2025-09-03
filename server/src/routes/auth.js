@@ -345,8 +345,8 @@ function validateJoi(schema) {
 // Routes with enhanced validation and security
 router.post(
   '/register',
-  // registerLimiter,
-  // validateJoi(registerSchema),
+  registerLimiter,
+  validateJoi(registerSchema),
   authController.register
 );
 
@@ -354,8 +354,8 @@ router.post(
 
 router.post(
   '/login',
-  // loginLimiter,
-  // validateJoi(loginSchema),
+  loginLimiter,
+  validateJoi(loginSchema),
   authController.login
 );
 

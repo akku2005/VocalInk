@@ -11,6 +11,66 @@ const {
 } = require('../utils/errors');
 const logger = require('../utils/logger');
 
+// Get current user's detailed profile
+exports.getMyProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select(
+        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
+      )
+      .populate('badges', 'name description icon')
+      .populate('followers', 'name email avatar')
+      .populate('following', 'name email avatar');
+
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Add computed fields
+    const profile = user.toObject();
+    profile.blogCount = await Blog.countDocuments({
+      author: user._id,
+      status: 'published',
+    });
+    profile.followerCount = user.followers.length;
+    profile.followingCount = user.following.length;
+
+    // Calculate engagement score
+    profile.engagementScore = Math.min(100, Math.floor(
+      (profile.totalLikes * 0.3 + 
+       profile.totalComments * 0.4 + 
+       profile.totalBookmarks * 0.2 + 
+       profile.totalShares * 0.1) / 10
+    ));
+
+    // Calculate level based on XP
+    profile.level = Math.floor(profile.xp / 100) + 1;
+
+    // Ensure coverImage is included
+    if (!profile.coverImage) {
+      profile.coverImage = null;
+    }
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: profile,
+    });
+  } catch (error) {
+    logger.error('Error in getMyProfile:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while fetching user profile',
+      });
+    }
+  }
+};
+
 // Get user profile by ID
 exports.getProfile = async (req, res) => {
   try {
@@ -85,6 +145,7 @@ exports.updateProfile = async (req, res) => {
       'birthday',
       'name',
       'avatar',
+      'coverImage',
       'socialLinks',
     ];
 

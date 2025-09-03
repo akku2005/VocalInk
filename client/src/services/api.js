@@ -12,10 +12,17 @@ const api = axios.create({
 // Request interceptor for authentication
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Add device fingerprint for JWT validation
+    const deviceFingerprint = localStorage.getItem('deviceFingerprint');
+    if (deviceFingerprint) {
+      config.headers['X-Device-Fingerprint'] = deviceFingerprint;
+    }
+    
     return config;
   },
   (error) => {
@@ -33,8 +40,47 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
-      // Clear invalid token
-      localStorage.removeItem('token');
+      // Check if it's a 2FA or verification requirement
+      const responseData = error.response.data;
+      if (responseData.twoFactorRequired || responseData.requiresVerification) {
+        // Don't clear tokens for 2FA or verification requirements
+        // These are handled by the auth context
+        return Promise.reject(error);
+      }
+      
+      // Try to refresh the token
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          console.log('Attempting automatic token refresh...');
+          
+          // Call the refresh token endpoint
+          const refreshResponse = await api.post('/auth/refresh-token', {
+            refreshToken
+          });
+          
+          if (refreshResponse.data.success) {
+            const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data;
+            
+            // Update stored tokens
+            localStorage.setItem('accessToken', accessToken);
+            localStorage.setItem('refreshToken', newRefreshToken);
+            
+            // Update the current request's authorization header
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            
+            // Retry the original request
+            console.log('Token refreshed, retrying original request...');
+            return api(originalRequest);
+          }
+        }
+      } catch (refreshError) {
+        console.error('Automatic token refresh failed:', refreshError);
+      }
+      
+      // If refresh failed, clear tokens and redirect to login
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       
       // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
@@ -45,6 +91,12 @@ api.interceptors.response.use(
     // Handle 403 Forbidden errors
     if (error.response?.status === 403) {
       console.error('Access forbidden:', error.response.data);
+    }
+
+    // Handle 423 Locked errors (account lockout)
+    if (error.response?.status === 423) {
+      console.warn('Account locked:', error.response.data);
+      // Don't redirect - let the component handle this
     }
 
     // Handle 429 Rate limit errors
@@ -72,6 +124,7 @@ const retryRequest = async (fn, retries = 3, delay = 1000) => {
 
 const shouldRetry = (error) => {
   // Retry on network errors or 5xx server errors
+  // Don't retry on 4xx client errors (except 429 rate limit)
   return !error.response || (error.response.status >= 500 && error.response.status < 600);
 };
 
@@ -131,29 +184,50 @@ export const handleApiError = (error) => {
           errors: data.errors || [],
         };
       case 401:
+        // Handle specific 2FA and verification requirements
+        if (data.twoFactorRequired) {
+          return {
+            type: 'two_factor',
+            message: data.message || 'Two-factor authentication code required',
+            twoFactorRequired: true,
+          };
+        }
+        if (data.requiresVerification) {
+          return {
+            type: 'verification',
+            message: data.message || 'Email verification required',
+            requiresVerification: true,
+          };
+        }
         return {
           type: 'auth',
-          message: 'Authentication required',
+          message: data.message || 'Authentication required',
         };
       case 403:
         return {
           type: 'permission',
-          message: 'You do not have permission to perform this action',
+          message: data.message || 'You do not have permission to perform this action',
         };
       case 404:
         return {
           type: 'not_found',
-          message: 'The requested resource was not found',
+          message: data.message || 'The requested resource was not found',
+        };
+      case 423:
+        return {
+          type: 'account_locked',
+          message: data.message || 'Account temporarily locked',
+          lockoutUntil: data.lockoutUntil,
         };
       case 429:
         return {
           type: 'rate_limit',
-          message: 'Too many requests. Please try again later.',
+          message: data.message || 'Too many requests. Please try again later.',
         };
       case 500:
         return {
           type: 'server',
-          message: 'Internal server error. Please try again later.',
+          message: data.message || 'Internal server error. Please try again later.',
         };
       default:
         return {

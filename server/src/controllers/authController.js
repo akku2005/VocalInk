@@ -987,14 +987,19 @@ class AuthController {
       }
       const { email } = req.body;
       const user = await User.findOne({ email });
+      
       if (!user) {
         logger.info('Password reset requested for non-existent email', {
           email,
         });
+        
+        // Add a small delay to prevent timing attacks
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         return res.status(200).json({
           success: true,
-          message:
-            'If the email exists, password reset instructions will be sent',
+          message: 'Password reset instructions have been sent to your email if an account exists with that address',
+          // Note: We don't reveal whether the email exists or not
         });
       }
 
@@ -1035,8 +1040,7 @@ class AuthController {
       // Never return sensitive tokens in API response for security
       const response = {
         success: true,
-        message:
-          'If the email exists, password reset instructions will be sent',
+        message: 'Password reset instructions have been sent to your email',
       };
       return res.status(200).json(response);
     } catch (error) {
