@@ -20,17 +20,24 @@ import {
   BookOpen,
   Sparkles,
   Palette,
-  Languages,
   Target,
   Clock,
   AlertCircle,
   CheckCircle,
+ buttons-color/hover
   Loader2,
 } from "lucide-react";
 import RichTextEditor from "../components/ui/RichTextEditor";
 import Modal from "../components/ui/Modal";
 import CustomDropdown from "../components/ui/CustomDropdown";
 
+} from 'lucide-react';
+import Modal from '../components/ui/Modal';
+import { useToast } from '../hooks/useToast'; // Corrected import to use named export
+import AdvancedRichTextEditor from '../components/ui/AdvancedRichTextEditor';
+ master
+
+// Debounce function to limit how often an expensive function is called
 const debounce = (fn, delay) => {
   let t;
   return (...args) => {
@@ -61,10 +68,16 @@ const CreateBlogPage = () => {
   const [showPublish, setShowPublish] = useState(false);
   const [errors, setErrors] = useState([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
+ buttons-color/hover
   const [canvasTheme, setCanvasTheme] = useState("white"); // 'white' | 'sepia' | 'dark'
+
+  const [canvasTheme, setCanvasTheme] = useState('white');
+ master
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [tagQuery, setTagQuery] = useState("");
+
+  const { addToast } = useToast();
 
   const suggestedTags = [
     "Technology",
@@ -97,12 +110,25 @@ const CreateBlogPage = () => {
   };
 
   const handleAddTag = () => {
+ buttons-color/hover
     if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
       setFormData((prev) => ({
         ...prev,
         tags: [...prev.tags, currentTag.trim()],
       }));
       setCurrentTag("");
+
+    const tagToAdd = currentTag.trim();
+    if (tagToAdd && !formData.tags.includes(tagToAdd) && formData.tags.length < 5) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagToAdd]
+      }));
+      setCurrentTag('');
+      addToast({ type: 'success', message: `Tag '${tagToAdd}' added.` });
+    } else if (formData.tags.length >= 5) {
+      addToast({ type: 'warning', message: 'Maximum 5 tags allowed.' });
+ master
     }
   };
 
@@ -111,6 +137,7 @@ const CreateBlogPage = () => {
       ...prev,
       tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
+    addToast({ type: 'info', message: `Tag '${tagToRemove}' removed.` });
   };
 
   const handleCoverUpload = async () => {
@@ -121,6 +148,7 @@ const CreateBlogPage = () => {
       input.onchange = async () => {
         const file = input.files?.[0];
         if (!file) return;
+buttons-color/hover
         const resp = await apiService.upload("/uploads/image", file);
         const url = resp.data.url.startsWith("http")
           ? resp.data.url
@@ -130,31 +158,67 @@ const CreateBlogPage = () => {
       input.click();
     } catch (e) {
       console.error("Cover upload failed", e);
+
+        const resp = await apiService.upload('/uploads/image', file);
+        const url = resp.data.url.startsWith('http') ? resp.data.url : `/api${resp.data.url}`;
+        handleInputChange('coverImage', url);
+        addToast({ type: 'success', message: 'Cover image uploaded.' });
+      };
+      input.click();
+    } catch (e) {
+      console.error('Cover upload failed', e);
+      addToast({ type: 'error', message: 'Failed to upload cover image.' });
+ master
     }
   };
 
   const generateAISummary = async () => {
-    if (!formData.content.trim()) return;
+    if (!formData.content.trim()) {
+      addToast({ type: 'warning', message: 'Please write some content first.' });
+      return;
+    }
     setAiGenerating(true);
     try {
+ buttons-color/hover
       await new Promise((resolve) => setTimeout(resolve, 2000));
       const mockSummary = `This article explores ${formData.title.toLowerCase()} and provides insights into the latest trends and developments. Readers will discover practical tips and actionable strategies to implement in their own work.`;
       setFormData((prev) => ({ ...prev, summary: mockSummary }));
     } catch (error) {
       console.error("Error generating summary:", error);
+
+      // Replaced mock with actual API call
+      const response = await apiService.post('/ai/summary', { content: formData.content });
+      setFormData(prev => ({ ...prev, summary: response.data.summary }));
+      addToast({ type: 'success', message: 'AI summary generated successfully!' });
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      addToast({ type: 'error', message: 'Failed to generate AI summary.' });
+ master
     } finally {
       setAiGenerating(false);
     }
   };
 
   const generateTTS = async () => {
-    if (!formData.content.trim()) return;
+    if (!formData.content.trim()) {
+      addToast({ type: 'warning', message: 'Please write some content first.' });
+      return;
+    }
     setLoading(true);
     try {
+ buttons-color/hover
       await new Promise((resolve) => setTimeout(resolve, 3000));
       console.log("TTS generated successfully");
     } catch (error) {
       console.error("Error generating TTS:", error);
+
+      // Replaced mock with actual API call
+      await apiService.post('/tts/generate', { text: formData.content, blogId: 'new-blog-temp-id' });
+      addToast({ type: 'success', message: 'Audio version is being generated.' });
+    } catch (error) {
+      console.error('Error generating TTS:', error);
+      addToast({ type: 'error', message: 'Failed to generate TTS audio.' });
+ master
     } finally {
       setLoading(false);
     }
@@ -182,24 +246,45 @@ const CreateBlogPage = () => {
       const res = await apiService.post("/blogs/addBlog", payload);
       console.log("Blog saved:", res.data);
       if (!isDraft) {
+ buttons-color/hover
         localStorage.removeItem("createBlogDraft");
       }
     } catch (error) {
       console.error("Error saving blog:", error);
+
+        localStorage.removeItem('createBlogDraft');
+        addToast({ type: 'success', message: 'Blog published successfully!' });
+      } else {
+        addToast({ type: 'success', message: 'Draft saved successfully!' });
+      }
+    } catch (error) {
+      console.error('Error saving blog:', error);
+      addToast({ type: 'error', message: 'Failed to save blog.' });
+ master
     } finally {
       setLoading(false);
     }
   };
 
+ buttons-color/hover
   const plainText = (formData.content || "")
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;/g, " ")
+
+  // Function to extract plain text and calculate word count/read time
+  const plainText = (formData.content || '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;/g, ' ')
+ master
     .trim();
   const wordCount = plainText.split(/\s+/).filter(Boolean).length;
   const readTime = Math.ceil(wordCount / 200);
 
+  // Validation function for publishing
   const validateBeforePublish = () => {
     const e = [];
     if (!formData.title.trim()) e.push("Title is required");
@@ -210,8 +295,12 @@ const CreateBlogPage = () => {
   };
 
   const openPublish = () => {
-    if (validateBeforePublish()) setShowPublish(true);
-    else setShowPublish(true); // still open and show errors
+    if (validateBeforePublish()) {
+      setShowPublish(true);
+    } else {
+      setShowPublish(true);
+      addToast({ type: 'error', message: 'Please fix the errors before publishing.' });
+    }
   };
 
   const confirmPublish = async () => {
@@ -220,6 +309,7 @@ const CreateBlogPage = () => {
     setShowPublish(false);
   };
 
+  // Debounced function to save draft to local storage
   const debouncedPersist = debounce((data) => {
     try {
       localStorage.setItem("createBlogDraft", JSON.stringify(data));
@@ -229,6 +319,7 @@ const CreateBlogPage = () => {
     }
   }, 800);
 
+  // Effect to load draft from local storage on component mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem("createBlogDraft");
@@ -241,6 +332,7 @@ const CreateBlogPage = () => {
     }
   }, []);
 
+  // Effect to persist draft to local storage on form data change
   useEffect(() => {
     debouncedPersist(formData);
   }, [formData]);
@@ -340,7 +432,6 @@ const CreateBlogPage = () => {
           </Button>
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card>
@@ -358,7 +449,6 @@ const CreateBlogPage = () => {
                     className="w-full bg-transparent outline-none text-3xl lg:text-4xl font-extrabold tracking-tight placeholder:text-[var(--placeholder-texts)] border-b border-transparent focus:border-border pb-2"
                   />
                 </div>
-
                 <div className="flex items-center gap-4 text-sm text-text-secondary">
                   <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
@@ -405,7 +495,6 @@ const CreateBlogPage = () => {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between ">
@@ -436,7 +525,7 @@ const CreateBlogPage = () => {
             </CardHeader>
             <CardContent className="p-6">
               {!previewMode ? (
-                <RichTextEditor
+                <AdvancedRichTextEditor
                   value={formData.content}
                   onChange={(html) => handleInputChange("content", html)}
                   className={`${canvasTheme === "white" ? "" : canvasTheme === "sepia" ? "sepia" : "dark"} min-h-96`}
@@ -452,7 +541,6 @@ const CreateBlogPage = () => {
               )}
             </CardContent>
           </Card>
-
           {formData.summary && (
             <Card>
               <CardHeader>
@@ -475,7 +563,6 @@ const CreateBlogPage = () => {
             </Card>
           )}
         </div>
-
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -505,7 +592,6 @@ const CreateBlogPage = () => {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-medium">
@@ -524,7 +610,6 @@ const CreateBlogPage = () => {
               />
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-medium">
@@ -543,6 +628,7 @@ const CreateBlogPage = () => {
                     onKeyPress={(e) => {
                       if (e.key === "Enter") {
                         const tag = tagQuery.trim();
+ buttons-color/hover
                         if (
                           tag &&
                           !formData.tags.includes(tag) &&
@@ -553,11 +639,20 @@ const CreateBlogPage = () => {
                             tags: [...prev.tags, tag],
                           }));
                           setTagQuery("");
+
+                        if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
+                          setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                          setTagQuery('');
+                          addToast({ type: 'success', message: `Tag '${tag}' added.` });
+                        } else if (formData.tags.length >= 5) {
+                          addToast({ type: 'warning', message: 'Maximum 5 tags allowed.' });
+ master
                         }
                       }
                     }}
                     className="flex-1 border border-[var(--border-color)]"
                   />
+ buttons-color/hover
                   <Button
                     className="border-none text-[var(--text-color)] bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)] py-1"
                     onClick={() => {
@@ -578,11 +673,24 @@ const CreateBlogPage = () => {
                   >
                     Add
                   </Button>
+
+                  <Button onClick={() => {
+                    const tag = tagQuery.trim();
+                    if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
+                      setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                      setTagQuery('');
+                      addToast({ type: 'success', message: `Tag '${tag}' added.` });
+                    } else if (formData.tags.length >= 5) {
+                      addToast({ type: 'warning', message: 'Maximum 5 tags allowed.' });
+                    }
+                  }} size="sm">Add</Button>
+ master
                 </div>
 
                 {filteredTags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {filteredTags.map((t) => (
+ buttons-color/hover
                       <button
                         key={t}
                         onClick={() => {
@@ -598,6 +706,17 @@ const CreateBlogPage = () => {
                       >
                         {t}
                       </button>
+
+                      <button key={t} onClick={() => {
+                        if (formData.tags.length < 5) {
+                          setFormData(prev => ({ ...prev, tags: [...prev.tags, t] }));
+                          setTagQuery('');
+                          addToast({ type: 'success', message: `Tag '${t}' added.` });
+                        } else {
+                          addToast({ type: 'warning', message: 'Maximum 5 tags allowed.' });
+                        }
+                      }} className="px-2 py-1 rounded bg-secondary-100 hover:bg-secondary-200 text-xs cursor-pointer">{t}</button>
+ master
                     ))}
                   </div>
                 )}
@@ -626,7 +745,6 @@ const CreateBlogPage = () => {
                     )}
                   </div>
                 )}
-
                 <div>
                   <p className="text-sm text-text-secondary mb-2">
                     Suggested tags:
@@ -636,6 +754,7 @@ const CreateBlogPage = () => {
                       <button
                         key={tag}
                         onClick={() => {
+ buttons-color/hover
                           if (
                             !formData.tags.includes(tag) &&
                             formData.tags.length < 5
@@ -644,6 +763,13 @@ const CreateBlogPage = () => {
                               ...prev,
                               tags: [...prev.tags, tag],
                             }));
+
+                          if (!formData.tags.includes(tag) && formData.tags.length < 5) {
+                            setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                            addToast({ type: 'success', message: `Tag '${tag}' added.` });
+                          } else if (formData.tags.length >= 5) {
+                            addToast({ type: 'warning', message: 'Maximum 5 tags allowed.' });
+ master
                           }
                         }}
                         className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded hover:bg-secondary-200 transition-colors"
@@ -656,7 +782,6 @@ const CreateBlogPage = () => {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-medium">
@@ -674,7 +799,6 @@ const CreateBlogPage = () => {
               />
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-medium">
@@ -724,7 +848,6 @@ const CreateBlogPage = () => {
               </label>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-medium">
@@ -744,6 +867,7 @@ const CreateBlogPage = () => {
           </Card>
         </div>
       </div>
+ buttons-color/hover
 
       {/* Publish Modal */}
       <Modal
@@ -751,6 +875,9 @@ const CreateBlogPage = () => {
         onClose={() => setShowPublish(false)}
         title="Publish story"
       >
+
+      <Modal isOpen={showPublish} onClose={() => setShowPublish(false)} title="Publish story">
+ master
         <div className="space-y-4">
           {errors.length > 0 && (
             <div className="p-3 rounded border border-error/40 text-error text-sm">
@@ -761,7 +888,6 @@ const CreateBlogPage = () => {
               </ul>
             </div>
           )}
-
           <div className="space-y-2">
             <label className="text-sm text-text-secondary">Title</label>
             <Input
@@ -770,7 +896,6 @@ const CreateBlogPage = () => {
               placeholder="Add a title"
             />
           </div>
-
           <div className="space-y-2">
             <label className="text-sm text-text-secondary">
               Tags (up to 5)
@@ -799,17 +924,20 @@ const CreateBlogPage = () => {
                   className="flex items-center gap-1"
                 >
                   {tag}
+ buttons-color/hover
                   <button
                     onClick={() => handleRemoveTag(tag)}
                     className="ml-1 hover:text-error"
                   >
                     ×
                   </button>
+
+                  <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-error cursor-pointer">×</button>
+ master
                 </Badge>
               ))}
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="text-sm text-text-secondary">Cover image</label>
             <div className="flex gap-2">
@@ -837,7 +965,6 @@ const CreateBlogPage = () => {
               />
             )}
           </div>
-
           <div className="space-y-2">
             <CustomDropdown
               label="Visibility"
@@ -867,6 +994,7 @@ const CreateBlogPage = () => {
           </Button>
         </div>
       </Modal>
+ buttons-color/hover
 
       {/* Shortcuts Modal */}
       <Modal
@@ -874,6 +1002,9 @@ const CreateBlogPage = () => {
         onClose={() => setShowShortcuts(false)}
         title="Keyboard shortcuts"
       >
+
+      <Modal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} title="Keyboard shortcuts">
+ master
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div>
             <div className="font-medium mb-1">Formatting</div>
@@ -902,8 +1033,6 @@ const CreateBlogPage = () => {
           </Button>
         </div>
       </Modal>
-
-      {/* Fullscreen Writer */}
       {isFullscreen && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
           <div className="max-w-5xl mx-auto p-4 h-full flex flex-col gap-3">
@@ -933,7 +1062,7 @@ const CreateBlogPage = () => {
             </div>
             <div className="flex-1 overflow-auto">
               <div className="p-2">
-                <RichTextEditor
+                <AdvancedRichTextEditor
                   value={formData.content}
                   onChange={(html) => handleInputChange("content", html)}
                   className={`${canvasTheme === "white" ? "" : canvasTheme === "sepia" ? "sepia" : "dark"} min-h-[70vh]`}

@@ -11,9 +11,15 @@ const TestPage = lazy(() => import("../pages/TestPage"));
 const BlogPage = lazy(() => import("../pages/BlogPage.jsx"));
 const SeriesPage = lazy(() => import("../pages/SeriesPage.jsx"));
 const ArticlePage = lazy(() => import("../pages/ArticlePage.jsx"));
-const Login = lazy(() => import("../components/auth/Login"));
-const Register = lazy(() => import("../components/auth/Register"));
+const Login = lazy(() => import("../pages/auth/LoginPage"));
+const Register = lazy(() => import("../pages/auth/RegisterPage"));
+const EmailVerification = lazy(() => import("../pages/auth/EmailVerificationPage"));
+const ForgotPassword = lazy(() => import("../pages/auth/ForgotPasswordPage"));
+const ResetPassword = lazy(() => import("../pages/auth/ResetPasswordPage"));
+const TwoFactorSetup = lazy(() => import("../pages/auth/TwoFactorSetupPage"));
+const Logout = lazy(() => import("../components/auth/Logout"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
+const ProfileEditPage = lazy(() => import("../pages/ProfileEditPage"));
 const AnalyticsPage = lazy(() => import("../pages/AnalyticsPage"));
 const RewardsPage = lazy(() => import("../pages/RewardsPage"));
 const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
@@ -59,6 +65,21 @@ export default function AppRoutes() {
               <Register />
             </GuestRoute>
           } />
+          <Route path="verify-email" element={
+            <GuestRoute>
+              <EmailVerification />
+            </GuestRoute>
+          } />
+          <Route path="forgot-password" element={
+            <GuestRoute>
+              <ForgotPassword />
+            </GuestRoute>
+          } />
+          <Route path="reset-password" element={
+            <GuestRoute>
+              <ResetPassword />
+            </GuestRoute>
+          } />
           
           {/* Protected Routes - Require authentication */}
           <Route path="dashboard" element={
@@ -71,9 +92,19 @@ export default function AppRoutes() {
               <TestPage />
             </ProtectedRoute>
           } />
+          <Route path="profile" element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } />
           <Route path="profile/:username" element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          } />
+          <Route path="profile/edit" element={
+            <ProtectedRoute>
+              <ProfileEditPage />
             </ProtectedRoute>
           } />
           <Route path="analytics" element={
@@ -116,6 +147,12 @@ export default function AppRoutes() {
               <SettingsPage />
             </ProtectedRoute>
           } />
+          <Route path="2fa-setup" element={
+            <ProtectedRoute>
+              <TwoFactorSetup />
+            </ProtectedRoute>
+          } />
+          <Route path="logout" element={<Logout />} />
         </Route>
       </Routes>
     </Suspense>
