@@ -176,12 +176,12 @@ const Home = () => {
           {[1, 2, 3, 4, 5, 6].map((item) => (
             <Link key={item} to={`/article/${item}`}>
               <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md ">
-                <div className="h-48 bg-gradient-to-br from-indigo-500 to-gray-400 rounded-t-lg mb-4"></div>
+                <div className="h-48 bg-gradient-to-br from-indigo-500 to-gray-500 rounded-t-lg mb-4"></div>
                 <CardHeader className="pb-2">
-                  <CardTitle className="group-hover:text-primary-500 transition-colors text-lg">
+                  <CardTitle className="group-hover:text-primary-500 transition-colors font-medium text-lg">
                     Sample Blog Post {item}
                   </CardTitle>
-                  <p className="text-sm text-text-secondary leading-relaxed">
+                  <p className="text-sm text-text-secondary leading-relaxed text-[var(text-color)]">
                     Discover the future of content creation with AI-powered
                     features and innovative storytelling techniques...
                   </p>

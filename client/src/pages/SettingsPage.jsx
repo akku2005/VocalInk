@@ -1,3 +1,24 @@
+ buttons-color/hover
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import Badge from "../components/ui/Badge";
+import CustomDropdown from "../components/ui/CustomDropdown";
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  Mail,
+  Key,
+
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -16,6 +37,7 @@ import {
   Globe, 
   Mail, 
   Key, 
+master
   Trash2,
   Save,
   Eye,
@@ -27,6 +49,12 @@ import {
   Moon,
   Sun,
   Monitor,
+ buttons-color/hover
+} from "lucide-react";
+
+const SettingsPage = () => {
+  const [activeTab, setActiveTab] = useState("profile");
+
   Brain,
   Mic,
   Volume2,
@@ -39,6 +67,7 @@ const SettingsPage = () => {
   const { showToast } = useToast();
   
   const [activeTab, setActiveTab] = useState('profile');
+ master
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +85,103 @@ const SettingsPage = () => {
   const [processingImage, setProcessingImage] = useState(false);
 
   useEffect(() => {
+ buttons-color/hover
+    // Simulate API call
+    setTimeout(() => {
+      setSettings({
+        profile: {
+          username: "johndoe",
+          displayName: "John Doe",
+          email: "john@example.com",
+          bio: "Passionate writer and tech enthusiast. Creating content that inspires and educates.",
+          avatar:
+            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+          location: "San Francisco, CA",
+          website: "https://johndoe.dev",
+          language: "en",
+          timezone: "America/Los_Angeles",
+        },
+        account: {
+          emailNotifications: true,
+          marketingEmails: false,
+          twoFactorAuth: false,
+          accountVisibility: "public",
+          showEmail: false,
+          allowComments: true,
+          allowMentions: true,
+        },
+        notifications: {
+          newFollowers: true,
+          newLikes: true,
+          newComments: true,
+          newMentions: true,
+          badgeEarned: true,
+          levelUp: true,
+          seriesUpdates: true,
+          aiGenerations: false,
+          weeklyDigest: true,
+          monthlyReport: true,
+        },
+        privacy: {
+          profileVisibility: "public",
+          postVisibility: "public",
+          allowSearch: true,
+          showOnlineStatus: true,
+          allowDirectMessages: true,
+          dataSharing: false,
+          analyticsSharing: true,
+        },
+        appearance: {
+          theme: "system",
+          fontSize: "medium",
+          compactMode: false,
+          showAnimations: true,
+          colorScheme: "default",
+        },
+        security: {
+          lastPasswordChange: "2023-12-01",
+          lastLogin: "2024-01-15T10:30:00Z",
+          activeSessions: 2,
+          loginHistory: [
+            {
+              date: "2024-01-15T10:30:00Z",
+              location: "San Francisco, CA",
+              device: "Chrome on Mac",
+            },
+            {
+              date: "2024-01-14T15:20:00Z",
+              location: "San Francisco, CA",
+              device: "Safari on iPhone",
+            },
+            {
+              date: "2024-01-10T09:15:00Z",
+              location: "New York, NY",
+              device: "Chrome on Windows",
+            },
+          ],
+        },
+      });
+    }, 1000);
+  }, []);
+  const accountVisibilityOptions = [
+    { id: "public", name: "Public" },
+    { id: "private", name: "Private" },
+    { id: "friends", name: "Friends Only" },
+  ];
+
+  const tabs = [
+    { id: "profile", name: "Profile", icon: User },
+    { id: "account", name: "Account", icon: User },
+    { id: "notifications", name: "Notifications", icon: Bell },
+    { id: "privacy", name: "Privacy & Security", icon: Shield },
+    { id: "appearance", name: "Appearance", icon: Palette },
+    { id: "security", name: "Security", icon: Key },
+  ];
+  const fontSizeOptions = [
+    { id: "small", name: "Small" },
+    { id: "medium", name: "Medium" },
+    { id: "large", name: "Large" },
+
     const loadSettings = async () => {
       try {
         setLoading(true);
@@ -83,32 +209,63 @@ const SettingsPage = () => {
     { id: 'ai', name: 'AI Preferences', icon: Brain },
     { id: 'gamification', name: 'Gamification', icon: Badge },
     { id: 'security', name: 'Security', icon: Key }
+ master
   ];
 
   const languages = [
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-    { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-    { code: 'fr', name: 'French', flag: '🇫🇷' },
-    { code: 'de', name: 'German', flag: '🇩🇪' },
-    { code: 'it', name: 'Italian', flag: '🇮🇹' },
-    { code: 'pt', name: 'Portuguese', flag: '🇵🇹' },
-    { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-    { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-    { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-    { code: 'hi', name: 'Hindi', flag: '🇮🇳' }
+    { code: "en", name: "English", flag: "🇺🇸" },
+    { code: "es", name: "Spanish", flag: "🇪🇸" },
+    { code: "fr", name: "French", flag: "🇫🇷" },
+    { code: "de", name: "German", flag: "🇩🇪" },
+    { code: "it", name: "Italian", flag: "🇮🇹" },
+    { code: "pt", name: "Portuguese", flag: "🇵🇹" },
+    { code: "ja", name: "Japanese", flag: "🇯🇵" },
+    { code: "ko", name: "Korean", flag: "🇰🇷" },
+    { code: "zh", name: "Chinese", flag: "🇨🇳" },
+    { code: "hi", name: "Hindi", flag: "🇮🇳" },
+  ];
+  const languageOptions = languages.map((lang) => ({
+    id: lang.code,
+    name: `${lang.flag} ${lang.name}`,
+  }));
+
+ buttons-color/hover
+  const timezones = [
+    { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+    { value: "America/New_York", label: "Eastern Time (ET)" },
+    { value: "America/Chicago", label: "Central Time (CT)" },
+    { value: "America/Denver", label: "Mountain Time (MT)" },
+    { value: "Europe/London", label: "London (GMT)" },
+    { value: "Europe/Paris", label: "Paris (CET)" },
+    { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+    { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+    { value: "Australia/Sydney", label: "Sydney (AEDT)" },
   ];
 
 
+ master
 
   const themes = [
-    { value: 'light', label: 'Light', icon: Sun },
-    { value: 'dark', label: 'Dark', icon: Moon },
-    { value: 'system', label: 'System', icon: Monitor }
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "system", label: "System", icon: Monitor },
+  ];
+  const privacyVisibilityOptions = [
+    { id: "public", name: "Public" },
+    { id: "private", name: "Private" },
+    { id: "friends", name: "Friends Only" },
   ];
 
   const handleSave = async () => {
     setLoading(true);
     try {
+ buttons-color/hover
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      console.log("Settings saved:", settings);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+
       // Transform frontend settings to backend format
       const backendData = settingsService.transformFrontendToBackend(settings);
       
@@ -129,28 +286,29 @@ const SettingsPage = () => {
     } catch (error) {
       console.error('Error saving settings:', error);
       showToast(error.message || 'Failed to save settings', 'error');
+ master
     } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (section, field, value) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       [section]: {
         ...prev[section],
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   const handleToggle = (section, field) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       [section]: {
         ...prev[section],
-        [field]: !prev[section][field]
-      }
+        [field]: !prev[section][field],
+      },
     }));
   };
 
@@ -291,9 +449,15 @@ const SettingsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-text-primary">Settings</h1>
-          <p className="text-text-secondary">Manage your account preferences and privacy</p>
+          <p className="text-text-secondary">
+            Manage your account preferences and privacy
+          </p>
         </div>
-        <Button onClick={handleSave} loading={loading} className="flex items-center gap-2">
+        <Button
+          onClick={handleSave}
+          loading={loading}
+          className="flex items-center gap-2 bg-[var(--secondary-btn2)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] "
+        >
           <Save className="w-4 h-4" />
           Save Changes
         </Button>
@@ -311,10 +475,10 @@ const SettingsPage = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors cursor-pointer ${
                         activeTab === tab.id
-                          ? 'bg-primary-50 text-primary-600 border border-primary-200'
-                          : 'text-text-secondary hover:text-text-primary hover:bg-surface'
+                          ? "bg-primary-50 text-primary-600 border border-primary-200"
+                          : "text-text-secondary hover:text-text-primary hover:bg-surface"
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -330,15 +494,23 @@ const SettingsPage = () => {
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
           {/* Profile Tab */}
-          {activeTab === 'profile' && (
+          {activeTab === "profile" && (
             <Card>
               <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
+                <CardTitle className="font-semibold text-[var(--light-text-color2)]">
+                  Profile Information
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {/* Avatar */}
                 <div className="flex items-center gap-6">
                   <div className="relative">
+ buttons-color/hover
+                    <img
+                      src={settings.profile.avatar}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full"
+
                     {profile.avatar ? (
                                           <img 
                       src={profile.avatar} 
@@ -363,6 +535,7 @@ const SettingsPage = () => {
                       accept="image/*"
                       className="hidden"
                       onChange={handleProfilePhotoUpload}
+ master
                     />
                     
                     <button 
@@ -378,6 +551,14 @@ const SettingsPage = () => {
                     </button>
                   </div>
                   <div>
+ buttons-color/hover
+                    <h3 className="font-semibold text-text-primary text-[var(--light-text-color2)]">
+                      Profile Picture
+                    </h3>
+                    <p className="text-sm text-text-secondary">
+                      Upload a new profile picture
+                    </p>
+
                     <h3 className="font-semibold text-text-primary">Profile Picture</h3>
                     <p className="text-sm text-text-secondary">
                       {processingImage ? 'Processing image...' : 'Click the camera icon to change your profile picture'}
@@ -398,6 +579,7 @@ const SettingsPage = () => {
                         </span>
                       )}
                     </div>
+ master
                   </div>
                 </div>
 
@@ -408,8 +590,20 @@ const SettingsPage = () => {
                       Display Name
                     </label>
                     <Input
+ buttons-color/hover
+                      value={settings.profile.displayName}
+                      className="border border-[var(--border-color)]"
+                      onChange={(e) =>
+                        handleInputChange(
+                          "profile",
+                          "displayName",
+                          e.target.value
+                        )
+                      }
+
                       value={profile.displayName}
                       onChange={(e) => handleInputChange('profile', 'displayName', e.target.value)}
+ master
                     />
                   </div>
                   <div>
@@ -417,8 +611,16 @@ const SettingsPage = () => {
                       Username
                     </label>
                     <Input
+buttons-color/hover
+                      value={settings.profile.username}
+                      className="border border-[var(--border-color)]"
+                      onChange={(e) =>
+                        handleInputChange("profile", "username", e.target.value)
+                      }
+
                       value={profile.username}
                       onChange={(e) => handleInputChange('profile', 'username', e.target.value)}
+ master
                     />
                   </div>
                   <div>
@@ -427,8 +629,16 @@ const SettingsPage = () => {
                     </label>
                     <Input
                       type="email"
+ buttons-color/hover
+                      value={settings.profile.email}
+                      className="border border-[var(--border-color)]"
+                      onChange={(e) =>
+                        handleInputChange("profile", "email", e.target.value)
+                      }
+
                       value={profile.email}
                       onChange={(e) => handleInputChange('profile', 'email', e.target.value)}
+master
                     />
                   </div>
                   <div>
@@ -436,8 +646,16 @@ const SettingsPage = () => {
                       Location
                     </label>
                     <Input
+buttons-color/hover
+                      value={settings.profile.location}
+                      className="border border-[var(--border-color)]"
+                      onChange={(e) =>
+                        handleInputChange("profile", "location", e.target.value)
+                      }
+
                       value={profile.location}
                       onChange={(e) => handleInputChange('profile', 'location', e.target.value)}
+ master
                     />
                   </div>
                   <div>
@@ -445,6 +663,28 @@ const SettingsPage = () => {
                       Website
                     </label>
                     <Input
+ buttons-color/hover
+                      value={settings.profile.website}
+                      className="border border-[var(--border-color)]"
+                      onChange={(e) =>
+                        handleInputChange("profile", "website", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <CustomDropdown
+                      label="Language"
+                      value={settings.profile.language}
+                      onChange={(val) =>
+                        handleInputChange("profile", "language", val)
+                      }
+                      options={languageOptions}
+                      optionLabelKey="name"
+                      optionValueKey="id"
+                      placeholder="Select a language"
+                      className="w-full"
+                    />
+
                       value={profile.website}
                       onChange={(e) => handleInputChange('profile', 'website', e.target.value)}
                     />
@@ -550,6 +790,7 @@ const SettingsPage = () => {
                         </option>
                       ))}
                     </select>
+ master
                   </div>
                 </div>
 
@@ -559,10 +800,17 @@ const SettingsPage = () => {
                     Bio
                   </label>
                   <textarea
+ buttons-color/hover
+                    value={settings.profile.bio}
+                    onChange={(e) =>
+                      handleInputChange("profile", "bio", e.target.value)
+                    }
+
                     value={profile.bio}
                     onChange={(e) => handleInputChange('profile', 'bio', e.target.value)}
+ master
                     rows={4}
-                    className="w-full p-3 border border-border rounded-lg bg-background text-text-primary resize-none"
+                    className="w-full p-3 border border-[var(--border-color)] rounded-lg bg-background text-text-primary resize-none"
                   />
                 </div>
 
@@ -694,64 +942,113 @@ const SettingsPage = () => {
           )}
 
           {/* Account Tab */}
-          {activeTab === 'account' && (
+          {activeTab === "account" && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Account Settings</CardTitle>
+                  <CardTitle className="font-medium">
+                    Account Settings
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-text-primary">Email Notifications</h3>
-                        <p className="text-sm text-text-secondary">Receive email notifications for important updates</p>
+                        <h3 className="font-medium text-text-primary">
+                          Email Notifications
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          Receive email notifications for important updates
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
+ buttons-color/hover
+                          checked={settings.account.emailNotifications}
+                          onChange={() =>
+                            handleToggle("account", "emailNotifications")
+                          }
+
                           checked={account.emailNotifications}
                           onChange={() => handleToggle('account', 'emailNotifications')}
+master
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+                        <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
                       </label>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-text-primary">Marketing Emails</h3>
-                        <p className="text-sm text-text-secondary">Receive promotional emails and updates</p>
+                        <h3 className="font-medium text-text-primary">
+                          Marketing Emails
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          Receive promotional emails and updates
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
+ buttons-color/hover
+                          checked={settings.account.marketingEmails}
+                          onChange={() =>
+                            handleToggle("account", "marketingEmails")
+                          }
+
                           checked={account.marketingEmails}
                           onChange={() => handleToggle('account', 'marketingEmails')}
+ master
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+                        <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
                       </label>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-text-primary">Two-Factor Authentication</h3>
-                        <p className="text-sm text-text-secondary">Add an extra layer of security to your account</p>
+                        <h3 className="font-medium text-text-primary">
+                          Two-Factor Authentication
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          Add an extra layer of security to your account
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
+ buttons-color/hover
+                          checked={settings.account.twoFactorAuth}
+                          onChange={() =>
+                            handleToggle("account", "twoFactorAuth")
+                          }
+
                           checked={account.twoFactorAuth}
                           onChange={() => handleToggle('account', 'twoFactorAuth')}
+ master
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+                        <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
                       </label>
                     </div>
                   </div>
 
                   <div>
+ buttons-color/hover
+                    <CustomDropdown
+                      label="Account Visibility"
+                      value={settings.account.accountVisibility}
+                      onChange={(val) =>
+                        handleInputChange("account", "accountVisibility", val)
+                      }
+                      options={accountVisibilityOptions}
+                      optionLabelKey="name"
+                      optionValueKey="id"
+                      placeholder="Select visibility"
+                      className="w-full"
+                    />
+
                     <label className="block text-sm font-medium text-text-primary mb-2">
                       Account Visibility
                     </label>
@@ -764,6 +1061,7 @@ const SettingsPage = () => {
                       <option value="private">Private</option>
                       <option value="friends">Friends Only</option>
                     </select>
+ master
                   </div>
                 </CardContent>
               </Card>
@@ -771,7 +1069,7 @@ const SettingsPage = () => {
               {/* Password Change */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Change Password</CardTitle>
+                  <CardTitle className="font-medium">Change Password</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div>
@@ -780,17 +1078,25 @@ const SettingsPage = () => {
                     </label>
                     <div className="relative">
                       <Input
-                        type={showPassword ? 'text' : 'password'}
+                        type={showPassword ? "text" : "password"}
                         placeholder="Enter current password"
+ buttons-color/hover
+                        className="border border-[var(--border-color)]"
+
                         value={passwordData.currentPassword}
                         onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+ master
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer"
                       >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -800,17 +1106,24 @@ const SettingsPage = () => {
                     </label>
                     <div className="relative">
                       <Input
-                        type={showNewPassword ? 'text' : 'password'}
+                        type={showNewPassword ? "text" : "password"}
                         placeholder="Enter new password"
-                        value={passwordData.newPassword}
+ buttons-color/hover
+                        className="border border-[var(--border-color)]"
+                value={passwordData.newPassword}
                         onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+ master
                       />
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer"
                       >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showNewPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -820,17 +1133,24 @@ const SettingsPage = () => {
                     </label>
                     <div className="relative">
                       <Input
-                        type={showConfirmPassword ? 'text' : 'password'}
+                        type={showConfirmPassword ? "text" : "password"}
+                        className="border border-[var(--border-color)]"
                         placeholder="Confirm new password"
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-text-primary cursor-pointer"
                       >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -848,13 +1168,60 @@ const SettingsPage = () => {
           )}
 
           {/* Notifications Tab */}
-          {activeTab === 'notifications' && (
+          {activeTab === "notifications" && (
             <Card>
               <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
+                <CardTitle className="font-medium">
+                  Notification Preferences
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+ buttons-color/hover
+                  {Object.entries(settings.notifications).map(
+                    ([key, value]) => (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between"
+                      >
+                        <div>
+                          <h3 className="font-medium text-text-primary capitalize">
+                            {key
+                              .replace(/([A-Z])/g, " $1")
+                              .replace(/^./, (str) => str.toUpperCase())}
+                          </h3>
+                          <p className="text-sm text-text-secondary">
+                            {key === "newFollowers" &&
+                              "When someone follows you"}
+                            {key === "newLikes" &&
+                              "When someone likes your post"}
+                            {key === "newComments" &&
+                              "When someone comments on your post"}
+                            {key === "newMentions" &&
+                              "When someone mentions you"}
+                            {key === "badgeEarned" &&
+                              "When you earn a new badge"}
+                            {key === "levelUp" && "When you level up"}
+                            {key === "seriesUpdates" &&
+                              "When your series gets updated"}
+                            {key === "aiGenerations" &&
+                              "When AI generation completes"}
+                            {key === "weeklyDigest" &&
+                              "Weekly summary of your activity"}
+                            {key === "monthlyReport" &&
+                              "Monthly performance report"}
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={value}
+                            onChange={() => handleToggle("notifications", key)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+
                   {Object.entries(notifications).map(([key, value]) => (
                     <div key={key} className="flex items-center justify-between">
                       <div>
@@ -873,73 +1240,84 @@ const SettingsPage = () => {
                           {key === 'weeklyDigest' && 'Weekly summary of your activity'}
                           {key === 'monthlyReport' && 'Monthly performance report'}
                         </p>
+ master
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={value}
-                          onChange={() => handleToggle('notifications', key)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-                      </label>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
 
           {/* Privacy Tab */}
-          {activeTab === 'privacy' && (
+          {activeTab === "privacy" && (
             <Card>
               <CardHeader>
-                <CardTitle>Privacy & Security</CardTitle>
+                <CardTitle className="font-medium">
+                  Privacy & Security
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="space-y-4">
+ buttons-color/hover
+                  {Object.entries(settings.privacy).map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between"
+                    >
+
                   {Object.entries(privacy).map(([key, value]) => (
                     <div key={key} className="flex items-center justify-between">
+ master
                       <div>
                         <h3 className="font-medium text-text-primary capitalize">
-                          {key === 'profileVisibility' && 'Profile Visibility'}
-                          {key === 'postVisibility' && 'Post Visibility'}
-                          {key === 'allowSearch' && 'Allow Search'}
-                          {key === 'showOnlineStatus' && 'Show Online Status'}
-                          {key === 'allowDirectMessages' && 'Allow Direct Messages'}
-                          {key === 'dataSharing' && 'Data Sharing'}
-                          {key === 'analyticsSharing' && 'Analytics Sharing'}
+                          {key === "profileVisibility" && "Profile Visibility"}
+                          {key === "postVisibility" && "Post Visibility"}
+                          {key === "allowSearch" && "Allow Search"}
+                          {key === "showOnlineStatus" && "Show Online Status"}
+                          {key === "allowDirectMessages" &&
+                            "Allow Direct Messages"}
+                          {key === "dataSharing" && "Data Sharing"}
+                          {key === "analyticsSharing" && "Analytics Sharing"}
                         </h3>
                         <p className="text-sm text-text-secondary">
-                          {key === 'profileVisibility' && 'Control who can see your profile'}
-                          {key === 'postVisibility' && 'Control who can see your posts'}
-                          {key === 'allowSearch' && 'Allow others to find you in search'}
-                          {key === 'showOnlineStatus' && 'Show when you are online'}
-                          {key === 'allowDirectMessages' && 'Allow others to send you messages'}
-                          {key === 'dataSharing' && 'Share data for research purposes'}
-                          {key === 'analyticsSharing' && 'Share analytics data'}
+                          {key === "profileVisibility" &&
+                            "Control who can see your profile"}
+                          {key === "postVisibility" &&
+                            "Control who can see your posts"}
+                          {key === "allowSearch" &&
+                            "Allow others to find you in search"}
+                          {key === "showOnlineStatus" &&
+                            "Show when you are online"}
+                          {key === "allowDirectMessages" &&
+                            "Allow others to send you messages"}
+                          {key === "dataSharing" &&
+                            "Share data for research purposes"}
+                          {key === "analyticsSharing" && "Share analytics data"}
                         </p>
                       </div>
-                      {typeof value === 'boolean' ? (
+                      {typeof value === "boolean" ? (
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
                             checked={value}
-                            onChange={() => handleToggle('privacy', key)}
+                            onChange={() => handleToggle("privacy", key)}
                             className="sr-only peer"
                           />
-                          <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+                          <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
                         </label>
                       ) : (
-                        <select
+                        <CustomDropdown
                           value={value}
-                          onChange={(e) => handleInputChange('privacy', key, e.target.value)}
-                          className="p-2 border border-border rounded-lg bg-background text-text-primary"
-                        >
-                          <option value="public">Public</option>
-                          <option value="private">Private</option>
-                          <option value="friends">Friends Only</option>
-                        </select>
+                          onChange={(val) =>
+                            handleInputChange("privacy", key, val)
+                          }
+                          options={privacyVisibilityOptions}
+                          optionLabelKey="name"
+                          optionValueKey="id"
+                          placeholder="Select visibility"
+                          className="w-36"
+                        />
                       )}
                     </div>
                   ))}
@@ -949,10 +1327,10 @@ const SettingsPage = () => {
           )}
 
           {/* Appearance Tab */}
-          {activeTab === 'appearance' && (
+          {activeTab === "appearance" && (
             <Card>
               <CardHeader>
-                <CardTitle>Appearance</CardTitle>
+                <CardTitle className="font-medium">Appearance</CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div>
@@ -964,6 +1342,26 @@ const SettingsPage = () => {
                       const Icon = themeOption.icon;
                       return (
                         <button
+ buttons-color/hover
+                          key={theme.value}
+                          onClick={() =>
+                            handleInputChange(
+                              "appearance",
+                              "theme",
+                              theme.value
+                            )
+                          }
+                          className={`p-4 border-2 border-[var(--border-color)] rounded-lg transition-all duration-200 flex flex-col items-center gap-2 cursor-pointer ${
+                            settings.appearance.theme === theme.value
+                              ? "border-primary-500 bg-primary-50"
+                              : "border-border hover:border-primary-200"
+                          }`}
+                        >
+                          <Icon className="w-6 h-6" />
+                          <span className="text-sm font-medium">
+                            {theme.label}
+                          </span>
+
                           key={themeOption.value}
                           onClick={() => {
                             if (themeOption.value === 'system') {
@@ -980,6 +1378,7 @@ const SettingsPage = () => {
                         >
                           <Icon className="w-6 h-6" />
                           <span className="text-sm font-medium">{themeOption.label}</span>
+ master
                         </button>
                       );
                     })}
@@ -987,6 +1386,20 @@ const SettingsPage = () => {
                 </div>
 
                 <div>
+ buttons-color/hover
+                  <CustomDropdown
+                    label="Font Size"
+                    value={settings.appearance.fontSize}
+                    onChange={(val) =>
+                      handleInputChange("appearance", "fontSize", val)
+                    }
+                    options={fontSizeOptions}
+                    optionLabelKey="name"
+                    optionValueKey="id"
+                    placeholder="Select font size"
+                    className="w-36"
+                  />
+
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Font Size
                   </label>
@@ -999,15 +1412,31 @@ const SettingsPage = () => {
                     <option value="medium">Medium</option>
                     <option value="large">Large</option>
                   </select>
+master
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium text-text-primary">Compact Mode</h3>
-                      <p className="text-sm text-text-secondary">Use less space for content</p>
+                      <h3 className="font-medium text-text-primary">
+                        Compact Mode
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Use less space for content
+                      </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
+ buttons-color/hover
+                      <input
+                        type="checkbox"
+                        checked={settings.appearance.compactMode}
+                        onChange={() =>
+                          handleToggle("appearance", "compactMode")
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+
                                               <input
                           type="checkbox"
                           checked={appearance.compactMode}
@@ -1015,15 +1444,31 @@ const SettingsPage = () => {
                           className="sr-only peer"
                         />
                       <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+ master
                     </label>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium text-text-primary">Show Animations</h3>
-                      <p className="text-sm text-text-secondary">Enable smooth animations</p>
+                      <h3 className="font-medium text-text-primary">
+                        Show Animations
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Enable smooth animations
+                      </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
+ buttons-color/hover
+                      <input
+                        type="checkbox"
+                        checked={settings.appearance.showAnimations}
+                        onChange={() =>
+                          handleToggle("appearance", "showAnimations")
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+
                                               <input
                           type="checkbox"
                           checked={appearance.showAnimations}
@@ -1200,6 +1645,7 @@ const SettingsPage = () => {
                           className="sr-only peer"
                         />
                       <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
+ master
                     </label>
                   </div>
                 </div>
@@ -1208,28 +1654,42 @@ const SettingsPage = () => {
           )}
 
           {/* Security Tab */}
-          {activeTab === 'security' && (
+          {activeTab === "security" && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Security Overview</CardTitle>
+                  <CardTitle className="font-medium">
+                    Security Overview
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 border border-border rounded-lg">
-                      <div className="text-sm text-text-secondary mb-1">Last Password Change</div>
+                    <div className="p-4 border border-[var(--border-color)] rounded-lg">
+                      <div className="text-sm text-text-secondary mb-1">
+                        Last Password Change
+                      </div>
                       <div className="font-medium text-text-primary">
+ buttons-color/hover
+                        {new Date(
+                          settings.security.lastPasswordChange
+                        ).toLocaleDateString()}
+
                         {new Date(security.lastPasswordChange).toLocaleDateString()}
+ master
                       </div>
                     </div>
-                    <div className="p-4 border border-border rounded-lg">
-                      <div className="text-sm text-text-secondary mb-1">Last Login</div>
+                    <div className="p-4 border border-[var(--border-color)] rounded-lg">
+                      <div className="text-sm text-text-secondary mb-1">
+                        Last Login
+                      </div>
                       <div className="font-medium text-text-primary">
                         {new Date(security.lastLogin).toLocaleString()}
                       </div>
                     </div>
-                    <div className="p-4 border border-border rounded-lg">
-                      <div className="text-sm text-text-secondary mb-1">Active Sessions</div>
+                    <div className="p-4 border border-[var(--border-color)] rounded-lg">
+                      <div className="text-sm text-text-secondary mb-1">
+                        Active Sessions
+                      </div>
                       <div className="font-medium text-text-primary">
                         {security.activeSessions} devices
                       </div>
@@ -1240,15 +1700,27 @@ const SettingsPage = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Login History</CardTitle>
+                  <CardTitle className="font-medium">Login History</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="space-y-3">
+ buttons-color/hover
+                    {settings.security.loginHistory.map((session, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 border border-[var(--border-color)] rounded-lg"
+                      >
+
                     {security.loginHistory.map((session, index) => (
                       <div key={index} className="flex items-center justify-between p-3 border border-border rounded-lg">
+ master
                         <div>
-                          <div className="font-medium text-text-primary">{session.device}</div>
-                          <div className="text-sm text-text-secondary">{session.location}</div>
+                          <div className="font-medium text-text-primary">
+                            {session.device}
+                          </div>
+                          <div className="text-sm text-text-secondary">
+                            {session.location}
+                          </div>
                         </div>
                         <div className="text-sm text-text-secondary">
                           {new Date(session.date).toLocaleString()}
@@ -1261,7 +1733,7 @@ const SettingsPage = () => {
 
               <Card className="border-error">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-error">
+                  <CardTitle className="flex items-center gap-2 text-error font-medium">
                     <AlertTriangle className="w-5 h-5" />
                     Danger Zone
                   </CardTitle>
@@ -1269,15 +1741,23 @@ const SettingsPage = () => {
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-medium text-text-primary">Delete Account</h3>
+                      <h3 className="font-medium text-text-primary">
+                        Delete Account
+                      </h3>
                       <p className="text-sm text-text-secondary">
                         Permanently delete your account and all associated data
                       </p>
                     </div>
+ buttons-color/hover
+                    <Button
+                      variant="outline"
+                      className="text-error border-red-500 hover:bg-red-600 hover:text-white"
+
                     <Button 
                       variant="outline" 
                       className="text-error border-error hover:bg-error hover:text-white"
                       onClick={() => setShowDeleteConfirm(true)}
+ master
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete Account
@@ -1330,4 +1810,4 @@ const SettingsPage = () => {
   );
 };
 
-export default SettingsPage; 
+export default SettingsPage;

@@ -37,7 +37,8 @@ const BlogPage = () => {
   // Force grid view on mobile
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 640) { // sm breakpoint
+      if (window.innerWidth < 640) {
+        // sm breakpoint
         setViewMode("grid");
       }
     };
@@ -234,7 +235,7 @@ const BlogPage = () => {
   const activeFiltersCount = [
     searchQuery,
     selectedCategory !== "all",
-    sortBy !== "recent"
+    sortBy !== "recent",
   ].filter(Boolean).length;
 
   return (
@@ -279,7 +280,9 @@ const BlogPage = () => {
             variant="outline"
             onClick={() => setShowMobileFilters(!showMobileFilters)}
             className={`flex items-center gap-2 px-3 py-2 text-sm relative ${
-              activeFiltersCount > 0 ? 'border-primary-500 text-primary-600' : ''
+              activeFiltersCount > 0
+                ? "border-primary-500 text-primary-600"
+                : ""
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -326,7 +329,10 @@ const BlogPage = () => {
           {/* Sort */}
           <div className="flex items-center gap-2">
             <ArrowUpDown className="w-5 h-5 text-primary-500" />
-            <label htmlFor="sort" className="text-sm text-text-secondary whitespace-nowrap">
+            <label
+              htmlFor="sort"
+              className="text-sm text-text-secondary whitespace-nowrap"
+            >
               Sort by
             </label>
             <DropDown sortBy={sortBy} setSortBy={setSortBy} />
@@ -336,7 +342,7 @@ const BlogPage = () => {
           <div className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-md transition-all duration-200 ${
+              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
                 viewMode === "grid"
                   ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface"
@@ -346,7 +352,7 @@ const BlogPage = () => {
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-md transition-all duration-200 ${
+              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
                 viewMode === "list"
                   ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface"
@@ -371,7 +377,9 @@ const BlogPage = () => {
           {/* Sort Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-primary">Sort by</span>
+              <span className="text-sm font-medium text-text-primary">
+                Sort by
+              </span>
             </div>
             <div className="grid grid-cols-1 gap-2">
               {sortOptions.map((option) => (
@@ -380,8 +388,8 @@ const BlogPage = () => {
                   onClick={() => setSortBy(option.id)}
                   className={`p-3 text-left rounded-lg border transition-all text-sm ${
                     sortBy === option.id
-                      ? 'border-primary-500 bg-primary-50 text-primary-700'
-                      : 'border-[var(--border-color)] hover:bg-surface'
+                      ? "border-primary-500 bg-primary-50 text-primary-700"
+                      : "border-[var(--border-color)] hover:bg-surface"
                   }`}
                 >
                   {option.name}
@@ -397,9 +405,13 @@ const BlogPage = () => {
               className="flex items-center justify-between w-full text-sm font-medium text-text-primary"
             >
               <span>Categories</span>
-              {showCategories ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {showCategories ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
             </button>
-            
+
             {showCategories && (
               <div className="grid grid-cols-2 gap-2">
                 {categories.map((category) => (
@@ -408,12 +420,14 @@ const BlogPage = () => {
                     onClick={() => setSelectedCategory(category.id)}
                     className={`p-2 text-left rounded-lg border transition-all text-xs ${
                       selectedCategory === category.id
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-[var(--border-color)] hover:bg-surface'
+                        ? " bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover3)] shadow-sm"
+                        : " bg-[var(--secondary-btn)] hover:bg-[var(--secondary-btn-hover2)] text-text-secondary  "
                     }`}
                   >
                     <div className="font-medium">{category.name}</div>
-                    <div className="text-text-secondary">({category.count})</div>
+                    <div className="text-text-secondary">
+                      ({category.count})
+                    </div>
                   </button>
                 ))}
               </div>
@@ -456,7 +470,7 @@ const BlogPage = () => {
               variant={selectedCategory === category.id ? "default" : "outline"}
               className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover)] ${
                 selectedCategory === category.id
-                  ? "bg-primary-500 text-white hover:bg-primary-600"
+                  ? "bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-primary-600"
                   : "text-[var(--text-color)]"
               }`}
               onClick={() => setSelectedCategory(category.id)}
@@ -473,10 +487,20 @@ const BlogPage = () => {
         <div className="sm:hidden bg-primary-50 dark:bg-primary-900/20 rounded-lg p-3 border border-primary-200 dark:border-primary-800">
           <div className="flex items-center justify-between">
             <div className="text-sm text-primary-700 dark:text-primary-300">
-              Active filters: 
-              {searchQuery && <span className="ml-1 font-medium">"{searchQuery}"</span>}
-              {selectedCategory !== "all" && <span className="ml-1 font-medium">{categories.find(c => c.id === selectedCategory)?.name}</span>}
-              {sortBy !== "recent" && <span className="ml-1 font-medium">{sortOptions.find(s => s.id === sortBy)?.name}</span>}
+              Active filters:
+              {searchQuery && (
+                <span className="ml-1 font-medium">"{searchQuery}"</span>
+              )}
+              {selectedCategory !== "all" && (
+                <span className="ml-1 font-medium">
+                  {categories.find((c) => c.id === selectedCategory)?.name}
+                </span>
+              )}
+              {sortBy !== "recent" && (
+                <span className="ml-1 font-medium">
+                  {sortOptions.find((s) => s.id === sortBy)?.name}
+                </span>
+              )}
             </div>
             <button
               onClick={clearAllFilters}
@@ -510,8 +534,8 @@ const BlogPage = () => {
       {isLoading && (
         <div
           className={`grid gap-4 sm:gap-6 ${
-            viewMode === "grid" 
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3" 
+            viewMode === "grid"
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
               : "grid-cols-1"
           }`}
         >
@@ -561,10 +585,7 @@ const BlogPage = () => {
       )}
 
       {/* Floating Create Button (Mobile) */}
-      <Link 
-        to="/create-blog"
-        className="sm:hidden fixed bottom-6 right-4 z-40"
-      >
+      <Link to="/create-blog" className="sm:hidden fixed bottom-6 right-4 z-40">
         <Button className="w-14 h-14 rounded-full bg-indigo-500 hover:bg-indigo-600 shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center">
           <Plus className="w-6 h-6 text-white" />
         </Button>

@@ -260,7 +260,7 @@ const NotificationsPage = () => {
   };
 
   const selectAll = () => {
-    const allIds = new Set(filteredNotifications.map(n => n.id));
+    const allIds = new Set(filteredNotifications.map((n) => n.id));
     setSelectedNotifications(allIds);
   };
 
@@ -270,7 +270,7 @@ const NotificationsPage = () => {
 
   const handleNotificationAction = (notification) => {
     if (bulkMode) return; // Prevent navigation when in bulk select mode
-    
+
     markAsRead(notification.id);
     // Handle different action types
     switch (notification.action) {
@@ -327,11 +327,11 @@ const NotificationsPage = () => {
             </h1>
             <p className="text-sm sm:text-base text-text-secondary mt-1">
               {unreadCount > 0
-                ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`
                 : "All caught up!"}
             </p>
           </div>
-          
+
           {/* Mobile action menu */}
           <div className="flex items-center gap-2">
             <Button
@@ -339,10 +339,14 @@ const NotificationsPage = () => {
               size="sm"
               onClick={() => setBulkMode(!bulkMode)}
               className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                bulkMode ? 'bg-primary-100 text-primary-700' : ''
+                bulkMode ? "bg-primary-100 text-primary-700" : ""
               }`}
             >
-              {bulkMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {bulkMode ? (
+                <CheckSquare className="w-4 h-4" />
+              ) : (
+                <Square className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline">Select</span>
             </Button>
           </div>
@@ -361,7 +365,7 @@ const NotificationsPage = () => {
               <span className="xs:hidden">Mark all</span>
             </Button>
           )}
-          
+
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
@@ -370,7 +374,7 @@ const NotificationsPage = () => {
             <Filter className="w-4 h-4" />
             Filters
           </Button>
-          
+
           <Button
             variant="outline"
             className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]"
@@ -383,7 +387,7 @@ const NotificationsPage = () => {
       </div>
 
       {/* Search and Filters */}
-      <Card className={`${showFilters ? 'block' : 'hidden sm:block'}`}>
+      <Card className={`${showFilters ? "block" : "hidden sm:block"}`}>
         <CardContent className="p-3 sm:p-4 lg:p-6">
           <div className="flex flex-col gap-3 sm:gap-4">
             {/* Search */}
@@ -405,7 +409,7 @@ const NotificationsPage = () => {
                 </button>
               )}
             </div>
-            
+
             {/* Filter Tabs - Mobile horizontal scroll */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
               <Filter className="w-4 h-4 text-text-secondary flex-shrink-0" />
@@ -414,10 +418,10 @@ const NotificationsPage = () => {
                   <button
                     key={type.id}
                     onClick={() => setFilter(type.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap  cursor-pointer${
                       filter === type.id
-                        ? 'bg-primary-500 text-white shadow-sm'
-                        : 'bg-gray-100 dark:bg-gray-800 text-text-secondary hover:bg-gray-200 dark:hover:bg-gray-700'
+                        ? " bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover3)] shadow-sm"
+                        : " bg-[var(--secondary-btn)] hover:bg-[var(--secondary-btn-hover2)] text-text-secondary  "
                     }`}
                   >
                     {type.name} ({type.count})
@@ -425,7 +429,7 @@ const NotificationsPage = () => {
                 ))}
               </div>
             </div>
-            
+
             {/* Mobile close filters button */}
             <div className="sm:hidden flex justify-end">
               <Button
@@ -443,76 +447,35 @@ const NotificationsPage = () => {
       </Card>
 
       {/* Bulk Actions */}
-      {(selectedNotifications.size > 0 || bulkMode) && (
-        <Card className="bg-primary-50 border-primary-200 dark:bg-primary-900/20 dark:border-primary-800">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-primary-700 dark:text-primary-300">
-                  {selectedNotifications.size > 0 
-                    ? `${selectedNotifications.size} selected`
-                    : 'Bulk select mode'
-                  }
-                </span>
-                {filteredNotifications.length > 0 && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={selectAll}
-                      className="text-xs text-primary-600 hover:text-primary-800 underline"
-                    >
-                      Select all
-                    </button>
-                    {selectedNotifications.size > 0 && (
-                      <button
-                        onClick={deselectAll}
-                        className="text-xs text-primary-600 hover:text-primary-800 underline"
-                      >
-                        Deselect all
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex gap-2">
-                {selectedNotifications.size > 0 && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        selectedNotifications.forEach((id) => markAsRead(id));
-                        setSelectedNotifications(new Set());
-                      }}
-                      className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3 py-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span className="hidden sm:inline">Mark read</span>
-                      <span className="sm:hidden">Read</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={deleteSelected}
-                      className="flex items-center gap-1 text-error hover:text-error text-xs sm:text-sm px-2 sm:px-3 py-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Delete</span>
-                      <span className="sm:hidden">Del</span>
-                    </Button>
-                  </>
-                )}
+      {selectedNotifications.size > 0 && (
+        <Card className="bg-primary-50 border-primary-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-primary-700">
+                {selectedNotifications.size} notification
+                {selectedNotifications.size !== 1 ? "s" : ""} selected
+              </span>
+              <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => {
-                    setBulkMode(false);
+                    selectedNotifications.forEach((id) => markAsRead(id));
                     setSelectedNotifications(new Set());
                   }}
-                  className="text-xs sm:text-sm px-2 sm:px-3 py-2"
+                  className="flex items-center gap-1"
                 >
-                  <X className="w-4 h-4" />
-                  <span className="hidden sm:inline">Cancel</span>
+                  <Check className="w-4 h-4" />
+                  Mark as read
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deleteSelected}
+                  className="flex items-center gap-1 text-error hover:text-error"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
                 </Button>
               </div>
             </div>
@@ -526,7 +489,7 @@ const NotificationsPage = () => {
           filteredNotifications.map((notification) => {
             const Icon = notification.icon;
             const isSelected = selectedNotifications.has(notification.id);
-            
+
             return (
               <Card
                 key={notification.id}
@@ -535,8 +498,8 @@ const NotificationsPage = () => {
                     ? "border-primary-200 bg-primary-50/50 dark:bg-primary-900/10 dark:border-primary-800"
                     : ""
                 } ${
-                  isSelected 
-                    ? "ring-2 ring-primary-500 border-primary-500" 
+                  isSelected
+                    ? "ring-2 ring-primary-500 border-primary-500"
                     : "hover:shadow-md"
                 } ${
                   bulkMode ? "cursor-default" : "cursor-pointer hover:shadow-lg"
@@ -567,71 +530,58 @@ const NotificationsPage = () => {
                       <div
                         className={`p-2 sm:p-2.5 rounded-full ${notification.bgColor} flex-shrink-0`}
                       >
-                        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${notification.color}`} />
+                        <Icon
+                          className={`w-4 h-4 sm:w-5 sm:h-5 ${notification.color}`}
+                        />
                       </div>
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-col gap-2">
-                        {/* Title and unread indicator */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 flex-1 min-w-0">
-                            <h3 className="font-semibold text-text-primary text-sm sm:text-base leading-tight flex-1">
-                              {notification.title}
-                            </h3>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-text-primary mb-1">
+                            {notification.title}
                             {!notification.read && (
-                              <span className="inline-block w-2 h-2 bg-primary-500 rounded-full flex-shrink-0 mt-2"></span>
+                              <span className="ml-2 inline-block w-2 h-2 bg-primary-500 rounded-full"></span>
                             )}
+                          </h3>
+                          <p className="text-sm text-text-secondary mb-2 leading-relaxed">
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-text-secondary">
+                            <span>{notification.time}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {notification.type}
+                            </Badge>
                           </div>
-                          
-                          {/* Action buttons */}
-                          {!bulkMode && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {!notification.read && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markAsRead(notification.id);
-                                  }}
-                                  className="text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-900/30 p-1.5 sm:p-2"
-                                  title="Mark as read"
-                                >
-                                  <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteNotification(notification.id);
-                                }}
-                                className="text-error hover:bg-red-100 dark:hover:bg-red-900/30 p-1.5 sm:p-2"
-                                title="Delete notification"
-                              >
-                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                              </Button>
-                            </div>
-                          )}
                         </div>
 
-                        {/* Message */}
-                        <p className="text-xs sm:text-sm text-text-secondary leading-relaxed line-clamp-2 sm:line-clamp-none">
-                          {notification.message}
-                        </p>
-
-                        {/* Meta info */}
-                        <div className="flex flex-col xs:flex-row xs:items-center gap-2 text-xs text-text-secondary">
-                          <span className="flex-shrink-0">{notification.time}</span>
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs w-fit px-2 py-0.5"
+                        <div className="flex items-center gap-2">
+                          {!notification.read && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
+                              className="text-primary-500  cursor-pointer hover:bg-[var(--secondary-btn-hover)]"
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notification.id);
+                            }}
+                            className="text-error hover:text-error cursor-pointer hover:bg-[var(--secondary-btn-hover2)]"
                           >
-                            {notification.type}
-                          </Badge>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>

@@ -915,7 +915,7 @@ const SeriesPage = () => {
         <Card className="cursor-pointer group hover:shadow-lg transition-all duration-300 border border-[var(--border-color)]">
           <div className="flex flex-col lg:flex-row">
             {/* Cover Image */}
-            <div className="w-full lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-400 rounded-t-lg lg:rounded-l-lg lg:rounded-t-none to-gray-400 flex items-center justify-center relative overflow-hidden">
+            <div className="w-full lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-400  to-gray-400 flex items-center justify-center relative overflow-hidden rounded-l-2xl">
               <div className="text-4xl opacity-30">📚</div>
 
               {/* Overlay Badges */}
@@ -935,7 +935,9 @@ const SeriesPage = () => {
                   )}`}
                 >
                   {getDifficultyIcon(series.difficulty)}
-                  <span className="ml-1 capitalize hidden sm:inline">{series.difficulty}</span>
+                  <span className="ml-1 capitalize hidden sm:inline">
+                    {series.difficulty}
+                  </span>
                 </Badge>
               </div>
 
@@ -975,21 +977,26 @@ const SeriesPage = () => {
                   <div className="flex-1 space-y-4">
                     {/* Tags */}
                     <div className="flex flex-wrap gap-2">
-                      {series.tags.slice(0, window.innerWidth < 640 ? 2 : 3).map((tag, index) => (
+                      {series.tags
+                        .slice(0, window.innerWidth < 640 ? 2 : 3)
+                        .map((tag, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs px-2 py-1 border border-[var(--border-color)]"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      {series.tags.length >
+                        (window.innerWidth < 640 ? 2 : 3) && (
                         <Badge
-                          key={index}
                           variant="outline"
                           className="text-xs px-2 py-1 border border-[var(--border-color)]"
                         >
-                          {tag}
-                        </Badge>
-                      ))}
-                      {series.tags.length > (window.innerWidth < 640 ? 2 : 3) && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs px-2 py-1 border border-[var(--border-color)]"
-                        >
-                          +{series.tags.length - (window.innerWidth < 640 ? 2 : 3)}
+                          +
+                          {series.tags.length -
+                            (window.innerWidth < 640 ? 2 : 3)}
                         </Badge>
                       )}
                     </div>
@@ -1027,7 +1034,9 @@ const SeriesPage = () => {
                   <div className="flex items-center gap-2">
                     <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span className="hidden sm:inline">{series.category}</span>
-                    <span className="sm:hidden">{series.category.slice(0, 8)}</span>
+                    <span className="sm:hidden">
+                      {series.category.slice(0, 8)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1085,7 +1094,7 @@ const SeriesPage = () => {
     return (
       <Card className="cursor-pointer group overflow-hidden hover:shadow-lg transition-all duration-300 border border-[var(--border-color)]">
         {/* Cover Image */}
-        <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400 flex items-center justify-center relative overflow-hidden">
+        <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400 flex items-center justify-center relative overflow-hidden rounded-t-2xl">
           <div className="text-3xl sm:text-4xl opacity-30">📚</div>
 
           {/* Template and Difficulty Badges */}
@@ -1106,7 +1115,9 @@ const SeriesPage = () => {
               )}`}
             >
               {getDifficultyIcon(series.difficulty)}
-              <span className="ml-1 capitalize hidden sm:inline">{series.difficulty}</span>
+              <span className="ml-1 capitalize hidden sm:inline">
+                {series.difficulty}
+              </span>
             </Badge>
           </div>
 
@@ -1152,15 +1163,17 @@ const SeriesPage = () => {
         <CardHeader className="space-y-4 p-4 sm:p-6">
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
-            {series.tags.slice(0, window.innerWidth < 640 ? 2 : 3).map((tag, index) => (
-              <Badge
-                key={index}
-                variant="outline"
-                className="text-xs px-2 py-1 border border-[var(--border-color)]"
-              >
-                {tag}
-              </Badge>
-            ))}
+            {series.tags
+              .slice(0, window.innerWidth < 640 ? 2 : 3)
+              .map((tag, index) => (
+                <Badge
+                  key={index}
+                  variant="outline"
+                  className="text-xs px-2 py-1 border border-[var(--border-color)]"
+                >
+                  {tag}
+                </Badge>
+              ))}
             {series.tags.length > (window.innerWidth < 640 ? 2 : 3) && (
               <Badge
                 variant="outline"
@@ -1286,7 +1299,10 @@ const SeriesPage = () => {
             {/* Sort */}
             <div className="flex items-center gap-2 flex-1 sm:flex-none">
               <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-              <label htmlFor="sort" className="text-sm text-text-secondary hidden sm:inline">
+              <label
+                htmlFor="sort"
+                className="text-sm text-text-secondary hidden sm:inline"
+              >
                 Sort by
               </label>
               <DiscoverSeriesDropDown sortBy={sortBy} setSortBy={setSortBy} />
@@ -1350,7 +1366,9 @@ const SeriesPage = () => {
       </div>
 
       {/* Filters Section - Mobile Collapsible, Desktop Always Visible */}
-      <div className={`space-y-4 sm:space-y-6 ${showFilters ? 'block' : 'hidden sm:block'}`}>
+      <div
+        className={`space-y-4 sm:space-y-6 ${showFilters ? "block" : "hidden sm:block"}`}
+      >
         {/* Categories */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -1363,7 +1381,9 @@ const SeriesPage = () => {
             {categories.map((category) => (
               <Badge
                 key={category.id}
-                variant={selectedCategory === category.id ? "default" : "outline"}
+                variant={
+                  selectedCategory === category.id ? "default" : "outline"
+                }
                 className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]${
                   selectedCategory === category.id
                     ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]"
@@ -1373,7 +1393,9 @@ const SeriesPage = () => {
                 aria-pressed={selectedCategory === category.id}
               >
                 <span className="hidden sm:inline">{category.name}</span>
-                <span className="sm:hidden">{category.name.replace("Series", "").trim()}</span>
+                <span className="sm:hidden">
+                  {category.name.replace("Series", "").trim()}
+                </span>
                 <span className="ml-1 opacity-75">({category.count})</span>
               </Badge>
             ))}
@@ -1392,7 +1414,9 @@ const SeriesPage = () => {
             {templates.map((template) => (
               <Badge
                 key={template.id}
-                variant={selectedTemplate === template.id ? "default" : "outline"}
+                variant={
+                  selectedTemplate === template.id ? "default" : "outline"
+                }
                 className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] ${
                   selectedTemplate === template.id
                     ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
@@ -1465,8 +1489,8 @@ const SeriesPage = () => {
       {isLoading && (
         <div
           className={`grid gap-4 sm:gap-6 ${
-            viewMode === "grid" 
-              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3" 
+            viewMode === "grid"
+              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
               : "grid-cols-1"
           }`}
         >

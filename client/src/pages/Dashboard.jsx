@@ -95,7 +95,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-primary-50 to-accent-50 rounded-xl p-8 border border-primary-100 shadow-sm">
+      <div className="bg-gradient-to-r from-primary-50 to-accent-50 rounded-xl p-8 border border-[var(--border-color)] shadow-sm">
         <h1 className="text-3xl lg:text-4xl font-bold text-text-primary mb-3">
           Welcome back, User! 👋
         </h1>
