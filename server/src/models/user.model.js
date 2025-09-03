@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
     address: { type: String },
     profilePicture: { type: String },
     avatar: { type: String },
+    coverImage: { type: String }, // Background banner image
 
     // Professional info
     company: { type: String },

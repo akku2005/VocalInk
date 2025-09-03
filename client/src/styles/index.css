@@ -282,3 +282,83 @@ button:focus {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* Theme-aware utility classes */
+.bg-background {
+  background-color: rgb(var(--color-background));
+}
+
+.text-text-primary {
+  color: rgb(var(--color-text-primary));
+}
+
+.text-text-secondary {
+  color: rgb(var(--color-text-secondary));
+}
+
+.text-primary {
+  color: rgb(var(--color-primary));
+}
+
+.text-error {
+  color: rgb(var(--color-error));
+}
+
+.bg-primary\/10 {
+  background-color: rgba(var(--color-primary), 0.1);
+}
+
+.bg-error\/10 {
+  background-color: rgba(var(--color-error), 0.1);
+}
+
+.text-primary\/80 {
+  color: rgba(var(--color-primary), 0.8);
+}
+
+.hover\:bg-secondary-btn-hover:hover {
+  background-color: var(--secondary-btn-hover);
+}
+
+.hover\:text-primary\/80:hover {
+  color: rgba(var(--color-primary), 0.8);
+}
+
+/* Button variant classes */
+.bg-primary {
+  background-color: rgb(var(--color-primary));
+}
+
+.hover\:bg-primary\/80:hover {
+  background-color: rgba(var(--color-primary), 0.8);
+}
+
+.hover\:bg-primary\/10:hover {
+  background-color: rgba(var(--color-primary), 0.1);
+}
+
+.bg-error {
+  background-color: rgb(var(--color-error));
+}
+
+.hover\:bg-error\/80:hover {
+  background-color: rgba(var(--color-error), 0.8);
+}
+
+/* Focus ring classes */
+.focus\:ring-primary:focus {
+  --tw-ring-color: rgb(var(--color-primary));
+}
+
+.focus\:ring-error:focus {
+  --tw-ring-color: rgb(var(--color-error));
+}
+
+.focus\:ring-offset-2:focus {
+  --tw-ring-offset-width: 2px;
+}
+
+/* Focus ring offset background */
+.focus\:ring-offset-2:focus {
+  --tw-ring-offset-color: rgb(var(--color-background));
+}

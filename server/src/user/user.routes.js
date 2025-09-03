@@ -6,6 +6,7 @@ const { protect, requireAdmin } = require('../middleware/auth');
 const userController = require('./user.controller');
 
 // Profile routes
+router.get('/me', protect, userController.getMyProfile);
 router.get('/:id', userController.getProfile);
 router.put('/:id', protect, userController.updateProfile);
 router.patch('/me', protect, userController.updateProfile);
