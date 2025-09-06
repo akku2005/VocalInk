@@ -21,7 +21,7 @@ const AuthCheck = ({ children }) => {
         '/create-series', 
         '/edit-blog', 
         '/series/timeline', 
-        '/settings', 
+        '/settings',
         '/2fa-setup',
         '/test'
       ];

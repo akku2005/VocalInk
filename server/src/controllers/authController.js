@@ -35,6 +35,7 @@ const {
   getOperatingSystem,
   getLocationFromIP,
 } = require('../utils/sanitize');
+const SessionManager = require('../utils/sessionManager');
 
 // Utility: base64 encode a string
 const toBase64 = (str) => Buffer.from(str, 'utf-8').toString('base64');
@@ -611,42 +612,15 @@ class AuthController {
         throw new Error('Authentication failed. Please try again.');
       }
 
-      // Generate device fingerprint for security
-      const deviceFingerprint = generateDeviceFingerprint(req);
-      
-      // Parse user agent for device info
-      const userAgent = req.get('user-agent') || 'Unknown';
-      const deviceInfo = {
-        userAgent: userAgent,
-        device: getDeviceType(userAgent),
-        browser: getBrowserName(userAgent),
-        os: getOperatingSystem(userAgent)
-      };
+      // Create session with real geolocation data
+      const sessionData = await SessionManager.createSessionData(req);
+      const sessionId = await SessionManager.addSession(user, sessionData);
       
       // Update user's login streak
       await user.updateStreak('login', 'increment');
       
-      // Create a new session record
-      const sessionData = {
-        userId: user._id,
-        sessionToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        deviceInfo: deviceInfo,
-        ipAddress: req.ip || req.connection.remoteAddress || 'Unknown',
-        location: await getLocationFromIP(req.ip),
-        isActive: true,
-        lastActivity: new Date(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        loginMethod: user.twoFactorEnabled ? '2fa' : 'password'
-      };
-      
-      try {
-        await Session.create(sessionData);
-        console.log('✅ Session created successfully for user:', user._id);
-      } catch (sessionError) {
-        console.error('❌ Failed to create session:', sessionError);
-        // Don't fail login if session creation fails
-      }
+      // Store session ID in token for future reference
+      tokens.sessionId = sessionId;
 
       // Log successful login
       await logAuthActivity(req, 'AUTH_LOGIN_SUCCESS', {
