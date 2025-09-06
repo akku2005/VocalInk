@@ -150,6 +150,46 @@ const userSchema = new mongoose.Schema(
     lockoutUntil: { type: Date, default: null },
     lastLoginAt: { type: Date },
     lastActiveAt: { type: Date },
+    passwordChangedAt: { type: Date },
+    activeSessions: [{
+      sessionId: { type: String, required: true },
+      device: { type: String },
+      browser: { type: String },
+      os: { type: String },
+      ip: { type: String },
+      userAgent: { type: String },
+      location: {
+        city: { type: String },
+        region: { type: String },
+        country: { type: String },
+        countryCode: { type: String },
+        latitude: { type: Number },
+        longitude: { type: Number }
+      },
+      createdAt: { type: Date, default: Date.now },
+      lastActivity: { type: Date, default: Date.now },
+      isActive: { type: Boolean, default: true }
+    }],
+    loginHistory: [{
+      device: { type: String },
+      browser: { type: String },
+      os: { type: String },
+      location: {
+        city: { type: String },
+        region: { type: String },
+        country: { type: String },
+        countryCode: { type: String }
+      },
+      date: { type: Date, default: Date.now },
+      ip: { type: String },
+      userAgent: { type: String },
+      success: { type: Boolean, default: true }
+    }],
+    securitySettings: {
+      loginNotifications: { type: Boolean, default: true },
+      suspiciousActivityAlerts: { type: Boolean, default: true },
+      autoLogout: { type: Boolean, default: false }
+    },
 
     // AI preferences
     aiPreferences: {
@@ -157,6 +197,15 @@ const userSchema = new mongoose.Schema(
       autoSummarize: { type: Boolean, default: true },
       speechToText: { type: Boolean, default: false },
       language: { type: String, default: 'en' }
+    },
+
+    
+
+    // Legacy theme field for backward compatibility
+    theme: { 
+      type: String, 
+      enum: ['light', 'dark', 'system'], 
+      default: 'system' 
     },
     
     // AI usage tracking
@@ -196,7 +245,7 @@ const userSchema = new mongoose.Schema(
       },
       pushNotificationTime: { 
         type: String, 
-        enum: ['immediate', 'hourly', 'daily'],
+        enum: ['immediate', 'hourly', 'daily', 'never'],
         default: 'immediate' 
       }
     },

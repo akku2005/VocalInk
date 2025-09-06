@@ -63,22 +63,20 @@ class SettingsService {
       }
 
       console.log('🌐 Fetching fresh settings from API');
-      const response = await api.get(`${this.baseURL}/me`);
+      // Use the new settings endpoint instead of /users/me
+      const response = await api.get('/settings');
       
       if (response.data.success) {
-        const userData = response.data.data;
+        const settingsData = response.data.data;
         
-        // Transform backend data to frontend settings format
-        const transformedData = this.transformBackendToFrontend(userData);
-        
-        // Cache the result
-        this.cache = transformedData;
+        // Cache the result directly since backend now returns proper structure
+        this.cache = settingsData;
         this.cacheTimestamp = Date.now();
         
         // Save to localStorage for persistence across page refreshes
         this.saveCacheToStorage();
         
-        return transformedData;
+        return settingsData;
       } else {
         throw new Error(response.data.message || 'Failed to get user settings');
       }
@@ -106,7 +104,7 @@ class SettingsService {
   // Update user profile settings
   async updateProfileSettings(profileData) {
     try {
-      const response = await api.patch(`${this.baseURL}/me`, profileData);
+      const response = await api.patch('/settings/profile', profileData);
       
       if (response.data.success) {
         // Clear cache when settings are updated
@@ -127,11 +125,11 @@ class SettingsService {
   // Update gamification settings
   async updateGamificationSettings(gamificationSettings) {
     try {
-      const response = await api.put(`${this.xpURL}/settings`, {
-        gamificationSettings
-      });
+      const response = await api.patch('/settings/gamification', gamificationSettings);
       
       if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
         return response.data.data;
       } else {
         throw new Error(response.data.message || 'Failed to update gamification settings');
@@ -169,11 +167,11 @@ class SettingsService {
   // Update AI preferences
   async updateAIPreferences(aiPreferences) {
     try {
-      const response = await api.patch(`${this.baseURL}/me`, {
-        aiPreferences
-      });
+      const response = await api.patch('/settings/ai', aiPreferences);
       
       if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
         return response.data.data;
       } else {
         throw new Error(response.data.message || 'Failed to update AI preferences');
@@ -209,25 +207,7 @@ class SettingsService {
   // Update notification preferences
   async updateNotificationPreferences(notificationSettings) {
     try {
-      const response = await api.put('/notifications/preferences', {
-        emailNotifications: notificationSettings.emailNotifications,
-        pushNotifications: notificationSettings.pushNotifications,
-        marketingEmails: notificationSettings.marketingEmails,
-        notificationSettings: {
-          newFollowers: notificationSettings.newFollowers,
-          newLikes: notificationSettings.newLikes,
-          newComments: notificationSettings.newComments,
-          newMentions: notificationSettings.newMentions,
-          badgeEarned: notificationSettings.badgeEarned,
-          levelUp: notificationSettings.levelUp,
-          seriesUpdates: notificationSettings.seriesUpdates,
-          aiGenerations: notificationSettings.aiGenerations,
-          weeklyDigest: notificationSettings.weeklyDigest,
-          monthlyReport: notificationSettings.monthlyReport,
-          emailDigestFrequency: notificationSettings.emailDigestFrequency,
-          pushNotificationTime: notificationSettings.pushNotificationTime
-        }
-      });
+      const response = await api.patch('/settings/notifications', notificationSettings);
       
       if (response.data.success) {
         this.clearCache();
@@ -287,6 +267,86 @@ class SettingsService {
     }
   }
 
+  // Enable two-factor authentication
+  async enable2FA() {
+    try {
+      const response = await api.post(`${this.baseURL}/me/2fa/enable`);
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to enable two-factor authentication');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to enable two-factor authentication');
+      }
+      throw error;
+    }
+  }
+
+  // Disable two-factor authentication
+  async disable2FA() {
+    try {
+      const response = await api.post(`${this.baseURL}/me/2fa/disable`);
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to disable two-factor authentication');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to disable two-factor authentication');
+      }
+      throw error;
+    }
+  }
+
+  // Terminate all sessions
+  async terminateAllSessions() {
+    try {
+      const response = await api.post(`${this.baseURL}/me/sessions/terminate-all`);
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to terminate sessions');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to terminate sessions');
+      }
+      throw error;
+    }
+  }
+
+  // Update security settings
+  async updateSecuritySettings(securitySettings) {
+    try {
+      const response = await api.put(`${this.baseURL}/settings/security`, {
+        ...securitySettings
+      });
+      
+      if (response.data.success) {
+        // Clear cache to force fresh data on next load
+        this.clearCache();
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to update security settings');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to update security settings');
+      }
+      throw error;
+    }
+  }
+
   // Delete account
   async deleteAccount(confirmation) {
     try {
@@ -308,227 +368,28 @@ class SettingsService {
     }
   }
 
-  // Transform backend user data to frontend settings format
+  // Legacy method - no longer needed since backend returns proper structure
+  // Kept for backward compatibility but now just returns data as-is
   transformBackendToFrontend(userData) {
-    console.log('🔍 DEBUG: Raw userData from backend:', userData);
-    console.log('🔍 DEBUG: userData.twoFactorEnabled:', userData.twoFactorEnabled);
-    
-    return {
-      profile: {
-        firstName: userData.firstName || '',
-        lastName: userData.lastName || '',
-        username: userData.name || '',
-        displayName: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || '',
-        email: userData.email || '',
-        bio: userData.bio || '',
-        avatar: userData.avatar || userData.profilePicture || null,
-        coverImage: userData.coverImage || null,
-        location: userData.address || '',
-        website: userData.website || '',
-        socialLinks: userData.socialLinks || {}
-      },
-      account: {
-        visibility: userData.visibility || 'public',
-        language: userData.language || 'en',
-        timezone: userData.timezone || 'UTC',
-        dateFormat: userData.dateFormat || 'MM/DD/YYYY',
-        timeFormat: userData.timeFormat || '12h',
-        twoFactorAuth: userData.twoFactorEnabled !== undefined ? userData.twoFactorEnabled : false
-      },
-      notifications: {
-        emailNotifications: userData.emailNotifications !== undefined ? userData.emailNotifications : true,
-        pushNotifications: userData.pushNotifications !== undefined ? userData.pushNotifications : true,
-        marketingEmails: userData.marketingEmails !== undefined ? userData.marketingEmails : false,
-        newFollowers: userData.notificationSettings?.newFollowers !== undefined ? userData.notificationSettings.newFollowers : true,
-        newLikes: userData.notificationSettings?.newLikes !== undefined ? userData.notificationSettings.newLikes : true,
-        newComments: userData.notificationSettings?.newComments !== undefined ? userData.notificationSettings.newComments : true,
-        newMentions: userData.notificationSettings?.newMentions !== undefined ? userData.notificationSettings.newMentions : true,
-        badgeEarned: userData.notificationSettings?.badgeEarned !== undefined ? userData.notificationSettings.badgeEarned : true,
-        levelUp: userData.notificationSettings?.levelUp !== undefined ? userData.notificationSettings.levelUp : true,
-        seriesUpdates: userData.notificationSettings?.seriesUpdates !== undefined ? userData.notificationSettings.seriesUpdates : true,
-        aiGenerations: userData.notificationSettings?.aiGenerations !== undefined ? userData.notificationSettings.aiGenerations : true,
-        weeklyDigest: userData.notificationSettings?.weeklyDigest !== undefined ? userData.notificationSettings.weeklyDigest : true,
-        monthlyReport: userData.notificationSettings?.monthlyReport !== undefined ? userData.notificationSettings.monthlyReport : false,
-        emailDigestFrequency: userData.notificationSettings?.emailDigestFrequency || 'weekly',
-        pushNotificationTime: userData.notificationSettings?.pushNotificationTime || '18:00'
-      },
-      privacy: {
-        profileVisibility: userData.visibility || 'public',
-        postVisibility: userData.postVisibility || 'public', 
-        allowSearch: userData.privacySettings?.allowSearch !== undefined ? userData.privacySettings.allowSearch : true,
-        showOnlineStatus: userData.privacySettings?.showOnlineStatus !== undefined ? userData.privacySettings.showOnlineStatus : true,
-        allowDirectMessages: userData.privacySettings?.allowDirectMessages !== undefined ? userData.privacySettings.allowDirectMessages : true,
-        dataSharing: userData.privacySettings?.dataSharing !== undefined ? userData.privacySettings.dataSharing : false,
-        analyticsSharing: userData.privacySettings?.analyticsSharing !== undefined ? userData.privacySettings.analyticsSharing : true,
-        showEmail: userData.privacySettings?.showEmail !== undefined ? userData.privacySettings.showEmail : false
-      },
-      appearance: {
-        theme: userData.theme || 'light',
-        fontSize: userData.fontSize || 'medium',
-        language: userData.language || 'en',
-        compactMode: userData.compactMode !== undefined ? userData.compactMode : false,
-        showAvatars: userData.showAvatars !== undefined ? userData.showAvatars : true,
-        animationsEnabled: userData.animationsEnabled !== undefined ? userData.animationsEnabled : true
-      },
-      gamification: {
-        showBadges: userData.gamificationSettings?.showBadges !== undefined ? userData.gamificationSettings.showBadges : true,
-        showLevel: userData.gamificationSettings?.showLevel !== undefined ? userData.gamificationSettings.showLevel : true,
-        showXP: userData.gamificationSettings?.showXP !== undefined ? userData.gamificationSettings.showXP : true,
-        publicProfile: userData.gamificationSettings?.publicProfile !== undefined ? userData.gamificationSettings.publicProfile : true,
-        emailNotifications: userData.gamificationSettings?.emailNotifications !== undefined ? userData.gamificationSettings.emailNotifications : true,
-        pushNotifications: userData.gamificationSettings?.pushNotifications !== undefined ? userData.gamificationSettings.pushNotifications : true
-      },
-      ai: {
-        preferredVoice: userData.aiPreferences?.preferredVoice || 'default',
-        autoSummarize: userData.aiPreferences?.autoSummarize || false,
-        speechToText: userData.aiPreferences?.speechToText || false,
-        language: userData.aiPreferences?.language || 'en'
-      },
-      security: {
-        lastPasswordChange: userData.updatedAt || new Date().toISOString(),
-        lastLogin: userData.lastLoginAt || new Date().toISOString(),
-        activeSessions: 1, // Default, not stored in backend yet
-        loginHistory: [], // Default, not stored in backend yet
-        failedLoginAttempts: userData.failedLoginAttempts || 0,
-        lockoutUntil: userData.lockoutUntil || null,
-        isVerified: userData.isVerified || false
-      }
-    };
-    
-    console.log('🔍 DEBUG: Transformed account object:', transformed.account);
-    console.log('🔍 DEBUG: Final twoFactorAuth value:', transformed.account.twoFactorAuth);
-    
-    return transformed;
+    console.log('🔍 DEBUG: Backend data already in correct format:', userData);
+    return userData;
   }
 
-  // Transform frontend settings to backend format
+  // Legacy method - no longer needed since backend expects proper structure
+  // Kept for backward compatibility but now just returns data as-is
   transformFrontendToBackend(settings) {
-    const backendData = {};
-
-    // Profile fields
-    if (settings.profile) {
-      backendData.firstName = settings.profile.firstName;
-      backendData.lastName = settings.profile.lastName;
-      backendData.name = settings.profile.displayName;
-      backendData.bio = settings.profile.bio;
-      
-      // Handle avatar - if it's base64, store it directly; if it's a URL, keep it
-      if (settings.profile.avatar) {
-        if (settings.profile.avatar.startsWith('data:image/')) {
-          // It's a base64 image, store it directly
-          backendData.avatar = settings.profile.avatar;
-        } else if (settings.profile.avatar.startsWith('http://') || settings.profile.avatar.startsWith('https://')) {
-          // It's an external URL, store it
-          backendData.avatar = settings.profile.avatar;
-        } else {
-          // It might be a relative path, store as is
-          backendData.avatar = settings.profile.avatar;
-        }
-      }
-      
-      // Handle cover image - same logic as avatar
-      if (settings.profile.coverImage) {
-        if (settings.profile.coverImage.startsWith('data:image/')) {
-          // It's a base64 image, store it directly
-          backendData.coverImage = settings.profile.coverImage;
-        } else if (settings.profile.coverImage.startsWith('http://') || settings.profile.coverImage.startsWith('https://')) {
-          // It's an external URL, store it
-          backendData.coverImage = settings.profile.coverImage;
-        } else {
-          // It might be a relative path, store as is
-          backendData.coverImage = settings.profile.coverImage;
-        }
-      }
-      
-      backendData.address = settings.profile.location;
-      backendData.website = settings.profile.website;
-      backendData.company = settings.profile.company;
-      backendData.jobTitle = settings.profile.jobTitle;
-      backendData.linkedin = settings.profile.linkedin;
-      backendData.socialLinks = settings.profile.socialLinks;
-      
-      // Only include enum fields if they have valid values
-      if (settings.profile.gender && settings.profile.gender.trim() !== '') {
-        backendData.gender = settings.profile.gender;
-      }
-      if (settings.profile.occupation && settings.profile.occupation.trim() !== '') {
-        backendData.occupation = settings.profile.occupation;
-      }
-      if (settings.profile.nationality && settings.profile.nationality.trim() !== '') {
-        backendData.nationality = settings.profile.nationality;
-      }
-      if (settings.profile.mobile && settings.profile.mobile.trim() !== '') {
-        backendData.mobile = settings.profile.mobile;
-      }
-      if (settings.profile.dob && settings.profile.dob.trim() !== '') {
-        // Convert date string to Date object for backend
-        const dobDate = new Date(settings.profile.dob);
-        if (!isNaN(dobDate.getTime())) {
-          backendData.dob = dobDate;
-        }
-      }
-    }
-
-    // Account settings
-    if (settings.account) {
-      backendData.emailNotifications = settings.account.emailNotifications;
-      backendData.pushNotifications = settings.account.pushNotifications;
-      backendData.marketingEmails = settings.account.marketingEmails;
-      backendData.accountVisibility = settings.account.accountVisibility;
-      backendData.twoFactorEnabled = settings.account.twoFactorAuth;
-    }
-
-    // Notification settings
-    if (settings.notifications) {
-      backendData.notificationSettings = {
-        newFollowers: settings.notifications.newFollowers,
-        newLikes: settings.notifications.newLikes,
-        newComments: settings.notifications.newComments,
-        newMentions: settings.notifications.newMentions,
-        badgeEarned: settings.notifications.badgeEarned,
-        levelUp: settings.notifications.levelUp,
-        seriesUpdates: settings.notifications.seriesUpdates,
-        aiGenerations: settings.notifications.aiGenerations,
-        weeklyDigest: settings.notifications.weeklyDigest,
-        monthlyReport: settings.notifications.monthlyReport,
-        emailDigestFrequency: settings.notifications.emailDigestFrequency,
-        pushNotificationTime: settings.notifications.pushNotificationTime
-      };
-    }
-
-    // Privacy settings
-    if (settings.privacy) {
-      backendData.privacySettings = {
-        profileVisibility: settings.privacy.profileVisibility,
-        postVisibility: settings.privacy.postVisibility,
-        allowSearch: settings.privacy.allowSearch,
-        showOnlineStatus: settings.privacy.showOnlineStatus,
-        allowDirectMessages: settings.privacy.allowDirectMessages,
-        dataSharing: settings.privacy.dataSharing,
-        analyticsSharing: settings.privacy.analyticsSharing,
-        showEmail: settings.privacy.showEmail
-      };
-    }
-
-    // AI preferences
-    if (settings.ai) {
-      backendData.aiPreferences = {
-        preferredVoice: settings.ai.preferredVoice,
-        autoSummarize: settings.ai.autoSummarize,
-        speechToText: settings.ai.speechToText,
-        language: settings.ai.language
-      };
-    }
-
-    return backendData;
+    console.log('🔍 DEBUG: Frontend data already in correct format:', settings);
+    return settings;
   }
 
-  // New optimized settings methods using dedicated endpoints
+  // Generic settings section update method
   async updateSettingsSection(section, data) {
     try {
       const response = await api.patch(`/settings/${section}`, data);
       
       if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
         return response.data.data;
       } else {
         throw new Error(response.data.message || `Failed to update ${section} settings`);
@@ -568,7 +429,23 @@ class SettingsService {
   }
 
   async updateAppearanceSection(appearanceData) {
-    return this.updateSettingsSection('appearance', appearanceData);
+    try {
+      const response = await api.patch('/settings/appearance', appearanceData);
+      
+      if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to update appearance settings');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to update appearance settings');
+      }
+      throw error;
+    }
   }
 
   // Get all settings from new endpoint
@@ -585,6 +462,228 @@ class SettingsService {
       if (error.response && error.response.data && !error.response.data.success) {
         const errorData = error.response.data;
         throw new Error(errorData.message || 'Failed to get settings');
+      }
+      throw error;
+    }
+  }
+
+  // Update account settings including notification preferences
+  async updateAccountSettings(accountData) {
+    try {
+      const response = await api.patch('/settings/account', accountData);
+      
+      if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to update account settings');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to update account settings');
+      }
+      throw error;
+    }
+  }
+
+  // Update security settings
+  async updateSecurity(securityData) {
+    try {
+      const response = await api.patch('/settings/security', securityData);
+      
+      if (response.data.success) {
+        this.clearCache();
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to update security settings');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to update security settings');
+      }
+      throw error;
+    }
+  }
+
+  // Change password
+  async changePassword(passwordData) {
+    try {
+      const response = await api.patch('/settings/change-password', passwordData);
+      
+      if (response.data.success) {
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to change password');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to change password');
+      }
+      throw error;
+    }
+  }
+
+  // Security & Privacy methods
+  async enable2FA() {
+    try {
+      const response = await api.post('/settings/2fa/enable');
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to enable 2FA');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to enable 2FA');
+      }
+      throw error;
+    }
+  }
+
+  async verify2FA(token) {
+    try {
+      const response = await api.post('/settings/2fa/verify', { token });
+      
+      if (response.data.success) {
+        this.clearCache();
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to verify 2FA');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to verify 2FA');
+      }
+      throw error;
+    }
+  }
+
+  async disable2FA(password) {
+    try {
+      const response = await api.post('/settings/2fa/disable', { password });
+      
+      if (response.data.success) {
+        this.clearCache();
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to disable 2FA');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to disable 2FA');
+      }
+      throw error;
+    }
+  }
+
+  async getActiveSessions() {
+    try {
+      const response = await api.get('/settings/sessions');
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to get active sessions');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to get active sessions');
+      }
+      throw error;
+    }
+  }
+
+  async revokeSession(sessionId) {
+    try {
+      const response = await api.delete(`/settings/sessions/${sessionId}`);
+      
+      if (response.data.success) {
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to revoke session');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to revoke session');
+      }
+      throw error;
+    }
+  }
+
+  async revokeAllSessions() {
+    try {
+      const response = await api.delete('/settings/sessions');
+      
+      if (response.data.success) {
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to revoke all sessions');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to revoke all sessions');
+      }
+      throw error;
+    }
+  }
+
+  async exportUserData() {
+    try {
+      const response = await api.get('/settings/export');
+      
+      if (response.data.success) {
+        // Create and download file
+        const dataStr = JSON.stringify(response.data.data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `vocalink-data-export-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to export user data');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to export user data');
+      }
+      throw error;
+    }
+  }
+
+  async deleteAccount(password, confirmText) {
+    try {
+      const response = await api.delete('/settings/account', {
+        data: { password, confirmText }
+      });
+      
+      if (response.data.success) {
+        this.clearCache();
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to delete account');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to delete account');
       }
       throw error;
     }

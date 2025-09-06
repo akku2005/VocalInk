@@ -27,7 +27,7 @@ const CreateBlogPage = lazy(() => import("../pages/CreateBlogPage"));
 const EditBlogPage = lazy(() => import("../pages/EditBlogPage"));
 const SeriesTimelinePage = lazy(() => import("../pages/SeriesTimelinePage"));
 const SearchPage = lazy(() => import("../pages/SearchPage"));
-const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+const SettingsPage = lazy(() => import("../components/settings/SettingsPage"));
 const LeaderboardPage = lazy(() => import("../pages/LeaderboardPage"));
 const BadgeGalleryPage = lazy(() => import("../pages/BadgeGalleryPage"));
 const BadgeDetailPage = lazy(() => import("../pages/badges/BadgeDetailPage.jsx"));
@@ -35,6 +35,8 @@ const CreateSeriesPage = lazy(() => import("../pages/CreateSeriesPage.jsx"));
 const UpgradePage = lazy(() => import("../pages/UpgradePage.jsx"));
 const ContactSalesPage = lazy(() => import("../pages/ContactSalesPage.jsx"));
 const FreeTrialPage = lazy(() => import("../pages/FreeTrialPage.jsx"));
+const ToastTest = lazy(() => import("../components/test/ToastTest.jsx"));
+const AppearanceTest = lazy(() => import("../components/test/AppearanceTest.jsx"));
 
 export default function AppRoutes() {
   return (
@@ -53,6 +55,8 @@ export default function AppRoutes() {
           <Route path="upgrade" element={<UpgradePage />} />
           <Route path="contact-sales" element={<ContactSalesPage />} />
           <Route path="free-trial" element={<FreeTrialPage />} />
+          <Route path="toast-test" element={<ToastTest />} />
+          <Route path="appearance-test" element={<AppearanceTest />} />
           
           {/* Guest Routes - Only for non-authenticated users */}
           <Route path="login" element={
@@ -143,6 +147,11 @@ export default function AppRoutes() {
             </ProtectedRoute>
           } />
           <Route path="settings" element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="settings/:tabId" element={
             <ProtectedRoute>
               <SettingsPage />
             </ProtectedRoute>
