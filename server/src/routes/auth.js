@@ -370,7 +370,7 @@ router.post(
   '/resend-verification',
   verificationLimiter,
   validateJoi(resendVerificationSchema),
-  authController.resendVerificationCode
+  authController.resendVerification
 );
 
 router.post(

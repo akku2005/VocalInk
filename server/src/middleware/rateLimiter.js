@@ -4,6 +4,24 @@ const cacheService = require('../services/CacheService');
 let RedisStore;
 try { RedisStore = require('rate-limit-redis').default || require('rate-limit-redis'); } catch (e) { RedisStore = null; }
 
+/**
+ * Rate Limiting Configuration
+ * 
+ * Development Environment Overrides:
+ * - Login: 200 attempts per 15 minutes (vs 50 in production)
+ * - Register: 15 attempts per hour (vs 3 in production)  
+ * - Password Reset: 50 attempts per 30 minutes (vs 10 in production)
+ * - Verification: 100 attempts per minute (vs 20 in production)
+ * 
+ * Environment Variables for Custom Limits:
+ * - DEV_LOGIN_RATE_LIMIT: Override login rate limit
+ * - DEV_REGISTER_RATE_LIMIT: Override registration rate limit
+ * - DEV_PASSWORD_RESET_RATE_LIMIT: Override password reset rate limit
+ * - DEV_VERIFICATION_RATE_LIMIT: Override verification rate limit
+ * 
+ * The system automatically detects development mode and applies more lenient limits.
+ */
+
 // Custom IP key generator function
 const ipKeyGenerator = (req) => {
   // Get the real IP address considering proxies
@@ -39,6 +57,72 @@ const createLimiter = (options) => {
   // Disable rate limiting in test environment
   if (process.env.NODE_ENV === 'test') {
     return (req, res, next) => next();
+  }
+  
+  // Development environment override - much more lenient
+  if (process.env.NODE_ENV === 'development') {
+    const devOptions = {
+      ...options,
+      max: Math.max(options.max * 5, 100), // 5x more lenient in development
+      windowMs: Math.min(options.windowMs, 5 * 60 * 1000), // Shorter windows in development
+    };
+    
+    return rateLimit({
+      ...devOptions,
+      store: getStore(),
+      message: {
+        success: false,
+        message: devOptions.message,
+      },
+      standardHeaders: true,
+      legacyHeaders: false,
+      skipSuccessfulRequests: devOptions.skipSuccessfulRequests || false,
+      keyGenerator: (req) => {
+        // Use a safe IP extraction method with user ID for better rate limiting
+        const ip = ipKeyGenerator(req);
+        const userKey = req.user ? req.user.id : 'anonymous';
+        const key = [
+          ip,
+          req.headers['user-agent'],
+          userKey,
+          devOptions.additionalKey ? devOptions.additionalKey(req) : '',
+        ]
+          .filter(Boolean)
+          .join(':');
+        return key;
+      },
+      handler: (req, res) => {
+        const rateLimitInfo = req.rateLimit;
+        
+        logger.warn('Rate limit exceeded (development mode)', {
+          ip: req.ip,
+          userAgent: req.headers['user-agent'],
+          userId: req.user?.id || 'anonymous',
+          userRole: req.user?.role || 'anonymous',
+          url: req.originalUrl,
+          method: req.method,
+          rateLimitInfo: {
+            current: rateLimitInfo.current,
+            limit: rateLimitInfo.limit,
+            remaining: rateLimitInfo.remaining,
+            resetTime: rateLimitInfo.resetTime,
+          },
+        });
+
+        res.status(429).json({
+          success: false,
+          message: devOptions.message + ' (Development mode - limits are relaxed)',
+          retryAfter: res.getHeader('Retry-After'),
+          requiresCaptcha: rateLimitInfo.current >= 3,
+          rateLimitInfo: {
+            current: rateLimitInfo.current,
+            limit: rateLimitInfo.limit,
+            remaining: rateLimitInfo.remaining,
+            resetTime: rateLimitInfo.resetTime,
+          },
+        });
+      },
+    });
   }
   
   return rateLimit({
@@ -221,7 +305,7 @@ const adaptiveRateLimiter = rateLimit({
 // Login rate limiter - More strict with progressive delays
 const loginLimiter = createLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per window
+  max: process.env.DEV_LOGIN_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 200 : 50), // Configurable via env
   message: 'Too many login attempts, please try again after 15 minutes',
   skipSuccessfulRequests: true,
   additionalKey: (req) => req.body.email, // Rate limit by email too
@@ -230,7 +314,7 @@ const loginLimiter = createLimiter({
 // Register rate limiter with enhanced security
 const registerLimiter = createLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // 3 attempts per window
+  max: process.env.DEV_REGISTER_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 15 : 3), // Configurable via env
   message: 'Too many registration attempts, please try again after 1 hour',
   skipSuccessfulRequests: true,
   additionalKey: (req) => req.body.email, // Rate limit by email
@@ -239,7 +323,7 @@ const registerLimiter = createLimiter({
 // Password reset rate limiter with enhanced security
 const passwordResetLimiter = createLimiter({
   windowMs: 30 * 60 * 1000, // 30 minutes
-  max: 3, // 3 attempts per window
+  max: process.env.DEV_PASSWORD_RESET_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 50 : 10), // Configurable via env
   message: 'Too many password reset attempts, please try again after 30 minutes',
   skipSuccessfulRequests: true,
   additionalKey: (req) => req.body.email,
@@ -248,7 +332,7 @@ const passwordResetLimiter = createLimiter({
 // Verification code rate limiter with enhanced security
 const verificationLimiter = createLimiter({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 5, // 5 attempts per window
+  max: process.env.DEV_VERIFICATION_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 100 : 20), // Configurable via env
   message: 'Too many verification attempts, please try again after 1 minute',
   skipSuccessfulRequests: true,
   additionalKey: (req) => req.body.email,

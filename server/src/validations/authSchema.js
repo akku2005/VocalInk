@@ -38,7 +38,8 @@ const nameSchema = Joi.string()
 const registerSchema = Joi.object({
   email: emailSchema.required(),
   password: passwordSchema.required(),
-  name: nameSchema.required(),
+  firstName: nameSchema.required(),
+  lastName: nameSchema.required(),
   role: Joi.string().valid('reader', 'writer', 'admin').optional(),
   skipVerification: Joi.boolean().optional(),
 }).strict();

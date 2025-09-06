@@ -4,6 +4,7 @@ const User = require('../models/user.model');
 const Blog = require('../models/blog.model');
 const Badge = require('../models/badge.model');
 const Notification = require('../models/notification.model');
+const bcrypt = require('bcryptjs');
 const {
   ValidationError,
   NotFoundError,
@@ -50,6 +51,9 @@ exports.getMyProfile = async (req, res) => {
     if (!profile.coverImage) {
       profile.coverImage = null;
     }
+
+    // Ensure twoFactorEnabled is included for frontend 2FA status display
+    profile.twoFactorEnabled = user.twoFactorEnabled || false;
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -147,7 +151,18 @@ exports.updateProfile = async (req, res) => {
       'avatar',
       'coverImage',
       'socialLinks',
+      'firstName',
+      'lastName',
+      'displayName',
+      'location',
+      // Account settings
+      'emailNotifications',
+      'pushNotifications',
+      'marketingEmails',
+      'accountVisibility',
+      'notificationSettings',
     ];
+
 
     const updates = {};
     allowedFields.forEach((field) => {
@@ -159,7 +174,7 @@ exports.updateProfile = async (req, res) => {
       runValidators: true,
     })
       .select(
-        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
+        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret -followers -following'
       )
       .populate('badges', 'name description icon');
 
@@ -937,3 +952,67 @@ async function checkBadgeAchievements(userId) {
     logger.error('Error checking badge achievements:', error);
   }
 }
+
+// Change user password
+exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Current password and new password are required',
+      });
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'New password must be at least 6 characters long',
+      });
+    }
+
+    // Get user with password
+    const user = await User.findById(userId).select('+password');
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Current password is incorrect',
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Update password
+    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+    
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    logger.error('Error in changePassword:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while changing password',
+      });
+    }
+  }
+};

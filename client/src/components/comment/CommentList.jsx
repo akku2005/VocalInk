@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
 import Comment from './Comment';
 import CommentForm from './CommentForm';
 import { MessageCircle, Loader2, AlertCircle } from 'lucide-react';
@@ -9,7 +8,6 @@ const CommentList = ({ blogId, blogTitle }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCommentForm, setShowCommentForm] = useState(false);
-  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     fetchComments();
@@ -83,31 +81,6 @@ const CommentList = ({ blogId, blogTitle }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const organizeComments = (comments) => {
-    const commentMap = {};
-    const rootComments = [];
-
-    // First pass: create a map of all comments
-    comments.forEach(comment => {
-      commentMap[comment._id] = { ...comment, replies: [] };
-    });
-
-    // Second pass: organize into threaded structure
-    comments.forEach(comment => {
-      if (comment.parentId) {
-        // This is a reply
-        if (commentMap[comment.parentId]) {
-          commentMap[comment.parentId].replies.push(commentMap[comment._id]);
-        }
-      } else {
-        // This is a root comment
-        rootComments.push(commentMap[comment._id]);
-      }
-    });
-
-    return rootComments;
   };
 
   const handleCommentAdded = (newComment) => {
@@ -214,14 +187,12 @@ const CommentList = ({ blogId, blogTitle }) => {
           </h3>
         </div>
         
-        {isAuthenticated && (
-          <button
-            onClick={() => setShowCommentForm(!showCommentForm)}
-            className="text-sm text-primary-500 hover:text-primary-600 font-medium"
-          >
-            {showCommentForm ? 'Cancel' : 'Add Comment'}
-          </button>
-        )}
+        <button
+          onClick={() => setShowCommentForm(!showCommentForm)}
+          className="text-sm text-primary-500 hover:text-primary-600 font-medium"
+        >
+          {showCommentForm ? 'Cancel' : 'Add Comment'}
+        </button>
       </div>
 
       {/* Comment Form */}
@@ -243,14 +214,12 @@ const CommentList = ({ blogId, blogTitle }) => {
           <p className="text-text-secondary mb-4">
             Be the first to share your thoughts on this post!
           </p>
-          {isAuthenticated && (
-            <button
-              onClick={() => setShowCommentForm(true)}
-              className="text-primary-500 hover:text-primary-600 font-medium"
-            >
-              Write a comment
-            </button>
-          )}
+          <button
+            onClick={() => setShowCommentForm(true)}
+            className="text-primary-500 hover:text-primary-600 font-medium"
+          >
+            Write a comment
+          </button>
         </div>
       ) : (
         <div className="space-y-6">

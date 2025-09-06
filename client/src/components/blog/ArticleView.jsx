@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Volume2, MessageCircle, BookmarkIcon, ShareIcon } from "lucide-react";
 import image3 from "../../assets/images/image3.jpg";
 import Breadcrumb from "../layout/Breadcrumb.jsx";
@@ -7,7 +7,6 @@ import IconButton from "../ui/IconButton.jsx";
 import EngagementButtons from "../engagement/EngagementButtons";
 import AudioPlayer from "../audio/AudioPlayer";
 import CommentList from "../comment/CommentList";
-
 
 const articles = [
   {
@@ -38,6 +37,7 @@ export default function ArticleView() {
   const [article, setArticle] = useState(null);
   const [showComments, setShowComments] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
+  const commentsSectionRef = useRef(null);
   
   useEffect(() => {
     // Simulate fetching article data
@@ -46,6 +46,36 @@ export default function ArticleView() {
       setArticle(foundArticle);
     }
   }, [id]);
+
+  // Handle hash navigation to comments
+  useEffect(() => {
+    if (window.location.hash === '#comments') {
+      setShowComments(true);
+      // Scroll to comments after a short delay to ensure it's rendered
+      setTimeout(() => {
+        if (commentsSectionRef.current) {
+          commentsSectionRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }
+      }, 300);
+    }
+  }, [id]);
+
+  const handleCommentClick = () => {
+    setShowComments(true);
+    
+    // Auto-scroll to comments section after a short delay to ensure it's rendered
+    setTimeout(() => {
+      if (commentsSectionRef.current) {
+        commentsSectionRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    }, 100);
+  };
 
   if (!article) {
     return <div className="p-6 text-red-500">Article not found!</div>;
@@ -90,6 +120,7 @@ export default function ArticleView() {
             initialBookmarks={23}
             isLiked={false}
             isBookmarked={false}
+            onCommentClick={handleCommentClick}
           />
         </div>
 
@@ -121,7 +152,7 @@ export default function ArticleView() {
         </figure>
 
         {/* Comments Section */}
-        <div className="mt-8">
+        <div ref={commentsSectionRef} id="comments" className="mt-8 scroll-mt-20">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold text-text-primary">Comments</h3>
             <button

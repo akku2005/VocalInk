@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect, startTransition } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -20,15 +20,24 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 
 const schema = yup
   .object({
-    name: yup
+    firstName: yup
       .string()
-      .min(2, "Name must be at least 2 characters")
-      .max(50, "Name must be less than 50 characters")
+      .min(2, "First name must be at least 2 characters")
+      .max(50, "First name must be less than 50 characters")
       .matches(
         /^[a-zA-Z\s]+$/,
-        "Name can only contain letters and spaces"
+        "First name can only contain letters and spaces"
       )
-      .required("Name is required"),
+      .required("First name is required"),
+    lastName: yup
+      .string()
+      .min(2, "Last name must be at least 2 characters")
+      .max(50, "Last name must be less than 50 characters")
+      .matches(
+        /^[a-zA-Z\s]+$/,
+        "Last name can only contain letters and spaces"
+      )
+      .required("Last name is required"),
     email: yup
       .string()
       .email("Invalid email address")
@@ -62,6 +71,8 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [forceRender, setForceRender] = useState(0);
   
   const { register: registerUser, error, clearError } = useAuth();
   const navigate = useNavigate();
@@ -69,6 +80,31 @@ const Register = () => {
 
   // Get the intended destination from location state, or default to dashboard
   const from = location.state?.from?.pathname || "/dashboard";
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔍 Register component state changed:', {
+      loading,
+      registrationSuccess,
+      registeredEmail,
+      error
+    });
+    
+    // Force re-render when registrationSuccess changes
+    if (registrationSuccess) {
+      console.log('✅ Registration success state is TRUE - should show success screen');
+    }
+  }, [loading, registrationSuccess, registeredEmail, error]);
+
+  // Add immediate state logging after state updates
+  useEffect(() => {
+    if (registrationSuccess && registeredEmail) {
+      console.log('🎉 SUCCESS SCREEN SHOULD RENDER NOW!', {
+        registrationSuccess,
+        registeredEmail
+      });
+    }
+  }, [registrationSuccess, registeredEmail]);
 
   const {
     register,
@@ -120,31 +156,79 @@ const Register = () => {
     return { score, feedback };
   };
 
-  const passwordStrength = watchedPassword ? checkPasswordStrength(watchedPassword) : { score: 0, feedback: [] };
+    const passwordStrength = watchedPassword ? checkPasswordStrength(watchedPassword) : { score: 0, feedback: [] };
+
+  useEffect(() => {
+    if (registrationSuccess) {
+      const timer = setInterval(() => {
+        setRedirectCountdown((prevCount) => prevCount - 1);
+      }, 1000);
+
+      const redirectTimeout = setTimeout(() => {
+        navigate('/verify-email', { state: { email: registeredEmail } });
+      }, 3000);
+
+      return () => {
+        clearInterval(timer);
+        clearTimeout(redirectTimeout);
+      };
+    }
+  }, [registrationSuccess, registeredEmail, navigate]);
 
   const onSubmit = async (data) => {
     setLoading(true);
     clearError();
     
+    console.log('🚀 Starting registration for:', data.email);
+    console.log('🚀 Form data:', { 
+      firstName: data.firstName, 
+      lastName: data.lastName, 
+      email: data.email, 
+      role: data.role 
+    });
+    
     try {
       const result = await registerUser({
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
         email: data.email,
         password: data.password,
         role: data.role,
       });
+
+      console.log('🚀 Registration result:', result);
+      console.log('🚀 Result type:', typeof result);
+      console.log('🚀 Result success property:', result?.success);
+      console.log('🚀 Result data property:', result?.data);
       
-      if (result.success) {
-        setRegisteredEmail(data.email);
-        setRegistrationSuccess(true);
+      if (result && result.success) {
+        console.log('✅ Registration successful, redirecting to verify-email');
+        console.log('📧 Registered email:', data.email);
+        
+        setLoading(false);
+        
+        // Directly navigate to verify-email page with success message
+        navigate('/verify-email', { 
+          state: { 
+            email: data.email, 
+            from: from,
+            message: 'Registration successful! Please check your email for verification code.'
+          } 
+        });
+        
+        console.log('🎯 Redirected to verify-email page');
+        return; // Exit early to avoid the finally block
       } else {
-        setFormError("root", { message: result.error });
+        console.error('❌ Registration failed:', result?.error);
+        setFormError("root", { message: result?.error || "An unexpected error occurred." });
       }
     } catch (error) {
+      console.error('❌ Registration error caught:', error);
       setFormError("root", { message: error.message || "Registration failed" });
-    } finally {
-      setLoading(false);
     }
+    
+    // Only set loading to false if we didn't have success
+    setLoading(false);
   };
 
   const handleContinueToLogin = () => {
@@ -155,7 +239,11 @@ const Register = () => {
     });
   };
 
+  // Show success screen when registration is successful
+  console.log('🔍 Checking render condition:', { registrationSuccess, registeredEmail });
+  
   if (registrationSuccess) {
+    console.log('🎉 Rendering success screen for:', registeredEmail);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -172,6 +260,9 @@ const Register = () => {
                 {registeredEmail}
               </span>
             </p>
+            <p className="mt-2 text-sm text-primary font-medium">
+              Redirecting to verification page in {redirectCountdown} seconds...
+            </p>
           </div>
 
           <Card>
@@ -183,7 +274,7 @@ const Register = () => {
                     Verify Your Email
                   </h3>
                   <p className="text-sm text-text-secondary mt-1">
-                    Check your email for a 6-digit verification code and enter it below to complete your registration.
+                    Check your email for a 6-digit verification code and enter it to complete your registration.
                   </p>
                 </div>
 
@@ -210,8 +301,8 @@ const Register = () => {
                   <p className="text-xs text-text-secondary">
                     Didn't receive the email?{" "}
                     <button
-                      onClick={() => navigate("/resend-verification", { 
-                        state: { email: registeredEmail } 
+                      onClick={() => navigate("/verify-email", { 
+                        state: { email: registeredEmail, resend: true } 
                       })}
                       className="text-primary hover:text-primary/80 font-medium"
                     >
@@ -257,28 +348,54 @@ const Register = () => {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="name"
-                  className="text-sm font-medium text-text-primary"
-                >
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-secondary" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    className="pl-10"
-                    {...register("name")}
-                  />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="firstName"
+                    className="text-sm font-medium text-text-primary"
+                  >
+                    First Name
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-secondary" />
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="First name"
+                      className="pl-10"
+                      {...register("firstName")}
+                    />
+                  </div>
+                  {errors.firstName && (
+                    <p className="text-sm text-error">
+                      {errors.firstName.message}
+                    </p>
+                  )}
                 </div>
-                {errors.name && (
-                  <p className="text-sm text-error">
-                    {errors.name.message}
-                  </p>
-                )}
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="lastName"
+                    className="text-sm font-medium text-text-primary"
+                  >
+                    Last Name
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-secondary" />
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Last name"
+                      className="pl-10"
+                      {...register("lastName")}
+                    />
+                  </div>
+                  {errors.lastName && (
+                    <p className="text-sm text-error">
+                      {errors.lastName.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">

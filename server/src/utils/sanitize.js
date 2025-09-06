@@ -451,6 +451,81 @@ function sanitizeHtml(html) {
     .trim();
 }
 
+// Device type detection from user agent
+function getDeviceType(userAgent) {
+  if (!userAgent) return 'Unknown Device';
+  
+  const ua = userAgent.toLowerCase();
+  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+    return 'Mobile';
+  } else if (ua.includes('tablet') || ua.includes('ipad')) {
+    return 'Tablet';
+  } else {
+    return 'Desktop';
+  }
+}
+
+// Browser name extraction from user agent
+function getBrowserName(userAgent) {
+  if (!userAgent) return 'Unknown Browser';
+  
+  const ua = userAgent.toLowerCase();
+  if (ua.includes('chrome') && !ua.includes('edg')) return 'Chrome';
+  if (ua.includes('firefox')) return 'Firefox';
+  if (ua.includes('safari') && !ua.includes('chrome')) return 'Safari';
+  if (ua.includes('edg')) return 'Edge';
+  if (ua.includes('opera') || ua.includes('opr')) return 'Opera';
+  if (ua.includes('msie') || ua.includes('trident')) return 'Internet Explorer';
+  
+  return 'Unknown Browser';
+}
+
+// Operating system detection from user agent
+function getOperatingSystem(userAgent) {
+  if (!userAgent) return 'Unknown OS';
+  
+  const ua = userAgent.toLowerCase();
+  if (ua.includes('windows')) return 'Windows';
+  if (ua.includes('mac') || ua.includes('darwin')) return 'macOS';
+  if (ua.includes('linux')) return 'Linux';
+  if (ua.includes('android')) return 'Android';
+  if (ua.includes('ios') || ua.includes('iphone') || ua.includes('ipad')) return 'iOS';
+  
+  return 'Unknown OS';
+}
+
+// Simple IP geolocation (placeholder - in production use a proper service)
+async function getLocationFromIP(ipAddress) {
+  try {
+    // For localhost/development, return a default location
+    if (!ipAddress || ipAddress === '127.0.0.1' || ipAddress === '::1' || ipAddress.includes('192.168.')) {
+      return {
+        country: 'Local',
+        region: 'Development',
+        city: 'Localhost'
+      };
+    }
+    
+    // In production, integrate with a geolocation service like:
+    // - MaxMind GeoIP2
+    // - IPGeolocation API
+    // - ip-api.com
+    
+    return {
+      country: 'Unknown',
+      region: 'Unknown', 
+      city: 'Unknown'
+    };
+  } catch (error) {
+    console.error('Error getting location from IP:', error);
+    return {
+      country: 'Unknown',
+      region: 'Unknown',
+      city: 'Unknown'
+    };
+  }
+}
+
 module.exports = {
   sanitizeInput,
   sanitizeMongoQuery,
@@ -462,5 +537,9 @@ module.exports = {
   validateAndSanitizePhone,
   sanitizeFileName,
   sanitizeHtml,
+  getDeviceType,
+  getBrowserName,
+  getOperatingSystem,
+  getLocationFromIP,
   DISPOSABLE_DOMAINS
 };

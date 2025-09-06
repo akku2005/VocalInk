@@ -1,13 +1,32 @@
 import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import { MessageCircle, Send, Smile } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { MessageCircle, Send, Smile, User, Lock } from 'lucide-react';
 
 const CommentForm = ({ blogId, parentId = null, onCommentAdded, placeholder = "Write a comment..." }) => {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleSignIn = () => {
+    navigate('/login', { 
+      state: { 
+        from: location.pathname,
+        message: 'Please sign in to leave a comment' 
+      } 
+    });
+  };
+
+  const handleSignUp = () => {
+    navigate('/register', { 
+      state: { 
+        from: location.pathname,
+        message: 'Please create an account to leave a comment' 
+      } 
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,12 +66,33 @@ const CommentForm = ({ blogId, parentId = null, onCommentAdded, placeholder = "W
 
   if (!isAuthenticated) {
     return (
-      <div className="p-4 bg-surface border border-border rounded-lg text-center">
-        <MessageCircle className="w-8 h-8 text-text-secondary mx-auto mb-2" />
-        <p className="text-text-secondary mb-3">Please sign in to leave a comment</p>
-        <Button variant="outline" size="sm">
-          Sign In
-        </Button>
+      <div className="p-6 glassmorphism-card text-center theme-transition">
+        <div className="flex items-center justify-center mb-4">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(var(--color-primary), 0.1)' }}>
+            <MessageCircle className="w-6 h-6" style={{ color: 'rgb(var(--color-primary))' }} />
+          </div>
+        </div>
+        <h4 className="text-lg font-medium text-text-primary mb-2">
+          Join the conversation!
+        </h4>
+        <p className="text-text-secondary mb-4">
+          Please sign in to leave a comment and join the discussion.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            onClick={handleSignIn}
+            className="flex items-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            Sign In
+          </Button>
+          <Button
+            onClick={handleSignUp}
+            variant="outline"
+          >
+            Create Account
+          </Button>
+        </div>
       </div>
     );
   }

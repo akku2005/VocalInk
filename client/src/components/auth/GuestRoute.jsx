@@ -14,8 +14,14 @@ const GuestRoute = ({ children, redirectTo = '/dashboard' }) => {
     );
   }
 
-  // If user is authenticated, redirect to dashboard
+  // If user is authenticated, redirect to intended destination or dashboard
   if (isAuthenticated) {
+    // Check if there's a stored intended destination from localStorage
+    const intendedRoute = localStorage.getItem('intendedRoute');
+    if (intendedRoute && intendedRoute !== '/login' && intendedRoute !== '/register') {
+      localStorage.removeItem('intendedRoute');
+      return <Navigate to={intendedRoute} replace />;
+    }
     return <Navigate to={redirectTo} replace />;
   }
 

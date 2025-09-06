@@ -4,18 +4,81 @@ class SettingsService {
   constructor() {
     this.baseURL = '/users';
     this.xpURL = '/xp';
+    this.cache = null;
+    this.cacheTimestamp = null;
+    this.cacheExpiry = 10 * 60 * 1000; // 10 minutes - increased cache time
+    
+    // Try to restore cache from localStorage on initialization
+    this.restoreCacheFromStorage();
+  }
+
+  // Save cache to localStorage
+  saveCacheToStorage() {
+    if (this.cache && this.cacheTimestamp) {
+      try {
+        localStorage.setItem('vocalink_settings_cache', JSON.stringify({
+          data: this.cache,
+          timestamp: this.cacheTimestamp
+        }));
+      } catch (error) {
+        console.warn('Failed to save settings cache to localStorage:', error);
+      }
+    }
+  }
+
+  // Restore cache from localStorage
+  restoreCacheFromStorage() {
+    try {
+      const cached = localStorage.getItem('vocalink_settings_cache');
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const now = Date.now();
+        
+        // Check if cache is still valid
+        if (now - timestamp < this.cacheExpiry) {
+          this.cache = data;
+          this.cacheTimestamp = timestamp;
+          console.log('📦 Restored settings cache from localStorage');
+        } else {
+          // Cache expired, remove it
+          localStorage.removeItem('vocalink_settings_cache');
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore settings cache from localStorage:', error);
+      localStorage.removeItem('vocalink_settings_cache');
+    }
   }
 
   // Get user's current settings from profile
-  async getUserSettings() {
+  async getUserSettings(forceRefresh = false) {
     try {
+      // Check cache first unless forced refresh
+      if (!forceRefresh && this.cache && this.cacheTimestamp) {
+        const now = Date.now();
+        if (now - this.cacheTimestamp < this.cacheExpiry) {
+          console.log('📦 Using cached settings data');
+          return this.cache;
+        }
+      }
+
+      console.log('🌐 Fetching fresh settings from API');
       const response = await api.get(`${this.baseURL}/me`);
       
       if (response.data.success) {
         const userData = response.data.data;
         
         // Transform backend data to frontend settings format
-        return this.transformBackendToFrontend(userData);
+        const transformedData = this.transformBackendToFrontend(userData);
+        
+        // Cache the result
+        this.cache = transformedData;
+        this.cacheTimestamp = Date.now();
+        
+        // Save to localStorage for persistence across page refreshes
+        this.saveCacheToStorage();
+        
+        return transformedData;
       } else {
         throw new Error(response.data.message || 'Failed to get user settings');
       }
@@ -28,12 +91,26 @@ class SettingsService {
     }
   }
 
+  // Clear cache when settings are updated
+  clearCache() {
+    this.cache = null;
+    this.cacheTimestamp = null;
+    // Also remove from localStorage
+    try {
+      localStorage.removeItem('vocalink_settings_cache');
+    } catch (error) {
+      console.warn('Failed to clear settings cache from localStorage:', error);
+    }
+  }
+
   // Update user profile settings
   async updateProfileSettings(profileData) {
     try {
       const response = await api.patch(`${this.baseURL}/me`, profileData);
       
       if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
         return response.data.data;
       } else {
         throw new Error(response.data.message || 'Failed to update profile settings');
@@ -71,11 +148,11 @@ class SettingsService {
   // Update privacy settings
   async updatePrivacySettings(privacySettings) {
     try {
-      const response = await api.patch(`${this.baseURL}/me`, {
-        privacySettings
-      });
+      const response = await api.patch('/settings/privacy', privacySettings);
       
       if (response.data.success) {
+        // Clear cache when settings are updated
+        this.clearCache();
         return response.data.data;
       } else {
         throw new Error(response.data.message || 'Failed to update privacy settings');
@@ -110,15 +187,50 @@ class SettingsService {
     }
   }
 
+  // Get notification preferences
+  async getNotificationPreferences() {
+    try {
+      const response = await api.get('/notifications/preferences');
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to get notification preferences');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to get notification preferences');
+      }
+      throw error;
+    }
+  }
+
   // Update notification preferences
   async updateNotificationPreferences(notificationSettings) {
     try {
-      const response = await api.patch(`${this.baseURL}/me`, {
+      const response = await api.put('/notifications/preferences', {
         emailNotifications: notificationSettings.emailNotifications,
-        pushNotifications: notificationSettings.pushNotifications
+        pushNotifications: notificationSettings.pushNotifications,
+        marketingEmails: notificationSettings.marketingEmails,
+        notificationSettings: {
+          newFollowers: notificationSettings.newFollowers,
+          newLikes: notificationSettings.newLikes,
+          newComments: notificationSettings.newComments,
+          newMentions: notificationSettings.newMentions,
+          badgeEarned: notificationSettings.badgeEarned,
+          levelUp: notificationSettings.levelUp,
+          seriesUpdates: notificationSettings.seriesUpdates,
+          aiGenerations: notificationSettings.aiGenerations,
+          weeklyDigest: notificationSettings.weeklyDigest,
+          monthlyReport: notificationSettings.monthlyReport,
+          emailDigestFrequency: notificationSettings.emailDigestFrequency,
+          pushNotificationTime: notificationSettings.pushNotificationTime
+        }
       });
       
       if (response.data.success) {
+        this.clearCache();
         return response.data.data;
       } else {
         throw new Error(response.data.message || 'Failed to update notification preferences');
@@ -135,7 +247,7 @@ class SettingsService {
   // Change password
   async changePassword(passwordData) {
     try {
-      const response = await api.patch(`${this.baseURL}/me`, {
+      const response = await api.patch(`${this.baseURL}/me/password`, {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });
@@ -198,76 +310,77 @@ class SettingsService {
 
   // Transform backend user data to frontend settings format
   transformBackendToFrontend(userData) {
+    console.log('🔍 DEBUG: Raw userData from backend:', userData);
+    console.log('🔍 DEBUG: userData.twoFactorEnabled:', userData.twoFactorEnabled);
+    
     return {
       profile: {
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
         username: userData.name || '',
-        displayName: userData.name || '',
+        displayName: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || '',
         email: userData.email || '',
         bio: userData.bio || '',
         avatar: userData.avatar || userData.profilePicture || null,
         coverImage: userData.coverImage || null,
         location: userData.address || '',
         website: userData.website || '',
-        language: userData.aiPreferences?.language || 'en',
-        timezone: 'America/Los_Angeles', // Default, not stored in backend yet
-        company: userData.company || '',
-        jobTitle: userData.jobTitle || '',
-        linkedin: userData.linkedin || '',
-        socialLinks: userData.socialLinks || [],
-        gender: userData.gender || '',
-        occupation: userData.occupation || '',
-        nationality: userData.nationality || '',
-        mobile: userData.mobile || '',
-        dob: userData.dob || ''
+        socialLinks: userData.socialLinks || {}
       },
       account: {
-        emailNotifications: userData.emailNotifications !== false,
-        pushNotifications: userData.pushNotifications !== false,
-        twoFactorAuth: userData.twoFactorEnabled || false,
-        accountVisibility: userData.privacySettings?.profileVisibility || 'public',
-        showEmail: userData.privacySettings?.showEmail || false,
-        allowComments: true, // Default, not stored in backend yet
-        allowMentions: true, // Default, not stored in backend yet
-        marketingEmails: false // Default, not stored in backend yet
+        visibility: userData.visibility || 'public',
+        language: userData.language || 'en',
+        timezone: userData.timezone || 'UTC',
+        dateFormat: userData.dateFormat || 'MM/DD/YYYY',
+        timeFormat: userData.timeFormat || '12h',
+        twoFactorAuth: userData.twoFactorEnabled !== undefined ? userData.twoFactorEnabled : false
       },
       notifications: {
-        newFollowers: true, // Default, not stored in backend yet
-        newLikes: true, // Default, not stored in backend yet
-        newComments: true, // Default, not stored in backend yet
-        newMentions: true, // Default, not stored in backend yet
-        badgeEarned: userData.gamificationSettings?.notifications !== false,
-        levelUp: userData.gamificationSettings?.notifications !== false,
-        seriesUpdates: true, // Default, not stored in backend yet
-        aiGenerations: false, // Default, not stored in backend yet
-        weeklyDigest: false, // Default, not stored in backend yet
-        monthlyReport: false // Default, not stored in backend yet
+        emailNotifications: userData.emailNotifications !== undefined ? userData.emailNotifications : true,
+        pushNotifications: userData.pushNotifications !== undefined ? userData.pushNotifications : true,
+        marketingEmails: userData.marketingEmails !== undefined ? userData.marketingEmails : false,
+        newFollowers: userData.notificationSettings?.newFollowers !== undefined ? userData.notificationSettings.newFollowers : true,
+        newLikes: userData.notificationSettings?.newLikes !== undefined ? userData.notificationSettings.newLikes : true,
+        newComments: userData.notificationSettings?.newComments !== undefined ? userData.notificationSettings.newComments : true,
+        newMentions: userData.notificationSettings?.newMentions !== undefined ? userData.notificationSettings.newMentions : true,
+        badgeEarned: userData.notificationSettings?.badgeEarned !== undefined ? userData.notificationSettings.badgeEarned : true,
+        levelUp: userData.notificationSettings?.levelUp !== undefined ? userData.notificationSettings.levelUp : true,
+        seriesUpdates: userData.notificationSettings?.seriesUpdates !== undefined ? userData.notificationSettings.seriesUpdates : true,
+        aiGenerations: userData.notificationSettings?.aiGenerations !== undefined ? userData.notificationSettings.aiGenerations : true,
+        weeklyDigest: userData.notificationSettings?.weeklyDigest !== undefined ? userData.notificationSettings.weeklyDigest : true,
+        monthlyReport: userData.notificationSettings?.monthlyReport !== undefined ? userData.notificationSettings.monthlyReport : false,
+        emailDigestFrequency: userData.notificationSettings?.emailDigestFrequency || 'weekly',
+        pushNotificationTime: userData.notificationSettings?.pushNotificationTime || '18:00'
       },
       privacy: {
-        profileVisibility: userData.privacySettings?.profileVisibility || 'public',
-        postVisibility: 'public', // Default, not stored in backend yet
-        allowSearch: true, // Default, not stored in backend yet
-        showOnlineStatus: userData.privacySettings?.showLastActive !== false,
-        allowDirectMessages: true, // Default, not stored in backend yet
-        dataSharing: false, // Default, not stored in backend yet
-        analyticsSharing: true // Default, not stored in backend yet
+        profileVisibility: userData.visibility || 'public',
+        postVisibility: userData.postVisibility || 'public', 
+        allowSearch: userData.privacySettings?.allowSearch !== undefined ? userData.privacySettings.allowSearch : true,
+        showOnlineStatus: userData.privacySettings?.showOnlineStatus !== undefined ? userData.privacySettings.showOnlineStatus : true,
+        allowDirectMessages: userData.privacySettings?.allowDirectMessages !== undefined ? userData.privacySettings.allowDirectMessages : true,
+        dataSharing: userData.privacySettings?.dataSharing !== undefined ? userData.privacySettings.dataSharing : false,
+        analyticsSharing: userData.privacySettings?.analyticsSharing !== undefined ? userData.privacySettings.analyticsSharing : true,
+        showEmail: userData.privacySettings?.showEmail !== undefined ? userData.privacySettings.showEmail : false
       },
       appearance: {
-        theme: 'system', // Managed by ThemeContext
-        fontSize: 'medium', // Default, not stored in backend yet
-        compactMode: false, // Default, not stored in backend yet
-        showAnimations: true, // Default, not stored in backend yet
-        colorScheme: 'default' // Default, not stored in backend yet
+        theme: userData.theme || 'light',
+        fontSize: userData.fontSize || 'medium',
+        language: userData.language || 'en',
+        compactMode: userData.compactMode !== undefined ? userData.compactMode : false,
+        showAvatars: userData.showAvatars !== undefined ? userData.showAvatars : true,
+        animationsEnabled: userData.animationsEnabled !== undefined ? userData.animationsEnabled : true
       },
       gamification: {
-        showXP: userData.gamificationSettings?.showXP !== false,
-        showLevel: userData.gamificationSettings?.showLevel !== false,
-        showBadges: userData.gamificationSettings?.showBadges !== false,
-        showLeaderboard: userData.gamificationSettings?.showLeaderboard !== false,
-        notifications: userData.gamificationSettings?.notifications !== false
+        showBadges: userData.gamificationSettings?.showBadges !== undefined ? userData.gamificationSettings.showBadges : true,
+        showLevel: userData.gamificationSettings?.showLevel !== undefined ? userData.gamificationSettings.showLevel : true,
+        showXP: userData.gamificationSettings?.showXP !== undefined ? userData.gamificationSettings.showXP : true,
+        publicProfile: userData.gamificationSettings?.publicProfile !== undefined ? userData.gamificationSettings.publicProfile : true,
+        emailNotifications: userData.gamificationSettings?.emailNotifications !== undefined ? userData.gamificationSettings.emailNotifications : true,
+        pushNotifications: userData.gamificationSettings?.pushNotifications !== undefined ? userData.gamificationSettings.pushNotifications : true
       },
       ai: {
         preferredVoice: userData.aiPreferences?.preferredVoice || 'default',
-        autoSummarize: userData.aiPreferences?.autoSummarize !== false,
+        autoSummarize: userData.aiPreferences?.autoSummarize || false,
         speechToText: userData.aiPreferences?.speechToText || false,
         language: userData.aiPreferences?.language || 'en'
       },
@@ -281,6 +394,11 @@ class SettingsService {
         isVerified: userData.isVerified || false
       }
     };
+    
+    console.log('🔍 DEBUG: Transformed account object:', transformed.account);
+    console.log('🔍 DEBUG: Final twoFactorAuth value:', transformed.account.twoFactorAuth);
+    
+    return transformed;
   }
 
   // Transform frontend settings to backend format
@@ -289,6 +407,8 @@ class SettingsService {
 
     // Profile fields
     if (settings.profile) {
+      backendData.firstName = settings.profile.firstName;
+      backendData.lastName = settings.profile.lastName;
       backendData.name = settings.profile.displayName;
       backendData.bio = settings.profile.bio;
       
@@ -353,15 +473,40 @@ class SettingsService {
     if (settings.account) {
       backendData.emailNotifications = settings.account.emailNotifications;
       backendData.pushNotifications = settings.account.pushNotifications;
+      backendData.marketingEmails = settings.account.marketingEmails;
+      backendData.accountVisibility = settings.account.accountVisibility;
       backendData.twoFactorEnabled = settings.account.twoFactorAuth;
+    }
+
+    // Notification settings
+    if (settings.notifications) {
+      backendData.notificationSettings = {
+        newFollowers: settings.notifications.newFollowers,
+        newLikes: settings.notifications.newLikes,
+        newComments: settings.notifications.newComments,
+        newMentions: settings.notifications.newMentions,
+        badgeEarned: settings.notifications.badgeEarned,
+        levelUp: settings.notifications.levelUp,
+        seriesUpdates: settings.notifications.seriesUpdates,
+        aiGenerations: settings.notifications.aiGenerations,
+        weeklyDigest: settings.notifications.weeklyDigest,
+        monthlyReport: settings.notifications.monthlyReport,
+        emailDigestFrequency: settings.notifications.emailDigestFrequency,
+        pushNotificationTime: settings.notifications.pushNotificationTime
+      };
     }
 
     // Privacy settings
     if (settings.privacy) {
       backendData.privacySettings = {
         profileVisibility: settings.privacy.profileVisibility,
-        showEmail: settings.privacy.showEmail,
-        showLastActive: settings.privacy.showOnlineStatus
+        postVisibility: settings.privacy.postVisibility,
+        allowSearch: settings.privacy.allowSearch,
+        showOnlineStatus: settings.privacy.showOnlineStatus,
+        allowDirectMessages: settings.privacy.allowDirectMessages,
+        dataSharing: settings.privacy.dataSharing,
+        analyticsSharing: settings.privacy.analyticsSharing,
+        showEmail: settings.privacy.showEmail
       };
     }
 
@@ -377,7 +522,74 @@ class SettingsService {
 
     return backendData;
   }
+
+  // New optimized settings methods using dedicated endpoints
+  async updateSettingsSection(section, data) {
+    try {
+      const response = await api.patch(`/settings/${section}`, data);
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || `Failed to update ${section} settings`);
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || `Failed to update ${section} settings`);
+      }
+      throw error;
+    }
+  }
+
+  // Specific section update methods
+  async updateProfileSection(profileData) {
+    return this.updateSettingsSection('profile', profileData);
+  }
+
+  async updateAccountSection(accountData) {
+    return this.updateSettingsSection('account', accountData);
+  }
+
+  async updatePrivacySection(privacyData) {
+    return this.updateSettingsSection('privacy', privacyData);
+  }
+
+  async updateNotificationsSection(notificationData) {
+    return this.updateSettingsSection('notifications', notificationData);
+  }
+
+  async updateAISection(aiData) {
+    return this.updateSettingsSection('ai', aiData);
+  }
+
+  async updateGamificationSection(gamificationData) {
+    return this.updateSettingsSection('gamification', gamificationData);
+  }
+
+  async updateAppearanceSection(appearanceData) {
+    return this.updateSettingsSection('appearance', appearanceData);
+  }
+
+  // Get all settings from new endpoint
+  async getAllSettings() {
+    try {
+      const response = await api.get('/settings');
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to get settings');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to get settings');
+      }
+      throw error;
+    }
+  }
 }
 
 export const settingsService = new SettingsService();
-export default settingsService; 
+export default settingsService;

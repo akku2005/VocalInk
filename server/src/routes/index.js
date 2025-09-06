@@ -12,6 +12,9 @@ const aiRoutes = require('../ai/ai.routes');
 const ttsRoutes = require('./tts.routes');
 const xpRoutes = require('./xp');
 const uploadRoutes = require('./upload.routes');
+const imageRoutes = require('./imageRoutes');
+const settingsRoutes = require('./settings');
+const securityRoutes = require('../security/security.routes');
 
 const authRoutes = require('./auth');
 
@@ -27,6 +30,9 @@ router.use('/ai', aiRoutes);
 router.use('/tts', ttsRoutes);
 router.use('/xp', xpRoutes);
 router.use('/uploads', uploadRoutes);
+router.use('/images', imageRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/security', securityRoutes);
 router.use('/test', (req, res) => {
   res.json({
     success: true,

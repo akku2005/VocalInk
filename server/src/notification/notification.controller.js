@@ -367,7 +367,7 @@ exports.getNotificationPreferences = async (req, res) => {
     const userId = req.user.id;
 
     const user = await User.findById(userId).select(
-      'emailNotifications pushNotifications'
+      'emailNotifications pushNotifications marketingEmails notificationSettings'
     );
 
     if (!user) {
@@ -379,6 +379,8 @@ exports.getNotificationPreferences = async (req, res) => {
       data: {
         emailNotifications: user.emailNotifications,
         pushNotifications: user.pushNotifications,
+        marketingEmails: user.marketingEmails,
+        notificationSettings: user.notificationSettings,
       },
     });
   } catch (error) {
@@ -401,19 +403,32 @@ exports.getNotificationPreferences = async (req, res) => {
 exports.updateNotificationPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { emailNotifications, pushNotifications } = req.body;
+    const { emailNotifications, pushNotifications, marketingEmails, notificationSettings } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
       throw new NotFoundError('User not found');
     }
 
+    // Update basic notification preferences
     if (emailNotifications !== undefined) {
       user.emailNotifications = emailNotifications;
     }
 
     if (pushNotifications !== undefined) {
       user.pushNotifications = pushNotifications;
+    }
+
+    if (marketingEmails !== undefined) {
+      user.marketingEmails = marketingEmails;
+    }
+
+    // Update detailed notification settings
+    if (notificationSettings !== undefined) {
+      user.notificationSettings = {
+        ...user.notificationSettings,
+        ...notificationSettings
+      };
     }
 
     await user.save();
@@ -424,6 +439,8 @@ exports.updateNotificationPreferences = async (req, res) => {
       data: {
         emailNotifications: user.emailNotifications,
         pushNotifications: user.pushNotifications,
+        marketingEmails: user.marketingEmails,
+        notificationSettings: user.notificationSettings,
       },
     });
   } catch (error) {

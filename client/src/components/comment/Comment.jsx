@@ -18,6 +18,7 @@ import CommentForm from './CommentForm';
 const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) => {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [showReplies, setShowReplies] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { user, isAuthenticated } = useAuth();
@@ -190,6 +191,17 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
               <Reply className="w-4 h-4" />
               Reply
             </button>
+
+            {/* Show/Hide Replies Toggle */}
+            {comment.replies && comment.replies.length > 0 && (
+              <button
+                onClick={() => setShowReplies(!showReplies)}
+                className="flex items-center gap-1 text-text-secondary hover:text-primary-500 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                {showReplies ? 'Hide' : `Show ${comment.replies.length} ${comment.replies.length === 1 ? 'reply' : 'replies'}`}
+              </button>
+            )}
           </div>
 
           {/* Reply Form */}
@@ -204,9 +216,9 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
             </div>
           )}
 
-          {/* Replies */}
-          {comment.replies && comment.replies.length > 0 && (
-            <div className="ml-8 space-y-3">
+          {/* Replies - Hidden by default, shown when clicked */}
+          {comment.replies && comment.replies.length > 0 && showReplies && (
+            <div className="ml-8 space-y-3 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
               {comment.replies.map((reply) => (
                 <Comment
                   key={reply._id}
