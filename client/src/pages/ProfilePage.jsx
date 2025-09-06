@@ -1,6 +1,9 @@
- buttons-color/hover
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { userService } from "../services/userService";
+import { settingsService } from "../services/settingsService";
+import { imageService } from "../services/imageService";
 import {
   Card,
   CardHeader,
@@ -18,36 +21,16 @@ import {
   Star,
   Trophy,
   BookOpen,
-
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { userService } from '../services/userService';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
-import Button from '../components/ui/Button';
-import { 
-  User, 
-  Calendar, 
-  MapPin, 
-  Link, 
-  Users, 
-  Star, 
-  Trophy, 
-  BookOpen, 
- master
   MessageCircle,
   Heart,
   Share,
   Edit,
   Settings,
   Bell,
- buttons-color/hover
+  ArrowLeft,
+  Camera,
+  Upload
 } from "lucide-react";
-
-  ArrowLeft
-} from 'lucide-react';
- master
 
 const ProfilePage = () => {
   const { username, id } = useParams();
@@ -56,13 +39,16 @@ const ProfilePage = () => {
   
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
- buttons-color/hover
-  const [activeTab, setActiveTab] = useState("posts");
-
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('posts');
+  const [activeTab, setActiveTab] = useState("posts");
   const [userBlogs, setUserBlogs] = useState([]);
   const [blogsLoading, setBlogsLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  
+  // File input refs
+  const avatarInputRef = useRef(null);
+  const coverInputRef = useRef(null);
 
   // Determine if this is the current user's profile or another user's profile
   const isOwnProfile = !id && !username;
@@ -109,89 +95,8 @@ const ProfilePage = () => {
 
     fetchProfile();
   }, [id, username, isOwnProfile]);
- master
 
   useEffect(() => {
- buttons-color/hover
-    // Simulate API call
-    setTimeout(() => {
-      setProfile({
-        username: username || "johndoe",
-        displayName: "John Doe",
-        email: "john@example.com",
-        bio: "Passionate writer and tech enthusiast. Creating content that inspires and educates.",
-        avatar:
-          "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-        coverImage:
-          "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=300&fit=crop",
-        location: "San Francisco, CA",
-        website: "https://johndoe.dev",
-        joinedDate: "2023-01-15",
-        followers: 1247,
-        following: 892,
-        totalPosts: 45,
-        totalLikes: 15420,
-        totalViews: 89234,
-        xp: 15420,
-        level: 8,
-        badges: [
-          {
-            id: 1,
-            name: "First Post",
-            description: "Published your first blog post",
-            icon: "🎉",
-            rarity: "common",
-          },
-          {
-            id: 2,
-            name: "Engagement Master",
-            description: "Received 100+ likes on a single post",
-            icon: "🔥",
-            rarity: "rare",
-          },
-          {
-            id: 3,
-            name: "Series Creator",
-            description: "Created a blog series with 5+ posts",
-            icon: "📚",
-            rarity: "epic",
-          },
-          {
-            id: 4,
-            name: "AI Pioneer",
-            description: "Used AI features 50+ times",
-            icon: "🤖",
-            rarity: "legendary",
-          },
-        ],
-        recentPosts: [
-          {
-            id: 1,
-            title: "The Future of AI in Content Creation",
-            excerpt:
-              "Exploring how artificial intelligence is revolutionizing...",
-            publishedAt: "2024-01-15",
-            readTime: 8,
-            likes: 124,
-            comments: 23,
-            views: 1542,
-          },
-          {
-            id: 2,
-            title: "Building a Successful Blog Series",
-            excerpt: "Learn the strategies and techniques needed...",
-            publishedAt: "2024-01-12",
-            readTime: 12,
-            likes: 89,
-            comments: 15,
-            views: 892,
-          },
-        ],
-      });
-      setLoading(false);
-    }, 1000);
-  }, [username]);
-
     const fetchUserBlogs = async () => {
       if (!targetUserId || activeTab !== 'posts') return;
       
@@ -232,7 +137,145 @@ const ProfilePage = () => {
   const handleEditProfile = () => {
     navigate('/profile/edit');
   };
- master
+
+  // Helper function to get initials from name
+  const getInitials = (firstName, lastName, displayName, name) => {
+    if (firstName && lastName) {
+      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    }
+    if (firstName) {
+      return firstName.charAt(0).toUpperCase();
+    }
+    if (lastName) {
+      return lastName.charAt(0).toUpperCase();
+    }
+    if (displayName) {
+      const names = displayName.split(' ');
+      if (names.length >= 2) {
+        return `${names[0].charAt(0)}${names[1].charAt(0)}`.toUpperCase();
+      }
+      return displayName.charAt(0).toUpperCase();
+    }
+    if (name) {
+      const names = name.split(' ');
+      if (names.length >= 2) {
+        return `${names[0].charAt(0)}${names[1].charAt(0)}`.toUpperCase();
+      }
+      return name.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Helper function to get consistent avatar background color based on name
+  const getAvatarBgColor = (name) => {
+    const colors = [
+      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 
+      'bg-indigo-500', 'bg-red-500', 'bg-yellow-500', 'bg-teal-500',
+      'bg-orange-500', 'bg-cyan-500'
+    ];
+    
+    if (!name) return 'bg-gray-500';
+    
+    // Use first character's char code to consistently pick a color
+    const charCode = name.charAt(0).toUpperCase().charCodeAt(0);
+    const colorIndex = charCode % colors.length;
+    return colors[colorIndex];
+  };
+
+  // Handle avatar upload
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    console.log('🔄 Starting avatar upload...', { fileName: file.name, fileSize: file.size });
+
+    try {
+      setUploadingAvatar(true);
+      setError(null);
+      
+      console.log('📸 Converting image to base64...');
+      // Convert image to base64 with compression (same as settings page)
+      const base64Image = await imageService.convertImageToBase64WithCompression(file);
+      console.log('✅ Image converted successfully, size:', base64Image.length);
+      
+      console.log('🌐 Updating profile via API...');
+      // Update profile with new avatar (direct API call)
+      const updatedProfile = await settingsService.updateProfileSettings({
+        avatar: base64Image
+      });
+      console.log('✅ Profile updated via API:', updatedProfile);
+
+      // Update local state
+      setProfile(prev => ({
+        ...prev,
+        avatar: base64Image,
+        profilePicture: base64Image
+      }));
+
+      console.log('✅ Avatar uploaded successfully');
+    } catch (error) {
+      console.error('❌ Error uploading avatar:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
+      setError(`Failed to upload avatar: ${error.message}`);
+    } finally {
+      setUploadingAvatar(false);
+      // Clear the input
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Handle cover image upload
+  const handleCoverUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    console.log('🔄 Starting cover image upload...', { fileName: file.name, fileSize: file.size });
+
+    try {
+      setUploadingCover(true);
+      setError(null);
+      
+      console.log('📸 Converting cover image to base64...');
+      // Convert image to base64 with compression (same as settings page)
+      const base64Image = await imageService.convertImageToBase64WithCompression(file);
+      console.log('✅ Cover image converted successfully, size:', base64Image.length);
+      
+      console.log('🌐 Updating profile with cover image via API...');
+      // Update profile with new cover image (direct API call)
+      const updatedProfile = await settingsService.updateProfileSettings({
+        coverImage: base64Image
+      });
+      console.log('✅ Profile updated with cover image via API:', updatedProfile);
+
+      // Update local state
+      setProfile(prev => ({
+        ...prev,
+        coverImage: base64Image
+      }));
+
+      console.log('✅ Cover image uploaded successfully');
+    } catch (error) {
+      console.error('❌ Error uploading cover image:', error);
+      console.error('❌ Cover image error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
+      setError(`Failed to upload cover image: ${error.message}`);
+    } finally {
+      setUploadingCover(false);
+      // Clear the input
+      if (coverInputRef.current) {
+        coverInputRef.current.value = '';
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -296,27 +339,30 @@ const ProfilePage = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <div className="text-red-600 text-sm">
+              <strong>Upload Error:</strong> {error}
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-auto text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Cover Image and Avatar */}
       <div className="relative">
-        <div className="h-64 bg-gradient-to-r from-primary-500 to-accent-500 rounded-xl overflow-hidden">
- buttons-color/hover
-          <img
-            src={profile.coverImage}
-            alt="Cover"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="absolute -bottom-16 left-8">
-          <div className="w-32 h-32 rounded-full border-4 border-white bg-white overflow-hidden">
-            <img
-              src={profile.avatar}
-              alt={profile.displayName}
-
+        <div className="h-64 bg-gradient-to-r from-primary-500 to-accent-500 rounded-xl overflow-hidden relative">
           {profile.coverImage ? (
             <img 
               src={profile.coverImage.startsWith('http') ? profile.coverImage : profile.coverImage} 
               alt="Cover" 
- master
               className="w-full h-full object-cover"
               onError={(e) => {
                 console.error('Failed to load cover image:', profile.coverImage);
@@ -334,6 +380,33 @@ const ProfilePage = () => {
                   e.target.style.display = 'none';
                 }}
               />
+            </div>
+          )}
+          
+          {/* Cover Image Upload Button - Only show for own profile */}
+          {isOwnProfile && (
+            <div className="absolute top-4 right-4">
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/90 backdrop-blur-sm hover:bg-white"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={uploadingCover}
+              >
+                {uploadingCover ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+                {uploadingCover ? 'Uploading...' : 'Edit Cover'}
+              </Button>
             </div>
           )}
         </div>
@@ -366,37 +439,45 @@ const ProfilePage = () => {
                 name: profile.name
               });
               return shouldShowFallback ? (
-                <div className="w-full h-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-5xl profile-fallback border-2 border-blue-400 shadow-lg">
-                  {profile.name && profile.name.length > 0 ? profile.name.charAt(0).toUpperCase() : 'U'}
+                <div className={`w-full h-full flex items-center justify-center text-white font-bold text-5xl profile-fallback border-2 shadow-lg ${getAvatarBgColor(profile.firstName || profile.lastName || profile.displayName || profile.name || 'U')}`}>
+                  {getInitials(profile.firstName, profile.lastName, profile.displayName, profile.name)}
                 </div>
               ) : null;
             })()}
             
             {/* Hidden fallback for when image fails */}
-            <div className="w-full h-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-5xl profile-fallback border-2 border-blue-400 shadow-lg" style={{ display: 'none', position: 'absolute', top: 0, left: 0 }}>
-              {profile.name && profile.name.length > 0 ? profile.name.charAt(0).toUpperCase() : 'U'}
+            <div className={`w-full h-full flex items-center justify-center text-white font-bold text-5xl profile-fallback border-2 shadow-lg ${getAvatarBgColor(profile.firstName || profile.lastName || profile.displayName || profile.name || 'U')}`} style={{ display: 'none', position: 'absolute', top: 0, left: 0 }}>
+              {getInitials(profile.firstName, profile.lastName, profile.displayName, profile.name)}
             </div>
+            
+            {/* Avatar Upload Button - Only show for own profile */}
+            {isOwnProfile && (
+              <div className="absolute -bottom-2 -right-2">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white hover:bg-gray-50 border-2 border-gray-200 rounded-full p-2"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
         <div className="absolute top-4 right-4 flex gap-2">
- buttons-color/hover
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-gray-100 text-black border border-gray-400 backdrop-blur-sm hover:bg-gray-200"
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            Follow
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-gray-100 text-black border border-gray-400 hover:bg-gray-200 backdrop-blur-sm"
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Message
-          </Button>
-
           {isOwnProfile ? (
             <Button 
               variant="outline" 
@@ -424,7 +505,6 @@ const ProfilePage = () => {
               </Button>
             </>
           )}
- master
         </div>
       </div>
 
@@ -433,23 +513,18 @@ const ProfilePage = () => {
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
           <div className="space-y-4">
             <div>
- buttons-color/hover
               <h1 className="text-3xl font-bold text-text-primary">
-                {profile.displayName}
+                {profile.firstName && profile.lastName 
+                  ? `${profile.firstName} ${profile.lastName}`
+                  : profile.firstName || profile.lastName || profile.displayName || profile.name || 'User'
+                }
               </h1>
-              <p className="text-text-secondary">@{profile.username}</p>
-            </div>
-            <p className="text-text-primary max-w-2xl">{profile.bio}</p>
-
-
-              <h1 className="text-3xl font-bold text-text-primary">{profile.name}</h1>
               <p className="text-text-secondary">@{profile.email?.split('@')[0] || 'user'}</p>
             </div>
             {profile.bio && (
               <p className="text-text-primary max-w-2xl">{profile.bio}</p>
             )}
             
- master
             <div className="flex flex-wrap gap-4 text-sm text-text-secondary">
               {profile.address && (
                 <div className="flex items-center gap-1">
@@ -460,24 +535,6 @@ const ProfilePage = () => {
               {profile.website && (
                 <div className="flex items-center gap-1">
                   <Link className="w-4 h-4" />
- buttons-color/hover
-                  <a
-                    href={profile.website}
-                    className="text-primary-500 hover:underline"
-                  >
-                    {profile.website.replace(/^https?:\/\//, "")}
-                  </a>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                Joined{" "}
-                {new Date(profile.joinedDate).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                })}
-              </div>
-
                   <a href={profile.website} className="text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">
                     {profile.website.replace(/^https?:\/\//, '')}
                   </a>
@@ -489,7 +546,6 @@ const ProfilePage = () => {
                   Joined {formatDate(profile.createdAt)}
                 </div>
               )}
- master
             </div>
           </div>
 
@@ -510,49 +566,25 @@ const ProfilePage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
- buttons-color/hover
-              <div className="text-2xl font-bold text-primary-500">
-                {profile.followers.toLocaleString()}
-              </div>
-
               <div className="text-2xl font-bold text-primary-500">{profile.followerCount?.toLocaleString() || 0}</div>
- master
               <div className="text-sm text-text-secondary">Followers</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
- buttons-color/hover
-              <div className="text-2xl font-bold text-primary-500">
-                {profile.following.toLocaleString()}
-              </div>
-
               <div className="text-2xl font-bold text-primary-500">{profile.followingCount?.toLocaleString() || 0}</div>
- master
               <div className="text-sm text-text-secondary">Following</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
- buttons-color/hover
-              <div className="text-2xl font-bold text-primary-500">
-                {profile.totalPosts}
-              </div>
-
               <div className="text-2xl font-bold text-primary-500">{profile.blogCount?.toLocaleString() || 0}</div>
- master
               <div className="text-sm text-text-secondary">Posts</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
- buttons-color/hover
-              <div className="text-2xl font-bold text-primary-500">
-                {profile.totalViews.toLocaleString()}
-              </div>
-
               <div className="text-2xl font-bold text-primary-500">{profile.totalViews?.toLocaleString() || 0}</div>
-= master
               <div className="text-sm text-text-secondary">Total Views</div>
             </CardContent>
           </Card>
@@ -581,38 +613,6 @@ const ProfilePage = () => {
       </div>
 
       {/* Badges */}
- buttons-color/hover
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-bold text-[var(--light-text-color2)]">
-            Badges ({profile.badges.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {profile.badges.map((badge) => (
-              <div
-                key={badge.id}
-                className="text-center p-4 rounded-lg border-2 border-[var(--border-color)] hover:border-primary-200 transition-colors"
-              >
-                <div className="text-3xl mb-2">{badge.icon}</div>
-                <h3 className="font-semibold text-[var(--light-text-color2)] mb-1">
-                  {badge.name}
-                </h3>
-                <p className="text-sm text-text-secondary mb-2">
-                  {badge.description}
-                </p>
-                <Badge
-                  variant={badge.rarity === "legendary" ? "default" : "outline"}
-                >
-                  {badge.rarity}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {profile.badges && profile.badges.length > 0 && (
         <Card>
           <CardHeader>
@@ -634,23 +634,15 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
       )}
- master
 
       {/* Tabs */}
       <div className="border-b-2 border-[var(--border-color)]">
         <nav className="flex space-x-8">
           {[
- buttons-color/hover
-            { id: "posts", label: "Posts", count: profile.recentPosts.length },
-            { id: "series", label: "Series", count: 3 },
-            { id: "likes", label: "Likes", count: 156 },
-            { id: "bookmarks", label: "Bookmarks", count: 42 },
-
             { id: 'posts', label: 'Posts', count: profile.blogCount || 0 },
             { id: 'series', label: 'Series', count: profile.totalSeries || 0 },
             { id: 'likes', label: 'Likes', count: profile.totalLikes || 0 },
             { id: 'bookmarks', label: 'Bookmarks', count: profile.totalBookmarks || 0 }
- master
           ].map((tab) => (
             <button
               key={tab.id}
@@ -669,50 +661,6 @@ const ProfilePage = () => {
 
       {/* Tab Content */}
       <div className="space-y-6">
- buttons-color/hover
-        {activeTab === "posts" && (
-          <div className="grid gap-6">
-            {profile.recentPosts.map((post) => (
-              <Card
-                key={post.id}
-                className="hover:shadow-lg transition-shadow cursor-pointer"
-              >
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-[var(--light-text-color2)] mb-2">
-                        {post.title}
-                      </h3>
-                      <p className="text-text-secondary mb-3">{post.excerpt}</p>
-                    </div>
-                    <div className="text-sm text-text-secondary">
-                      {new Date(post.publishedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-text-secondary">
-                    <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1">
-                        <BookOpen className="w-4 h-4" />
-                        {post.readTime} min read
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-4 h-4" />
-                        {post.likes}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MessageCircle className="w-4 h-4" />
-                        {post.comments}
-                      </span>
-                    </div>
-                    <span className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      {post.views.toLocaleString()} views
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
         {activeTab === 'posts' && (
           <div className="space-y-6">
             {blogsLoading ? (
@@ -765,7 +713,6 @@ const ProfilePage = () => {
                 <p className="text-text-secondary">Start writing your first blog post!</p>
               </div>
             )}
- master
           </div>
         )}
 

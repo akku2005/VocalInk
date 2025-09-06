@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import { Heart, Bookmark, Share2, MessageCircle } from "lucide-react";
+import LoginPromptModal from "../auth/LoginPromptModal";
 
 const EngagementButtons = ({
   blogId,
@@ -11,6 +12,7 @@ const EngagementButtons = ({
   isLiked = false,
   isBookmarked = false,
   onEngagementUpdate,
+  onCommentClick,
 }) => {
   const [likes, setLikes] = useState(initialLikes);
   const [bookmarks, setBookmarks] = useState(initialBookmarks);
@@ -20,12 +22,16 @@ const EngagementButtons = ({
   const [isLiking, setIsLiking] = useState(false);
   const [isBookmarking, setIsBookmarking] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginAction, setLoginAction] = useState('interact');
+  
   const { isAuthenticated } = useAuth();
   const { showSuccess, showError } = useToast();
 
   const handleLike = async () => {
     if (!isAuthenticated) {
-      console.log("User not authenticated, cannot like");
+      setLoginAction('like');
+      setShowLoginModal(true);
       return;
     }
 
@@ -57,9 +63,17 @@ const EngagementButtons = ({
     }
   };
 
+  const handleComment = () => {
+    // Always show comments, regardless of authentication status
+    if (onCommentClick) {
+      onCommentClick();
+    }
+  };
+
   const handleBookmark = async () => {
     if (!isAuthenticated) {
-      console.log("User not authenticated, cannot bookmark");
+      setLoginAction('bookmark');
+      setShowLoginModal(true);
       return;
     }
 
@@ -166,27 +180,20 @@ const EngagementButtons = ({
     { name: "Copy Link", platform: "copy", icon: "📋" },
   ];
 
-  console.log("EngagementButtons render:", {
-    blogId,
-    isAuthenticated,
-    likes,
-    bookmarks,
-    comments,
-    isLikedState,
-    isBookmarkedState,
-  });
-
   return (
     <div className="flex items-center justify-center gap-2.5 pl-1">
       {/* Like Button */}
       <button
         onClick={handleLike}
-        disabled={!isAuthenticated || isLiking}
         className={`flex items-center  gap-2  py-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isLikedState
-            ? "text-error bg-error/10"
-            : "text-text-secondary hover:text-error hover:bg-error/10"
+            ? "bg-error/10"
+            : "hover:bg-error/10"
         }`}
+        style={{ 
+          color: isLikedState ? 'rgb(var(--color-error))' : 'var(--text-color)',
+          backgroundColor: isLikedState ? 'rgba(var(--color-error), 0.1)' : 'transparent'
+        }}
         title={isAuthenticated ? "Like this post" : "Sign in to like"}
       >
         <Heart className={`w-4 h-4 ${isLikedState ? "fill-current" : ""}`} />
@@ -195,7 +202,9 @@ const EngagementButtons = ({
 
       {/* Comment Button */}
       <button
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-primary-500 hover:bg-primary/10 transition-all duration-200 cursor-pointer"
+        onClick={handleComment}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 transition-all duration-200 cursor-pointer"
+        style={{ color: 'var(--text-color)' }}
         title="View comments"
       >
         <MessageCircle className="w-4 h-4" />
@@ -205,12 +214,15 @@ const EngagementButtons = ({
       {/* Bookmark Button */}
       <button
         onClick={handleBookmark}
-        disabled={!isAuthenticated || isBookmarking}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isBookmarkedState
-            ? "text-primary-500 bg-primary/10"
-            : "text-text-secondary hover:text-primary-500 hover:bg-primary/10"
+            ? "bg-primary/10"
+            : "hover:bg-primary/10"
         }`}
+        style={{ 
+          color: isBookmarkedState ? 'rgb(var(--color-primary))' : 'var(--text-color)',
+          backgroundColor: isBookmarkedState ? 'rgba(var(--color-primary), 0.1)' : 'transparent'
+        }}
         title={isAuthenticated ? "Bookmark this post" : "Sign in to bookmark"}
       >
         <Bookmark
@@ -223,11 +235,12 @@ const EngagementButtons = ({
       <div className="relative">
         <button
           onClick={() => setShowShareMenu(!showShareMenu)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-accent-500 hover:bg-accent/10 transition-all duration-200 cursor-pointer"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent/10 transition-all duration-200 cursor-pointer"
+          style={{ color: 'var(--text-color)' }}
           title="Share this post"
         >
           <Share2 className="w-4 h-4" />
-          <span className="font-medium text-xs">Share</span>
+          <span className="text-sm">Share</span>
         </button>
 
         {/* Share Menu */}
@@ -258,9 +271,42 @@ const EngagementButtons = ({
         )}
       </div>
 
-      {/* Authentication Prompt */}
+      {/* Authentication Prompt - Make it clickable */}
       {!isAuthenticated && (
-        <div className="text-xs text-text-secondary">Sign in to engage</div>
+        <button
+          onClick={() => {
+            setLoginAction('interact');
+            setShowLoginModal(true);
+          }}
+          className="text-xs cursor-pointer transition-colors hover:underline"
+          style={{ color: 'var(--text-color)' }}
+          onMouseEnter={(e) => e.target.style.color = 'rgb(var(--color-primary))'}
+          onMouseLeave={(e) => e.target.style.color = 'var(--text-color)'}
+          title="Click to sign in"
+        >
+          Sign in to engage
+        </button>
+      )}
+
+      {/* Login Prompt Modal */}
+      {showLoginModal && (
+        <div>
+          {console.log('Modal should be visible, action:', loginAction)}
+          <LoginPromptModal
+            action={loginAction}
+            onClose={() => setShowLoginModal(false)}
+            onSuccess={() => {
+              setShowLoginModal(false);
+              if (loginAction === 'like') {
+                handleLike();
+              } else if (loginAction === 'comment') {
+                handleComment();
+              } else if (loginAction === 'bookmark') {
+                handleBookmark();
+              }
+            }}
+          />
+        </div>
       )}
     </div>
   );

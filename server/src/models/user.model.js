@@ -3,9 +3,10 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false },
     role: {
       type: String,
       enum: ['user', 'reader', 'writer', 'admin'],
@@ -25,7 +26,9 @@ const userSchema = new mongoose.Schema(
     address: { type: String },
     profilePicture: { type: String },
     avatar: { type: String },
+    avatarKey: { type: String }, // Cloudinary public ID for avatar
     coverImage: { type: String }, // Background banner image
+    coverImageKey: { type: String }, // Cloudinary public ID for cover image
 
     // Professional info
     company: { type: String },
@@ -138,6 +141,9 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpires: { type: Date },
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: { type: String },
+    backupCodes: [{ type: String }],
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
 
     // Security & Account protection
     failedLoginAttempts: { type: Number, default: 0 },
@@ -164,14 +170,53 @@ const userSchema = new mongoose.Schema(
     // Preferences
     emailNotifications: { type: Boolean, default: true },
     pushNotifications: { type: Boolean, default: true },
+    marketingEmails: { type: Boolean, default: false },
+    accountVisibility: {
+      type: String,
+      enum: ['public', 'private', 'friends'],
+      default: 'public',
+    },
+    
+    // Notification preferences
+    notificationSettings: {
+      newFollowers: { type: Boolean, default: true },
+      newLikes: { type: Boolean, default: true },
+      newComments: { type: Boolean, default: true },
+      newMentions: { type: Boolean, default: true },
+      badgeEarned: { type: Boolean, default: true },
+      levelUp: { type: Boolean, default: true },
+      seriesUpdates: { type: Boolean, default: true },
+      aiGenerations: { type: Boolean, default: false },
+      weeklyDigest: { type: Boolean, default: false },
+      monthlyReport: { type: Boolean, default: false },
+      emailDigestFrequency: { 
+        type: String, 
+        enum: ['immediate', 'daily', 'weekly', 'monthly', 'never'],
+        default: 'weekly' 
+      },
+      pushNotificationTime: { 
+        type: String, 
+        enum: ['immediate', 'hourly', 'daily'],
+        default: 'immediate' 
+      }
+    },
     privacySettings: {
       profileVisibility: {
         type: String,
         enum: ['public', 'followers', 'private'],
         default: 'public',
       },
+      postVisibility: {
+        type: String,
+        enum: ['public', 'followers', 'private'],
+        default: 'public',
+      },
+      allowSearch: { type: Boolean, default: true },
       showEmail: { type: Boolean, default: false },
-      showLastActive: { type: Boolean, default: true },
+      showOnlineStatus: { type: Boolean, default: true },
+      allowDirectMessages: { type: Boolean, default: true },
+      dataSharing: { type: Boolean, default: false },
+      analyticsSharing: { type: Boolean, default: true },
     },
   },
   {

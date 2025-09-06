@@ -2,8 +2,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
 import Badge from "../ui/Badge";
 import EngagementButtons from "../engagement/EngagementButtons";
 import { Calendar, Clock, User, Bookmark } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const BlogCard = ({ blog, viewMode = "grid" }) => {
+  const navigate = useNavigate();
+  
   const {
     title,
     excerpt,
@@ -15,6 +18,12 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
     comments = 0,
     isBookmarked = false,
   } = blog;
+
+  const handleCommentClick = () => {
+    // Navigate to the full article page where comments are displayed
+    // Add a hash to scroll to comments section
+    navigate(`/article/${blog.id}#comments`);
+  };
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-US", {
@@ -89,6 +98,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
                   initialBookmarks={blog.bookmarks || 0}
                   isLiked={blog.isLiked}
                   isBookmarked={blog.isBookmarked}
+                  onCommentClick={handleCommentClick}
                 />
               </div>
             </CardContent>
@@ -103,11 +113,6 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
       {/* Image/Header */}
       <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400  flex items-center justify-center relative">
         <div className="text-4xl text-primary-500 opacity-30">📝</div>
-        <button className="absolute top-4 right-4 p-2  cursor-pointer border border-[var(--border-color)]  rounded-lg transition-all duration-200 shadow-sm text-[var(--text-color)]  bg-[var(--secondary-btn)]">
-          <Bookmark
-            className={`w-4 h-4 ${isBookmarked ? "fill-current text-primary-500" : "text-[var(--text-color)]"}`}
-          />
-        </button>
       </div>
 
       <CardHeader className="space-y-4 sm:space-y-3">
@@ -163,6 +168,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
               initialBookmarks={blog.bookmarks || 0}
               isLiked={blog.isLiked}
               isBookmarked={blog.isBookmarked}
+              onCommentClick={handleCommentClick}
             />
           </div>
         </div>

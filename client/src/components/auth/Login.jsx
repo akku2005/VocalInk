@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -33,16 +33,49 @@ const twoFactorSchema = yup
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const { login, error, clearError, accountLocked, lockoutUntil } = useAuth();
+  const [is2faRequired, setIs2faRequired] = useState(false); // NEW LINE
+  const {
+    login,
+    loading,
+    error,
+    accountLocked,
+    twoFactorRequired,
+    clearError,
+    store2FACredentials,
+    clear2FACredentials,
+    pending2FACredentials,
+    resetLoginAttempt,
+    setTwoFactorRequired // Keep this, as context might still update it
+  } = useAuth();
+
+  // Get pending 2FA credentials from context
   const navigate = useNavigate();
   const location = useLocation();
 
   // Get the intended destination from location state, or default to dashboard
   const from = location.state?.from?.pathname || "/dashboard";
+  
+  // Get message from location state (e.g., from registration)
+  const message = location.state?.message;
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔍 Login component state changed:', {
+      twoFactorRequired,
+      is2faRequired, // NEW LINE
+      loading,
+      error,
+      accountLocked
+    });
+  }, [twoFactorRequired, is2faRequired, loading, error, accountLocked]); // MODIFIED DEPENDENCIES
+
+  // Debug stored credentials changes
+  useEffect(() => {
+    console.log('🔍 Stored credentials changed:', {
+      email: pending2FACredentials?.email,
+      hasPassword: !!pending2FACredentials?.password
+    });
+  }, [pending2FACredentials]);
 
   const {
     register,
@@ -55,8 +88,8 @@ const Login = () => {
   });
 
   const {
-    register: register2FA,
     handleSubmit: handleSubmit2FA,
+    register: register2FA,
     formState: { errors: errors2FA },
     setError: setFormError2FA,
   } = useForm({
@@ -64,30 +97,32 @@ const Login = () => {
   });
 
   const onSubmit = async (data) => {
-    setLoading(true);
     clearError();
+    setIs2faRequired(false); // NEW LINE: Reset local 2FA state on new login attempt
     
     try {
+      console.log('🔐 Attempting login for:', data.email);
       const result = await login(data.email, data.password);
       
       if (result.success) {
         if (result.twoFactorRequired) {
           // 2FA required - store credentials for 2FA submission
-          setLoginEmail(data.email);
-          setLoginPassword(data.password);
-          setTwoFactorRequired(true);
+          console.log('🔐 2FA required, storing credentials');
+          store2FACredentials(data.email, data.password);
+          setIs2faRequired(true); // NEW LINE: Set local 2FA state
         } else {
           // Login successful, redirect
+          console.log('✅ Login successful, redirecting to:', from);
           navigate(from, { replace: true });
         }
       } else {
         if (result.accountLocked) {
           // Account is locked - error is already set in context
-          setLoading(false);
           return;
         }
         if (result.requiresVerification) {
           // Email verification required - redirect to verification page
+          console.log('📧 Email verification required, redirecting');
           navigate("/verify-email", { 
             state: { 
               email: data.email, 
@@ -100,37 +135,97 @@ const Login = () => {
         setFormError("root", { message: result.error });
       }
     } catch (error) {
+      console.error('❌ Login error:', error);
+      
+      // Check if this is a 2FA requirement error
+      if (error.twoFactorRequired) {
+        console.log('🔐 2FA required (from error), storing credentials');
+        console.log('🔐 Storing email:', data.email);
+        console.log('🔐 Storing password length:', data.password?.length);
+        store2FACredentials(data.email, data.password);
+        setIs2faRequired(true); // MODIFIED LINE
+        console.log('🔐 Credentials stored in context');
+        return;
+      }
+      
+      // Check if this is a verification requirement error
+      if (error.requiresVerification) {
+        console.log('📧 Email verification required (from error), redirecting');
+        navigate("/verify-email", { 
+          state: { 
+            email: data.email, 
+            from: from,
+            message: error.message 
+          } 
+        });
+        return;
+      }
+      
+      // Check if this is an account lockout error
+      if (error.accountLocked) {
+        // Account is locked - error is already set in context
+        return;
+      }
+      
+      // Handle other errors
       setFormError("root", { message: error.message || "An unexpected error occurred" });
-    } finally {
-      setLoading(false);
     }
   };
 
   const onSubmit2FA = async (data) => {
-    setLoading(true);
     clearError();
     
     try {
-      // Since the backend expects 2FA token during login, we need to call login again
-      // with the 2FA token along with the stored credentials
-      const result = await login(loginEmail, loginPassword, data.twoFactorToken);
+      console.log('🔐 Submitting 2FA code for:', pending2FACredentials?.email);
+      console.log('🔐 Stored credentials check:', { 
+        email: pending2FACredentials?.email, 
+        hasPassword: !!pending2FACredentials?.password 
+      });
+      console.log('🔐 2FA token length:', data.twoFactorToken?.length);
+      console.log('🔐 2FA token value:', data.twoFactorToken);
+      
+      // Validate that we have the required credentials
+      if (!pending2FACredentials?.email || !pending2FACredentials?.password) {
+        console.error('❌ Missing stored credentials:', { 
+          email: pending2FACredentials?.email, 
+          hasPassword: !!pending2FACredentials?.password 
+        });
+        setFormError2FA("root", { message: "Missing login credentials. Please try logging in again." });
+        return;
+      }
+      
+      // Call login again with 2FA token - this is the correct approach
+      // as the backend expects 2FA token during login
+      const result = await login(pending2FACredentials.email, pending2FACredentials.password, data.twoFactorToken);
+      
+      console.log('🔐 2FA login result:', result);
       
       if (result.success) {
-        // 2FA successful, redirect
+        // 2FA successful, clear credentials and redirect
+        console.log('✅ 2FA successful, redirecting to:', from);
+        clear2FACredentials();
+        setIs2faRequired(false); // NEW LINE: Reset local 2FA state on success
         navigate(from, { replace: true });
       } else {
+        console.error('❌ 2FA failed:', result.error);
+        console.error('❌ 2FA result details:', result);
         setFormError2FA("root", { message: result.error });
       }
     } catch (error) {
+      console.error('❌ 2FA error:', error);
+      console.error('❌ 2FA error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      });
       setFormError2FA("root", { message: error.message || "2FA verification failed" });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleBackToLogin = () => {
-    setTwoFactorRequired(false);
-    clearError();
+    resetLoginAttempt();
+    setIs2faRequired(false); // NEW LINE
   };
 
   // Format lockout time
@@ -174,7 +269,7 @@ const Login = () => {
                   </h3>
                   <p className="text-sm text-text-secondary mt-1">
                     Time remaining: <span className="font-medium text-red-600">
-                      {formatLockoutTime(lockoutUntil)}
+                      {formatLockoutTime(accountLocked ? new Date(Date.now() + 15 * 60 * 1000) : null)}
                     </span>
                   </p>
                 </div>
@@ -212,7 +307,7 @@ const Login = () => {
     );
   }
 
-  if (twoFactorRequired) {
+  if (twoFactorRequired || is2faRequired) { // MODIFIED CONDITION
     return (
       <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
@@ -315,10 +410,21 @@ const Login = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Show auth context error (from backend) or form validation error */}
-              {(error || errors.root) && (
+              {message && (
+                <div className="p-3 text-sm text-green-600 bg-green-100 rounded-md">
+                  {message}
+                </div>
+              )}
+              
+              {errors.root && (
                 <div className="p-3 text-sm text-error bg-error/10 rounded-md">
-                  {error || errors.root?.message}
+                  {errors.root.message}
+                </div>
+              )}
+
+              {error && (
+                <div className="p-3 text-sm text-error bg-error/10 rounded-md">
+                  {error}
                 </div>
               )}
 

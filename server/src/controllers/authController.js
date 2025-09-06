@@ -12,6 +12,7 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 
 const User = require('../models/user.model');
+const Session = require('../models/session.model');
 const Token = require('../models/token.model');
 const AuditLog = require('../models/auditlog.model');
 const logger = require('../utils/logger');
@@ -29,6 +30,10 @@ const {
   sanitizeInput,
   isDisposableEmailDomain,
   generateDeviceFingerprint,
+  getDeviceType,
+  getBrowserName,
+  getOperatingSystem,
+  getLocationFromIP,
 } = require('../utils/sanitize');
 
 // Utility: base64 encode a string
@@ -36,6 +41,31 @@ const toBase64 = (str) => Buffer.from(str, 'utf-8').toString('base64');
 
 // Create EmailService instance
 const emailService = EmailService;
+
+const validatePassword = (password) => {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (password.length < minLength) {
+    return { isValid: false, errors: ['Password must be at least 8 characters'] };
+  }
+  if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+    return {
+      isValid: false,
+      errors: [
+        'Password must contain an uppercase letter',
+        'Password must contain a lowercase letter',
+        'Password must contain a number',
+        'Password must contain a special character',
+      ],
+    };
+  }
+  return { isValid: true, errors: [] };
+};
+
 
 // Rate Limiters
 const loginLimiter = rateLimit({
@@ -107,11 +137,16 @@ class AuthController {
       .withMessage('Password must contain a number')
       .matches(/[!@#$%^&*(),.?":{}|<>]/)
       .withMessage('Password must contain a special character'),
-    body('name')
+    body('firstName')
       .trim()
       .escape()
       .isLength({ min: 2, max: 50 })
-      .withMessage('Name must be 2-50 characters'),
+      .withMessage('First name must be 2-50 characters'),
+    body('lastName')
+      .trim()
+      .escape()
+      .isLength({ min: 2, max: 50 })
+      .withMessage('Last name must be 2-50 characters'),
     body('role')
       .optional()
       .isIn(['reader', 'writer', 'admin'])
@@ -129,11 +164,12 @@ class AuthController {
         });
       }
       
-      const { email, password, name, role, skipVerification } = req.body;
+      const { email, password, firstName, lastName, role, skipVerification } = req.body;
 
       // Enhanced input sanitization
       const sanitizedEmail = email.toLowerCase().trim();
-      const sanitizedName = name.trim();
+      const sanitizedFirstName = firstName.trim();
+      const sanitizedLastName = lastName.trim();
 
       // Check if user already exists
       const existingUser = await User.findOne({ email: sanitizedEmail });
@@ -181,7 +217,8 @@ class AuthController {
       const user = await User.create({
         email: sanitizedEmail,
         password,
-        name: sanitizedName,
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
         role: role || 'reader',
         lastActiveAt: new Date(),
         failedLoginAttempts: 0,
@@ -189,70 +226,44 @@ class AuthController {
       });
 
       // For admin users, automatically verify and provide tokens
-      if (user.role === 'admin') {
+      if (user.role === 'admin' || (skipVerification && process.env.NODE_ENV === 'development')) {
         user.isVerified = true;
         user.verifiedAt = new Date();
         await user.save();
 
         const tokens = JWTService.generateTokenPair(user);
 
-        await logAuthActivity(req, 'AUTH_REGISTER_ADMIN', {
+        await logAuthActivity(req, user.role === 'admin' ? 'AUTH_REGISTER_ADMIN' : 'AUTH_REGISTER_DEV', {
           userId: user._id,
           email: user.email,
           role: user.role,
           autoVerified: true,
         });
 
-        try {
-          const creatorEmail = req.user ? req.user.email : 'system';
-          await emailService.sendAdminCreationNotification(
-            user.email,
-            user.name,
-            creatorEmail
-          );
-        } catch (error) {
-          logger.error('Error sending admin creation notification:', {
-            error: error.message,
-            userId: user._id,
-          });
+        if (user.role === 'admin') {
+            try {
+              const creatorEmail = req.user ? req.user.email : 'system';
+              await emailService.sendAdminCreationNotification(
+                user.email,
+                user.name,
+                creatorEmail
+              );
+            } catch (error) {
+              logger.error('Error sending admin creation notification:', {
+                error: error.message,
+                userId: user._id,
+              });
+            }
         }
 
         return res.status(201).json({
           success: true,
-          message: 'Admin account created and verified successfully.',
+          message: user.role === 'admin' ? 'Admin account created and verified successfully.' : 'User account created and verified successfully (development mode).',
           user: {
             id: user._id,
             email: user.email,
-            name: user.name,
-            role: user.role,
-            isVerified: user.isVerified,
-          },
-          tokens,
-        });
-      }
-
-      // For regular users, check if verification should be skipped (development only)
-      if (skipVerification && process.env.NODE_ENV === 'development') {
-        user.isVerified = true;
-        user.verifiedAt = new Date();
-        await user.save();
-
-        const tokens = JWTService.generateTokenPair(user);
-
-        await logAuthActivity(req, 'AUTH_REGISTER_DEV', {
-          userId: user._id,
-          email: user.email,
-          role: user.role,
-          autoVerified: true,
-        });
-
-        return res.status(201).json({
-          success: true,
-          message: 'User account created and verified successfully (development mode).',
-          user: {
-            id: user._id,
-            email: user.email,
-            name: user.name,
+            firstName: user.firstName,
+            lastName: user.lastName,
             role: user.role,
             isVerified: user.isVerified,
           },
@@ -317,32 +328,7 @@ class AuthController {
       
       res.status(201).json(response);
     } catch (error) {
-      logger.error('Registration error:', {
-        error: error.message,
-        email: req.body.email,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-
-      if (error.name === 'ConflictError' || error.message === 'Email already registered') {
-        return res.status(409).json({ 
-          success: false, 
-          message: 'Email already registered' 
-        });
-      }
-      
-      if (error.isOperational) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          message: 'An error occurred during registration. Please try again.',
-        });
-      }
+        next(error);
     }
   }
 
@@ -628,9 +614,40 @@ class AuthController {
       // Generate device fingerprint for security
       const deviceFingerprint = generateDeviceFingerprint(req);
       
+      // Parse user agent for device info
+      const userAgent = req.get('user-agent') || 'Unknown';
+      const deviceInfo = {
+        userAgent: userAgent,
+        device: getDeviceType(userAgent),
+        browser: getBrowserName(userAgent),
+        os: getOperatingSystem(userAgent)
+      };
+      
       // Update user's login streak
       await user.updateStreak('login', 'increment');
       
+      // Create a new session record
+      const sessionData = {
+        userId: user._id,
+        sessionToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        deviceInfo: deviceInfo,
+        ipAddress: req.ip || req.connection.remoteAddress || 'Unknown',
+        location: await getLocationFromIP(req.ip),
+        isActive: true,
+        lastActivity: new Date(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        loginMethod: user.twoFactorEnabled ? '2fa' : 'password'
+      };
+      
+      try {
+        await Session.create(sessionData);
+        console.log('✅ Session created successfully for user:', user._id);
+      } catch (sessionError) {
+        console.error('❌ Failed to create session:', sessionError);
+        // Don't fail login if session creation fails
+      }
+
       // Log successful login
       await logAuthActivity(req, 'AUTH_LOGIN_SUCCESS', {
         userId: user._id,
@@ -647,7 +664,8 @@ class AuthController {
         user: {
           id: user._id,
           email: user.email,
-          name: user.name,
+          firstName: user.firstName,
+            lastName: user.lastName,
           role: user.role,
           isVerified: user.isVerified,
           twoFactorEnabled: user.twoFactorEnabled,
@@ -656,25 +674,7 @@ class AuthController {
         ...tokens,
       });
     } catch (error) {
-      logger.error('Login error:', {
-        error: error.message,
-        email: req.body.email,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-
-      if (error.isOperational) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          message: 'An error occurred during login. Please try again.',
-        });
-      }
+        next(error);
     }
   }
 
@@ -692,7 +692,6 @@ class AuthController {
       // Sanitize email
       const sanitizedEmail = email.toLowerCase().trim();
 
-      // Find user by email
       const user = await User.findOne({ email: sanitizedEmail });
       if (!user) {
         logger.warn('Email verification attempted for non-existent user', {
@@ -803,7 +802,8 @@ class AuthController {
         user: {
           id: user._id,
           email: user.email,
-          name: user.name,
+          firstName: user.firstName,
+            lastName: user.lastName,
           role: user.role,
           isVerified: user.isVerified,
         },
@@ -811,29 +811,11 @@ class AuthController {
         ...tokens,
       });
     } catch (error) {
-      logger.error('Email verification error:', {
-        error: error.message,
-        email: req.body.email,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-
-      if (error.isOperational) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'An error occurred during email verification. Please try again.',
-        });
-      }
+        next(error);
     }
   }
 
-  static async resendVerificationCode(req, res, next) {
+  static async resendVerification(req, res, next) {
     try {
       const { email } = req.body;
       
@@ -933,18 +915,7 @@ class AuthController {
         email: user.email,
       });
     } catch (error) {
-      logger.error('Resend verification error:', {
-        error: error.message,
-        email: req.body.email,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred while resending verification code. Please try again.',
-      });
+        next(error);
     }
   }
 
@@ -1044,16 +1015,7 @@ class AuthController {
       };
       return res.status(200).json(response);
     } catch (error) {
-      logger.error('Error in forgot password:', {
-        error: error.message,
-        body: req.body,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-      });
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred during password reset request',
-      });
+        next(error);
     }
   }
 
@@ -1133,16 +1095,7 @@ class AuthController {
         message: 'Password has been reset successfully',
       });
     } catch (error) {
-      logger.error('Error in reset password:', {
-        error: error.message,
-        body: req.body,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-      });
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred during password reset',
-      });
+        next(error);
     }
   }
 
@@ -1175,6 +1128,15 @@ class AuthController {
       }
 
       const { currentPassword, newPassword } = req.body;
+
+      const passwordValidation = validatePassword(newPassword);
+        if (!passwordValidation.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password does not meet security requirements',
+                details: passwordValidation.errors
+            });
+        }
 
       // Fetch user with password for comparison
       const user = await User.findById(req.user.id).select('+password');
@@ -1216,16 +1178,7 @@ class AuthController {
         message: 'Password changed successfully. Please log in again.',
       });
     } catch (error) {
-      logger.error('Error in change password:', {
-        error: error.message,
-        body: req.body,
-        ip: req.ip,
-        userAgent: req.get('user-agent'),
-      });
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred during password change',
-      });
+        next(error);
     }
   }
 
@@ -1248,21 +1201,7 @@ class AuthController {
         message: 'Logged out successfully',
       });
     } catch (error) {
-      logger.error('Error occurred', {
-        error: error.message,
-        ip: req.ip,
-        method: req.method,
-        url: req.originalUrl,
-        params: req.params,
-        query: req.query,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred during logout',
-      });
+        next(error);
     }
   }
 
@@ -1297,20 +1236,7 @@ class AuthController {
         message: 'Logged out from all devices successfully',
       });
     } catch (error) {
-      logger.error('Error in logoutAll:', {
-        error: error.message,
-        ip: req.ip,
-        method: req.method,
-        url: req.originalUrl,
-        params: req.params,
-        query: req.query,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred during logout from all devices',
-      });
+        next(error);
     }
   }
 
@@ -1327,28 +1253,7 @@ class AuthController {
         data: userObj,
       });
     } catch (error) {
-      logger.error('Error occurred', {
-        error: error.message,
-        ip: req.ip,
-        method: req.method,
-        url: req.originalUrl,
-        params: req.params,
-        query: req.query,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-
-      if (error.isOperational) {
-        res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'An error occurred while fetching user data',
-        });
-      }
+        next(error);
     }
   }
 
@@ -1384,42 +1289,13 @@ class AuthController {
         ...tokens,
       });
     } catch (error) {
-      logger.error('Error occurred', {
-        error: error.message,
-        body: req.body,
-        ip: req.ip,
-        method: req.method,
-        url: req.originalUrl,
-        params: req.params,
-        query: req.query,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-      if (
-        error.name === 'UnauthorizedError' ||
-        error.message === 'Invalid token' ||
-        error.message === 'Token has been revoked' ||
-        error.message === 'Token has expired'
-      ) {
-        return res.status(401).json({ success: false, message: error.message });
-      }
-      if (error.isOperational) {
-        return res.status(error.statusCode).json({
-          success: false,
-          message: error.message,
-        });
-      } else {
-        return res.status(500).json({
-          success: false,
-          message: 'An error occurred during token refresh',
-        });
-      }
+        next(error);
     }
   }
 
   static async getUserSessions(req, res, next) {
     try {
-      const sessions = await TokenService.getUserSessions(req.user._id);
+      const sessions = await JWTService.getUserSessions(req.user._id);
       res.status(200).json({
         success: true,
         data: {
@@ -1433,47 +1309,11 @@ class AuthController {
         },
       });
     } catch (error) {
-      logger.error('Error in getUserSessions:', {
-        error: error.message,
-        ip: req.ip,
-        method: req.method,
-        url: req.originalUrl,
-        params: req.params,
-        query: req.query,
-        userAgent: req.get('user-agent'),
-        stack: error.stack,
-      });
-      res.status(500).json({
-        success: false,
-        message: 'An error occurred while fetching user sessions',
-      });
+        next(error);
     }
   }
 }
 
-const validatePassword = (password) => {
-  const minLength = 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-  if (password.length < minLength) {
-    return { isValid: false, errors: ['Password must be at least 8 characters'] };
-  }
-  if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-    return {
-      isValid: false,
-      errors: [
-        'Password must contain an uppercase letter',
-        'Password must contain a lowercase letter',
-        'Password must contain a number',
-        'Password must contain a special character',
-      ],
-    };
-  }
-  return { isValid: true, errors: [] };
-};
 
 const checkPasswordHistory = async (userId, newPassword) => {
   const user = await User.findById(userId).select('passwordHistory');
@@ -1517,7 +1357,7 @@ module.exports = {
   logout: AuthController.logout,
   logoutAll: AuthController.logoutAll,
   verifyEmail: AuthController.verifyEmail,
-  resendVerificationCode: AuthController.resendVerificationCode,
+  resendVerification: AuthController.resendVerification,
   forgotPassword: AuthController.forgotPassword,
   resetPassword: AuthController.resetPassword,
   changePassword: AuthController.changePassword,

@@ -23,8 +23,9 @@ const ProtectedRoute = ({ children, requireAuth = true, redirectTo = '/login' })
 
   // If route is for guests only (like login/register) and user is authenticated
   if (!requireAuth && isAuthenticated) {
-    // Redirect to dashboard or home
-    return <Navigate to="/dashboard" replace />;
+    // Check if there's a stored intended destination, otherwise go to dashboard
+    const from = location.state?.from?.pathname || '/dashboard';
+    return <Navigate to={from} replace />;
   }
 
   // User is authenticated and can access the route

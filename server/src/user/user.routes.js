@@ -11,6 +11,9 @@ router.get('/:id', userController.getProfile);
 router.put('/:id', protect, userController.updateProfile);
 router.patch('/me', protect, userController.updateProfile);
 
+// Password management
+router.patch('/me/password', protect, userController.changePassword);
+
 // Follow system
 router.post('/:targetUserId/follow', protect, userController.followUser);
 router.delete('/:targetUserId/follow', protect, userController.unfollowUser);

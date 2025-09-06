@@ -26,19 +26,35 @@ class EmailService {
         logger.warn(
           'Email configuration is missing. Please set SMTP_USER and SMTP_PASS environment variables.'
         );
-        this.transporter = {
-          sendMail: async (mailOptions) => {
-            logger.warn('Email service not configured. Would have sent:', {
-              to: mailOptions.to,
-              subject: mailOptions.subject,
-            });
-            return { messageId: 'dummy-id' };
-          },
-          verify: async () => {
-            logger.warn('Email service is not configured');
-            return true;
-          },
-        };
+        
+        // In development mode, create a more informative dummy transporter
+        if (process.env.NODE_ENV === 'development') {
+          this.transporter = {
+            sendMail: async (mailOptions) => {
+              logger.warn('📧 DEVELOPMENT MODE: Email would have been sent:', {
+                to: mailOptions.to,
+                subject: mailOptions.subject,
+                code: mailOptions.html?.includes('verification code') ? 'Check HTML for code' : 'No code found'
+              });
+              
+              // Extract verification code from HTML for development
+              const codeMatch = mailOptions.html?.match(/>(\d{6})</);
+              if (codeMatch) {
+                logger.info(`📧 DEVELOPMENT MODE: Verification code for ${mailOptions.to}: ${codeMatch[1]}`);
+              }
+              
+              return { messageId: 'dev-mode-' + Date.now() };
+            },
+            verify: async () => {
+              logger.warn('📧 Email service is in development mode - no real emails will be sent');
+              return true;
+            },
+          };
+        } else {
+          // In production, throw error if email is not configured
+          throw new Error('Email service not configured. SMTP_USER and SMTP_PASS are required in production.');
+        }
+        
         this.initialized = true;
         return;
       }
