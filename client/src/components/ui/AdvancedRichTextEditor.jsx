@@ -1,38 +1,32 @@
-import ReactQuill, { Quill } from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
-
-// Add a custom table module to Quill
-const tableModule = {
-  container: Quill.import('formats/table-container'),
-  row: Quill.import('formats/table-row'),
-  cell: Quill.import('formats/table-cell'),
-  table: Quill.import('formats/table')
-};
-Quill.register(tableModule, true);
-
-const modules = {
-  toolbar: [
-    [{ 'header': '1'}, {'header': '2'}, { 'font': [] }],
-    [{size: []}],
-    ['bold', 'italic', 'underline', 'strike', 'blockquote', 'code-block'],
-    [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-    ['link', 'image', 'video'], // These are the key features
-    ['clean'],
-    ['table'] // Add table to the toolbar
-  ],
-};
-
-const formats = [
-  'header', 'font', 'size',
-  'bold', 'italic', 'underline', 'strike', 'blockquote',
-  'list', 'ordered', 'bullet', 'indent',
-  'link', 'image', 'video',
-  'table'
-];
+import { useRef, useMemo } from 'react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 const AdvancedRichTextEditor = ({ value, onChange, className }) => {
+  const quillRef = useRef(null);
+
+  // Memoize modules and formats to prevent re-creation
+  const modules = useMemo(() => ({
+    toolbar: [
+      [{ 'header': '1'}, {'header': '2'}, { 'font': [] }],
+      [{ 'size': [] }],
+      ['bold', 'italic', 'underline', 'strike', 'blockquote', 'code-block'],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+      ['link', 'image', 'video'],
+      ['clean']
+    ],
+  }), []);
+
+  const formats = useMemo(() => [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike', 'blockquote', 'code-block',
+    'list', 'indent',
+    'link', 'image', 'video'
+  ], []);
+
   return (
     <ReactQuill
+      ref={quillRef}
       theme="snow"
       value={value}
       onChange={onChange}

@@ -25,9 +25,9 @@ exports.getUserNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate('data.fromUserId', 'name email avatar')
-      .populate('data.badgeId', 'name description icon')
-      .populate('data.blogId', 'title')
+      .populate('data.fromUserId', 'firstName lastName email avatar')
+      .populate('data.badgeId', 'name description icon rarity')
+      .populate('data.blogId', 'title slug')
       .exec();
 
     const total = await Notification.countDocuments(query);
@@ -63,9 +63,9 @@ exports.getNotificationById = async (req, res) => {
     const userId = req.user.id;
 
     const notification = await Notification.findById(id)
-      .populate('data.fromUserId', 'name email avatar')
-      .populate('data.badgeId', 'name description icon')
-      .populate('data.blogId', 'title');
+      .populate('data.fromUserId', 'firstName lastName email avatar')
+      .populate('data.badgeId', 'name description icon rarity')
+      .populate('data.blogId', 'title slug');
 
     if (!notification) {
       throw new NotFoundError('Notification not found');
@@ -271,7 +271,7 @@ exports.getNotificationStats = async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate('data.fromUserId', 'name avatar');
+      .populate('data.fromUserId', 'firstName lastName avatar');
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -288,6 +288,79 @@ exports.getNotificationStats = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: 'An error occurred while fetching notification statistics',
+    });
+  }
+};
+
+// Seed test notifications (development/testing only)
+exports.seedTestNotifications = async (req, res) => {
+  // Ensure we always send a JSON response
+  res.setHeader('Content-Type', 'application/json');
+  
+  try {
+    logger.info('=== Seed test notifications endpoint called ===');
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      logger.error('No authenticated user found');
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: 'User not authenticated',
+        error: 'No user ID found in request',
+      });
+    }
+    
+    const userId = req.user.id;
+    logger.info('User authenticated', { userId });
+    
+    // Check if database is connected
+    const mongoose = require('mongoose');
+    const dbState = mongoose.connection.readyState;
+    logger.info('Database connection state', { state: dbState });
+    
+    if (dbState !== 1) {
+      logger.error('Database not connected - cannot seed notifications', { state: dbState });
+      return res.status(StatusCodes.SERVICE_UNAVAILABLE).json({
+        success: false,
+        message: 'Database is not connected. Please check your MongoDB connection.',
+        error: 'Database unavailable',
+        dbState: dbState,
+      });
+    }
+    
+    logger.info('Requiring seed utilities...');
+    const { seedNotifications, clearNotifications } = require('../utils/seedNotifications');
+
+    // Clear existing notifications first
+    logger.info('Clearing existing notifications...');
+    await clearNotifications(userId);
+    logger.info('Notifications cleared successfully');
+
+    // Seed new notifications
+    logger.info('Creating new test notifications...');
+    const result = await seedNotifications(userId);
+    logger.info('Test notifications seeded successfully', { count: result.count });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: `Successfully seeded ${result.count} test notifications`,
+      data: result,
+    });
+  } catch (error) {
+    logger.error('Error seeding test notifications:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+      name: error.name,
+    });
+    
+    // Ensure we send JSON even on error
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to seed test notifications',
+      error: error.message,
+      errorName: error.name,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 };

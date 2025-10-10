@@ -3,10 +3,8 @@ import Skeleton from "./Skeleton.jsx";
 
 export default function ArticleViewSkeleton() {
   return (
-    <div className="m-5.5 mb-0 flex justify-center ">
+    <div className="m-5.5 mb-0 flex justify-center">
       <div className="w-full max-w-[780px] flex flex-col gap-3">
-        {/* Breadcrumb Placeholder */}
-        <Skeleton className=" h-5 w-40 mb-2 ml-4 mt-4" />
 
         {/* Title */}
         <div>

@@ -47,8 +47,6 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const root = window.document.documentElement;
     
-    console.log('🎨 Applying theme:', { actualTheme, theme: appearanceSettings.theme });
-    
     // Apply theme with force
     root.removeAttribute('data-theme');
     root.classList.remove('dark', 'light');
@@ -67,17 +65,11 @@ export const ThemeProvider = ({ children }) => {
 
     // Save to localStorage
     localStorage.setItem('appearanceSettings', JSON.stringify(appearanceSettings));
-    
-    console.log('✅ Theme applied successfully');
   }, [actualTheme, appearanceSettings]);
 
 
   const updateAppearanceSettings = (newSettings) => {
-    setAppearanceSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      console.log('Updating appearance settings:', updated);
-      return updated;
-    });
+    setAppearanceSettings(prev => ({ ...prev, ...newSettings }));
   };
 
   const toggleTheme = () => {
@@ -92,7 +84,6 @@ export const ThemeProvider = ({ children }) => {
     const loadAppearanceSettings = async () => {
       try {
         const settings = await settingsService.getAllSettings();
-        console.log('Loaded appearance settings:', settings?.appearance);
         if (settings?.appearance?.theme) {
           setAppearanceSettings(prev => ({
             ...prev,

@@ -81,30 +81,7 @@ const Register = () => {
   // Get the intended destination from location state, or default to dashboard
   const from = location.state?.from?.pathname || "/dashboard";
 
-  // Debug state changes
-  useEffect(() => {
-    console.log('🔍 Register component state changed:', {
-      loading,
-      registrationSuccess,
-      registeredEmail,
-      error
-    });
-    
-    // Force re-render when registrationSuccess changes
-    if (registrationSuccess) {
-      console.log('✅ Registration success state is TRUE - should show success screen');
-    }
-  }, [loading, registrationSuccess, registeredEmail, error]);
-
-  // Add immediate state logging after state updates
-  useEffect(() => {
-    if (registrationSuccess && registeredEmail) {
-      console.log('🎉 SUCCESS SCREEN SHOULD RENDER NOW!', {
-        registrationSuccess,
-        registeredEmail
-      });
-    }
-  }, [registrationSuccess, registeredEmail]);
+  // Removed debug console.logs to prevent infinite render loop
 
   const {
     register,
@@ -179,14 +156,6 @@ const Register = () => {
     setLoading(true);
     clearError();
     
-    console.log('🚀 Starting registration for:', data.email);
-    console.log('🚀 Form data:', { 
-      firstName: data.firstName, 
-      lastName: data.lastName, 
-      email: data.email, 
-      role: data.role 
-    });
-    
     try {
       const result = await registerUser({
         firstName: data.firstName,
@@ -196,14 +165,8 @@ const Register = () => {
         role: data.role,
       });
 
-      console.log('🚀 Registration result:', result);
-      console.log('🚀 Result type:', typeof result);
-      console.log('🚀 Result success property:', result?.success);
-      console.log('🚀 Result data property:', result?.data);
       
       if (result && result.success) {
-        console.log('✅ Registration successful, redirecting to verify-email');
-        console.log('📧 Registered email:', data.email);
         
         setLoading(false);
         
@@ -216,14 +179,11 @@ const Register = () => {
           } 
         });
         
-        console.log('🎯 Redirected to verify-email page');
         return; // Exit early to avoid the finally block
       } else {
-        console.error('❌ Registration failed:', result?.error);
         setFormError("root", { message: result?.error || "An unexpected error occurred." });
       }
     } catch (error) {
-      console.error('❌ Registration error caught:', error);
       setFormError("root", { message: error.message || "Registration failed" });
     }
     
@@ -240,10 +200,7 @@ const Register = () => {
   };
 
   // Show success screen when registration is successful
-  console.log('🔍 Checking render condition:', { registrationSuccess, registeredEmail });
-  
   if (registrationSuccess) {
-    console.log('🎉 Rendering success screen for:', registeredEmail);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">

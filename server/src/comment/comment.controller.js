@@ -117,36 +117,27 @@ exports.addComment = async (req, res) => {
     });
 
     // Create notification for blog author (if not the same user)
+    const NotificationTriggers = require('../utils/notificationTriggers');
     if (blog.author.toString() !== userId) {
-      await Notification.create({
-        userId: blog.author,
-        type: 'comment',
-        title: 'New Comment',
-        content: `Someone commented on your blog "${blog.title}"`,
-        data: {
-          blogId,
-          commentId: comment._id,
-          fromUserId: userId,
-        },
-      });
+      NotificationTriggers.createCommentNotification(
+        blogId, 
+        comment._id, 
+        userId, 
+        content.trim()
+      ).catch(err => logger.error('Failed to create comment notification', err));
     }
 
     // Create notification for parent comment author (if replying)
     if (parentId) {
       const parentComment = await Comment.findById(parentId).populate('userId');
       if (parentComment && parentComment.userId._id.toString() !== userId) {
-        await Notification.create({
-          userId: parentComment.userId._id,
-          type: 'reply',
-          title: 'New Reply',
-          content: `Someone replied to your comment`,
-          data: {
-            blogId,
-            commentId: comment._id,
-            parentCommentId: parentId,
-            fromUserId: userId,
-          },
-        });
+        NotificationTriggers.createCommentReplyNotification(
+          parentComment.userId._id,
+          userId,
+          blogId,
+          comment._id,
+          content.trim()
+        ).catch(err => logger.error('Failed to create reply notification', err));
       }
     }
 

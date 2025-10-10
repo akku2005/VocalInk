@@ -254,7 +254,7 @@ const securityMonitor = (req, res, next) => {
     /%2e%2e%2f/i, // URL encoded directory traversal
   ];
 
-  // Create a copy of request body for security scanning, excluding image data
+  // Create a copy of request body for security scanning, excluding image data and HTML content
   const bodyForScanning = { ...req.body };
   
   // Remove base64 image data from security scanning to prevent false positives
@@ -263,6 +263,15 @@ const securityMonitor = (req, res, next) => {
   }
   if (bodyForScanning.coverImage && typeof bodyForScanning.coverImage === 'string' && bodyForScanning.coverImage.startsWith('data:image/')) {
     bodyForScanning.coverImage = '[BASE64_IMAGE_DATA]';
+  }
+  
+  // Exclude blog content field from security scanning as it's expected to contain HTML
+  // The content will be sanitized separately in the blog controller
+  if (bodyForScanning.content && req.path.includes('/blog')) {
+    bodyForScanning.content = '[HTML_CONTENT]';
+  }
+  if (bodyForScanning.summary && req.path.includes('/blog')) {
+    bodyForScanning.summary = '[SUMMARY_CONTENT]';
   }
 
   const requestString = JSON.stringify({

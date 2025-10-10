@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Comment from './Comment';
 import CommentForm from './CommentForm';
 import { MessageCircle, Loader2, AlertCircle } from 'lucide-react';
+import { apiService } from '../../services/api';
 
 const CommentList = ({ blogId, blogTitle }) => {
   const [comments, setComments] = useState([]);
@@ -16,68 +17,30 @@ const CommentList = ({ blogId, blogTitle }) => {
   const fetchComments = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // For development, use mock comments
-      const mockComments = [
-        {
-          _id: 'comment_1',
-          blogId,
-          userId: {
-            _id: 1,
-            name: 'John Doe',
-            avatar: null
-          },
-          content: 'This is a great article! Really enjoyed reading it.',
-          parentId: null,
-          status: 'active',
-          likes: 5,
-          likedBy: [],
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          updatedAt: new Date(Date.now() - 86400000).toISOString(),
-          replies: [
-            {
-              _id: 'comment_2',
-              blogId,
-              userId: {
-                _id: 2,
-                name: 'Jane Smith',
-                avatar: null
-              },
-              content: 'I agree! The insights are very valuable.',
-              parentId: 'comment_1',
-              status: 'active',
-              likes: 2,
-              likedBy: [],
-              createdAt: new Date(Date.now() - 43200000).toISOString(), // 12 hours ago
-              updatedAt: new Date(Date.now() - 43200000).toISOString()
-            }
-          ]
-        },
-        {
-          _id: 'comment_3',
-          blogId,
-          userId: {
-            _id: 3,
-            name: 'Mike Johnson',
-            avatar: null
-          },
-          content: 'Interesting perspective on remote work. Looking forward to more content like this.',
-          parentId: null,
-          status: 'active',
-          likes: 3,
-          likedBy: [],
-          createdAt: new Date(Date.now() - 21600000).toISOString(), // 6 hours ago
-          updatedAt: new Date(Date.now() - 21600000).toISOString()
-        }
-      ];
+      // Fetch comments from API
+      const response = await apiService.get(`/blogs/${blogId}/comments`);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Handle different response structures
+      const commentsData = response.data?.data || response.data || [];
       
-      setComments(mockComments);
+      // Organize comments with replies
+      const rootComments = commentsData.filter(comment => !comment.parentId);
+      const commentMap = rootComments.map(comment => ({
+        ...comment,
+        replies: commentsData.filter(reply => reply.parentId === comment._id)
+      }));
+      
+      setComments(commentMap);
     } catch (error) {
       console.error('Error fetching comments:', error);
-      setError('Failed to load comments');
+      // If API fails, show empty state instead of error
+      if (error.response?.status === 404) {
+        setComments([]);
+      } else {
+        setError(error.response?.data?.message || 'Failed to load comments');
+      }
     } finally {
       setLoading(false);
     }

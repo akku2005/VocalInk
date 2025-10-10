@@ -19,7 +19,7 @@ const BLOG_VALIDATION = {
     MAX_COUNT: 10,
     MAX_LENGTH: 50
   },
-  MOODS: ['Motivational', 'Thoughtful', 'Educational', 'Other']
+  MOODS: ['Motivational', 'Thoughtful', 'Educational', 'Humorous', 'Inspirational', 'Technical', 'Other']
 };
 
 // Validation error formatter

@@ -15,6 +15,7 @@ const emailService = EmailService;
 
 const ttsService = new TTSService();
 const openaiService = new OpenAIService();
+const { fixBlogAuthors } = require('../utils/fixBlogAuthors');
 
 exports.createBlog = async (req, res) => {
   try {
@@ -150,7 +151,7 @@ exports.getBlogs = async (req, res) => {
 
       // ✅ RETURN the query result
       const results = await Blog.find(query)
-        .populate('author', 'name email avatar')
+        .populate('author', 'firstName lastName displayName username email avatar')
         .sort(sortObj)
         .limit(Number(limit))
         .skip((Number(page) - 1) * Number(limit));
@@ -168,8 +169,10 @@ exports.getBlogs = async (req, res) => {
 
 exports.getallBlogs=async(req,res)=>{
   try{
-    logger.debug('Get all blogs endpoint accessed');
-    const blogs=await Blog.find();
+    const blogs=await Blog.find()
+      .populate('author', 'firstName lastName displayName username email avatar')
+      .sort({ createdAt: -1 });
+    
     res.json(blogs);
   }catch(err){
     logger.error('Get all blogs failed:', err);
@@ -181,7 +184,8 @@ exports.getBlogById = async (req, res) => {
     const cacheKey = cacheService.generateKey('blog', req.params.id);
     
     const blog = await cacheService.cacheFunction(cacheKey, async () => {
-      return await Blog.findById(req.params.id).populate('author', 'name email avatar');
+      return await Blog.findById(req.params.id)
+        .populate('author', 'firstName lastName displayName username email avatar');
     }, 600); // Cache for 10 minutes
     
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
@@ -197,7 +201,8 @@ exports.getBlogBySlug = async (req, res) => {
     const cacheKey = cacheService.generateKey('blog-slug', req.params.slug);
     
     const blog = await cacheService.cacheFunction(cacheKey, async () => {
-      return await Blog.findOne({ slug: req.params.slug }).populate('author', 'name email avatar');
+      return await Blog.findOne({ slug: req.params.slug })
+        .populate('author', 'firstName lastName displayName username email avatar');
     }, 600); // Cache for 10 minutes
     
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
@@ -474,34 +479,68 @@ exports.translateBlog = async (req, res) => {
 };
 exports.likeBlog = async (req, res) => {
   try {
+    const userId = req.user.id;
+    
+    // RACE CONDITION FIX: Use atomic operations to prevent count inconsistencies
+    // First, check if user already liked the blog
     const blog = await Blog.findById(req.params.id).populate('author');
     if (!blog) {
       logger.warn(`Blog not found for like`, { user: req.user.id, blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
-    const userId = req.user.id;
+    
     const alreadyLiked = blog.likedBy.includes(userId);
-    let action = '';
+    let updatedBlog;
+    
     if (alreadyLiked) {
-      blog.likedBy.pull(userId);
-      blog.likes = Math.max(0, blog.likes - 1);
+      // Unlike: Remove user from likedBy and decrement count atomically
+      updatedBlog = await Blog.findByIdAndUpdate(
+        req.params.id,
+        {
+          $pull: { likedBy: userId },
+          $inc: { likes: -1 }
+        },
+        { new: true }
+      ).populate('author');
       logger.info(`Blog unliked`, { user: req.user.id, blog: blog._id });
-      action = 'unliked';
     } else {
-      blog.likedBy.push(userId);
-      blog.likes += 1;
+      // Like: Add user to likedBy and increment count atomically
+      updatedBlog = await Blog.findByIdAndUpdate(
+        req.params.id,
+        {
+          $addToSet: { likedBy: userId },
+          $inc: { likes: 1 }
+        },
+        { new: true }
+      ).populate('author');
       logger.info(`Blog liked`, { user: req.user.id, blog: blog._id });
-      action = 'liked';
-      // Email notification to blog author
-      if (blog.author && blog.author.emailNotifications !== false && blog.author._id.toString() !== userId) {
-        const subject = `Your blog was liked: ${blog.title}`;
-        const html = `<p>Hi ${blog.author.name},</p>
-          <p>Your blog <strong>${blog.title}</strong> was liked by a user.</p>`;
-        emailService.sendNotificationEmail(blog.author.email, subject, html).catch(err => logger.error('Failed to send like notification email', err));
+      
+      // Create in-app notification for blog author
+      if (updatedBlog.author && updatedBlog.author._id.toString() !== userId) {
+        const NotificationTriggers = require('../utils/notificationTriggers');
+        NotificationTriggers.createLikeNotification(updatedBlog._id, userId).catch(err => 
+          logger.error('Failed to create like notification', err)
+        );
+      }
+      
+      // Email notification to blog author (FIXED: Use notificationSettings)
+      if (updatedBlog.author && 
+          updatedBlog.author.notificationSettings?.emailNotifications !== false && 
+          updatedBlog.author._id.toString() !== userId) {
+        const subject = `Your blog was liked: ${updatedBlog.title}`;
+        const html = `<p>Hi ${updatedBlog.author.name},</p>
+          <p>Your blog <strong>${updatedBlog.title}</strong> was liked by a user.</p>`;
+        emailService.sendNotificationEmail(updatedBlog.author.email, subject, html).catch(err => logger.error('Failed to send like notification email', err));
       }
     }
-    await blog.save();
-    res.json({ liked: !alreadyLiked, likes: blog.likes });
+    
+    // Ensure likes count doesn't go negative
+    if (updatedBlog.likes < 0) {
+      await Blog.findByIdAndUpdate(req.params.id, { likes: 0 });
+      updatedBlog.likes = 0;
+    }
+    
+    res.json({ liked: !alreadyLiked, likes: updatedBlog.likes });
   } catch (err) {
     logger.error(`Like error`, { user: req.user.id, blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
@@ -509,34 +548,59 @@ exports.likeBlog = async (req, res) => {
 };
 exports.bookmarkBlog = async (req, res) => {
   try {
+    const userId = req.user.id;
+    
+    // RACE CONDITION FIX: Use atomic operations to prevent count inconsistencies
     const blog = await Blog.findById(req.params.id).populate('author');
     if (!blog) {
       logger.warn(`Blog not found for bookmark`, { user: req.user.id, blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
-    const userId = req.user.id;
+    
     const alreadyBookmarked = blog.bookmarkedBy.includes(userId);
-    let action = '';
+    let updatedBlog;
+    
     if (alreadyBookmarked) {
-      blog.bookmarkedBy.pull(userId);
-      blog.bookmarks = Math.max(0, blog.bookmarks - 1);
+      // Remove bookmark: Remove user from bookmarkedBy and decrement count atomically
+      updatedBlog = await Blog.findByIdAndUpdate(
+        req.params.id,
+        {
+          $pull: { bookmarkedBy: userId },
+          $inc: { bookmarks: -1 }
+        },
+        { new: true }
+      ).populate('author');
       logger.info(`Blog unbookmarked`, { user: req.user.id, blog: blog._id });
-      action = 'unbookmarked';
     } else {
-      blog.bookmarkedBy.push(userId);
-      blog.bookmarks += 1;
+      // Add bookmark: Add user to bookmarkedBy and increment count atomically
+      updatedBlog = await Blog.findByIdAndUpdate(
+        req.params.id,
+        {
+          $addToSet: { bookmarkedBy: userId },
+          $inc: { bookmarks: 1 }
+        },
+        { new: true }
+      ).populate('author');
       logger.info(`Blog bookmarked`, { user: req.user.id, blog: blog._id });
-      action = 'bookmarked';
-      // Email notification to blog author
-      if (blog.author && blog.author.emailNotifications !== false && blog.author._id.toString() !== userId) {
-        const subject = `Your blog was bookmarked: ${blog.title}`;
-        const html = `<p>Hi ${blog.author.name},</p>
-          <p>Your blog <strong>${blog.title}</strong> was bookmarked by a user.</p>`;
-        emailService.sendNotificationEmail(blog.author.email, subject, html).catch(err => logger.error('Failed to send bookmark notification email', err));
+      
+      // Email notification to blog author (FIXED: Use notificationSettings)
+      if (updatedBlog.author && 
+          updatedBlog.author.notificationSettings?.emailNotifications !== false && 
+          updatedBlog.author._id.toString() !== userId) {
+        const subject = `Your blog was bookmarked: ${updatedBlog.title}`;
+        const html = `<p>Hi ${updatedBlog.author.name},</p>
+          <p>Your blog <strong>${updatedBlog.title}</strong> was bookmarked by a user.</p>`;
+        emailService.sendNotificationEmail(updatedBlog.author.email, subject, html).catch(err => logger.error('Failed to send bookmark notification email', err));
       }
     }
-    await blog.save();
-    res.json({ bookmarked: !alreadyBookmarked, bookmarks: blog.bookmarks });
+    
+    // Ensure bookmarks count doesn't go negative
+    if (updatedBlog.bookmarks < 0) {
+      await Blog.findByIdAndUpdate(req.params.id, { bookmarks: 0 });
+      updatedBlog.bookmarks = 0;
+    }
+    
+    res.json({ bookmarked: !alreadyBookmarked, bookmarks: updatedBlog.bookmarks });
   } catch (err) {
     logger.error(`Bookmark error`, { user: req.user.id, blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
@@ -547,12 +611,34 @@ exports.getBlogComments = async (req, res) => {
     const comments = await Comment.find({
       blogId: req.params.id,
       status: 'active',
-    }).populate('userId', 'name');
+    })
+    .populate('userId', 'firstName lastName displayName avatar username email')
+    .sort({ createdAt: -1 });
+    
     res.json(comments);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+// Admin endpoint to fix blogs with null authors
+exports.fixBlogAuthors = async (req, res) => {
+  try {
+    // Only allow admins
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const result = await fixBlogAuthors();
+    res.json({
+      message: 'Blog authors fixed successfully',
+      ...result
+    });
+  } catch (error) {
+    logger.error('Error in fixBlogAuthors endpoint:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.addBlogComment = async (req, res) => {
   try {
     const { content, parentId } = req.body;
@@ -564,12 +650,12 @@ exports.addBlogComment = async (req, res) => {
       parentId: parentId || null,
     });
     await comment.save();
-    await comment.populate('userId', 'name');
+    await comment.populate('userId', 'firstName lastName displayName avatar username email');
     logger.info(`Comment added`, { user: req.user.id, blog: req.params.id, comment: comment._id });
 
-    // Email notification to blog author
+    // Email notification to blog author (FIXED: Use notificationSettings)
     const blog = await Blog.findById(req.params.id).populate('author');
-    if (blog && blog.author && blog.author.emailNotifications !== false) {
+    if (blog && blog.author && blog.author.notificationSettings?.emailNotifications !== false) {
       const subject = `New comment on your blog: ${blog.title}`;
       const html = `<p>Hi ${blog.author.name},</p>
         <p>You have a new comment on your blog <strong>${blog.title}</strong>:</p>
@@ -581,6 +667,64 @@ exports.addBlogComment = async (req, res) => {
     res.status(201).json(comment);
   } catch (err) {
     logger.error(`Add comment error`, { user: req.user.id, blog: req.params.id, error: err.message });
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Like/Unlike a comment
+exports.likeComment = async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const userId = req.user.id;
+    const isLiked = comment.likedBy.includes(userId);
+
+    if (isLiked) {
+      // Unlike
+      await comment.unlike(userId);
+    } else {
+      // Like
+      await comment.like(userId);
+    }
+
+    await comment.populate('userId', 'firstName lastName displayName avatar username email');
+    
+    logger.info(`Comment ${isLiked ? 'unliked' : 'liked'}`, { 
+      user: req.user.id, 
+      comment: comment._id 
+    });
+
+    res.json(comment);
+  } catch (err) {
+    logger.error(`Like comment error`, { user: req.user.id, comment: req.params.id, error: err.message });
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Delete a comment
+exports.deleteComment = async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Check if user is the comment author
+    if (comment.userId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this comment' });
+    }
+
+    // Soft delete
+    await comment.softDelete();
+    
+    logger.info(`Comment deleted`, { user: req.user.id, comment: comment._id });
+
+    res.json({ message: 'Comment deleted successfully' });
+  } catch (err) {
+    logger.error(`Delete comment error`, { user: req.user.id, comment: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };

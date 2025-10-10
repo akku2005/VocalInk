@@ -1,9 +1,10 @@
 import axios from 'axios';
+import API_CONFIG from '../constants/apiConfig';
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
-  timeout: 30000, // Increased from 10000 to 30000 (30 seconds)
+  baseURL: API_CONFIG.BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -250,43 +251,53 @@ export const handleApiError = (error) => {
   }
 };
 
-// Request/Response logging (development only)
-if (import.meta.env.DEV) {
-  api.interceptors.request.use(
-    (config) => {
-      console.log('🚀 API Request:', {
-        method: config.method?.toUpperCase(),
-        url: config.url,
-        data: config.data,
-        headers: config.headers,
-      });
-      return config;
-    },
-    (error) => {
-      console.error('❌ API Request Error:', error);
-      return Promise.reject(error);
-    }
-  );
+// Request/Response logging removed for production
 
-  api.interceptors.response.use(
-    (response) => {
-      console.log('✅ API Response:', {
-        status: response.status,
-        url: response.config.url,
-        data: response.data,
-      });
-      return response;
-    },
-    (error) => {
-      console.error('❌ API Response Error:', {
-        status: error.response?.status,
-        url: error.config?.url,
-        data: error.response?.data,
-        message: error.message,
-      });
-      return Promise.reject(error);
-    }
-  );
-}
+// Helper functions using centralized API configuration
+export const apiHelpers = {
+  // Get full URL for an endpoint
+  getUrl: (endpointKey, params = {}) => {
+    return API_CONFIG.getFullUrl(endpointKey, params);
+  },
 
+  // Make authenticated requests
+  get: (endpointKey, params = {}, config = {}) => {
+    const url = API_CONFIG.getFullUrl(endpointKey, params);
+    return api.get(url, config);
+  },
+
+  post: (endpointKey, data = {}, params = {}, config = {}) => {
+    const url = API_CONFIG.getFullUrl(endpointKey, params);
+    return api.post(url, data, config);
+  },
+
+  put: (endpointKey, data = {}, params = {}, config = {}) => {
+    const url = API_CONFIG.getFullUrl(endpointKey, params);
+    return api.put(url, data, config);
+  },
+
+  patch: (endpointKey, data = {}, params = {}, config = {}) => {
+    const url = API_CONFIG.getFullUrl(endpointKey, params);
+    return api.patch(url, data, config);
+  },
+
+  delete: (endpointKey, params = {}, config = {}) => {
+    const url = API_CONFIG.getFullUrl(endpointKey, params);
+    return api.delete(url, config);
+  },
+
+  // Upload files
+  upload: (endpointKey, formData, params = {}, config = {}) => {
+    const url = API_CONFIG.getFullUrl(endpointKey, params);
+    return api.post(url, formData, {
+      ...config,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...config.headers,
+      },
+    });
+  },
+};
+
+// Export both the axios instance and helpers
 export default api; 

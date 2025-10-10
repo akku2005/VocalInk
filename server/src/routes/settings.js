@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, optionalAuth } = require('../middleware/auth');
 const settingsController = require('../controllers/settings.controller');
 
-// Get all user settings
-router.get('/', protect, settingsController.getAllSettings);
+// Get all user settings (allow unauthenticated access for default settings)
+router.get('/', optionalAuth, settingsController.getAllSettings);
 
 // Update specific settings sections
 router.patch('/profile', protect, settingsController.updateProfile);

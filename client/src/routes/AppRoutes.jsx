@@ -48,6 +48,7 @@ export default function AppRoutes() {
           <Route path="blogs" element={<BlogPage />} />
           <Route path="series" element={<SeriesPage />} />
           <Route path="article/:id" element={<ArticlePage />} />
+          <Route path="blog/:id" element={<ArticlePage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="badges" element={<BadgeGalleryPage />} />

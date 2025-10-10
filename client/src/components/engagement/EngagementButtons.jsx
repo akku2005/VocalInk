@@ -40,8 +40,6 @@ const EngagementButtons = ({
     setIsLiking(true);
     try {
       // For now, simulate the API call
-      console.log("Liking blog:", blogId);
-
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -54,10 +52,8 @@ const EngagementButtons = ({
       }
 
       showSuccess(newIsLiked ? "Post liked!" : "Post unliked!");
-      console.log("Like successful:", newIsLiked);
     } catch (error) {
       showError("Failed to like post. Please try again.");
-      console.error("Error liking blog:", error);
     } finally {
       setIsLiking(false);
     }
@@ -82,8 +78,6 @@ const EngagementButtons = ({
     setIsBookmarking(true);
     try {
       // For now, simulate the API call
-      console.log("Bookmarking blog:", blogId);
-
       // Simulate API delay
       await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -98,10 +92,8 @@ const EngagementButtons = ({
       showSuccess(
         newIsBookmarked ? "Post bookmarked!" : "Post removed from bookmarks!"
       );
-      console.log("Bookmark successful:", newIsBookmarked);
     } catch (error) {
       showError("Failed to bookmark post. Please try again.");
-      console.error("Error bookmarking blog:", error);
     } finally {
       setIsBookmarking(false);
     }
@@ -128,12 +120,10 @@ const EngagementButtons = ({
         try {
           await navigator.clipboard.writeText(url);
           showSuccess("Link copied to clipboard!");
-          console.log("URL copied to clipboard");
           setShowShareMenu(false);
           return;
         } catch (error) {
           showError("Failed to copy link to clipboard");
-          console.error("Failed to copy URL:", error);
         }
         break;
       default:
@@ -291,7 +281,6 @@ const EngagementButtons = ({
       {/* Login Prompt Modal */}
       {showLoginModal && (
         <div>
-          {console.log('Modal should be visible, action:', loginAction)}
           <LoginPromptModal
             action={loginAction}
             onClose={() => setShowLoginModal(false)}

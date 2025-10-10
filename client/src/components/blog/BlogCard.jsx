@@ -3,34 +3,59 @@ import Badge from "../ui/Badge";
 import EngagementButtons from "../engagement/EngagementButtons";
 import { Calendar, Clock, User, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getCleanExcerpt, formatDate as formatDateUtil } from "../../utils/textUtils";
 
 const BlogCard = ({ blog, viewMode = "grid" }) => {
   const navigate = useNavigate();
   
   const {
     title,
-    excerpt,
     author,
     publishedAt,
-    readTime,
+    createdAt,
+    readingTime,
     tags = [],
     likes = 0,
-    comments = 0,
-    isBookmarked = false,
+    bookmarks = 0,
+    likedBy = [],
+    bookmarkedBy = [],
+    _id,
+    id,
   } = blog;
+
+  // Get clean excerpt using utility function
+  const excerpt = getCleanExcerpt(blog, 150);
+  
+  const readTime = readingTime || blog.readTime || 5;
+  const blogId = _id || id;
+  
+  // Extract author name properly
+  let authorName = 'Anonymous';
+  if (typeof author === 'string') {
+    authorName = author;
+  } else if (author && typeof author === 'object') {
+    if (author.displayName) {
+      authorName = author.displayName;
+    } else if (author.firstName || author.lastName) {
+      authorName = `${author.firstName || ''} ${author.lastName || ''}`.trim();
+    } else if (author.username) {
+      authorName = author.username;
+    } else if (author.email) {
+      authorName = author.email.split('@')[0];
+    }
+  }
+  
+  const isBookmarked = blog.isBookmarked || false;
+  const isLiked = blog.isLiked || false;
 
   const handleCommentClick = () => {
     // Navigate to the full article page where comments are displayed
     // Add a hash to scroll to comments section
-    navigate(`/article/${blog.id}#comments`);
+    navigate(`/article/${blogId}#comments`);
   };
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return formatDateUtil(date);
   };
 
   if (viewMode === "list") {
@@ -79,11 +104,11 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
                 <div className="flex items-center gap-6 text-sm text-text-secondary">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
-                    <span className="font-medium">{author}</span>
+                    <span className="font-medium">{authorName}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    <span>{formatDate(publishedAt)}</span>
+                    <span>{formatDate(publishedAt || createdAt)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
@@ -92,12 +117,12 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
                 </div>
 
                 <EngagementButtons
-                  blogId={blog.id}
+                  blogId={blogId}
                   initialLikes={likes}
-                  initialComments={comments}
-                  initialBookmarks={blog.bookmarks || 0}
-                  isLiked={blog.isLiked}
-                  isBookmarked={blog.isBookmarked}
+                  initialComments={0}
+                  initialBookmarks={bookmarks}
+                  isLiked={isLiked}
+                  isBookmarked={isBookmarked}
                   onCommentClick={handleCommentClick}
                 />
               </div>
@@ -146,11 +171,11 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
         <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
           <div className="flex items-center gap-1">
             <User className="w-3 h-3" />
-            <span className="font-medium">{author}</span>
+            <span className="font-medium">{authorName}</span>
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            <span>{formatDate(publishedAt)}</span>
+            <span>{formatDate(publishedAt || createdAt)}</span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
@@ -162,12 +187,12 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
         <div className="pt-4 border-t border-border flex justify-center items-center">
           <div className="flex gap-4 justify-center items-center">
             <EngagementButtons
-              blogId={blog.id}
+              blogId={blogId}
               initialLikes={likes}
-              initialComments={comments}
-              initialBookmarks={blog.bookmarks || 0}
-              isLiked={blog.isLiked}
-              isBookmarked={blog.isBookmarked}
+              initialComments={0}
+              initialBookmarks={bookmarks}
+              isLiked={isLiked}
+              isBookmarked={isBookmarked}
               onCommentClick={handleCommentClick}
             />
           </div>

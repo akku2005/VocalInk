@@ -116,7 +116,8 @@ const SettingsPage = () => {
             setSettings={setSettings}
             loading={loading}
             setLoading={setLoading}
-            showToast={showToast}
+            user={user}
+            fetchUserProfile={fetchUserProfile}
             loadSettings={loadSettings}
           />
         );

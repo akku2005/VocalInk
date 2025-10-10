@@ -25,11 +25,14 @@ router.get('/getBlogs',  blogController.getallBlogs);
 router.get('/slug/:slug',  blogController.getBlogBySlug);
 router.get('/:id', blogController.getBlogById);
 
+// Admin utility routes
+router.post('/admin/fix-authors', protect, blogController.fixBlogAuthors);
+
 // Protected routes
 router.post(
   '/addBlog',
-   protect,
-  //validateCreateBlog,
+  protect,
+  validateCreateBlog, // FIXED: Uncommented validation middleware
   blogController.createBlog,
   // awardBlogCreationXP
 );
@@ -103,6 +106,21 @@ router.post(
   [param('id').isMongoId(), body('content').notEmpty()],
   validateBlogId[validateBlogId.length - 1],
   blogController.addBlogComment
+);
+
+// Comment like/unlike endpoints
+router.post(
+  '/comments/:id/like',
+  protect,
+  [param('id').isMongoId()],
+  blogController.likeComment
+);
+
+router.delete(
+  '/comments/:id',
+  protect,
+  [param('id').isMongoId()],
+  blogController.deleteComment
 );
 
 module.exports = router;

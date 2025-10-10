@@ -309,6 +309,29 @@ class AuthController {
         deviceFingerprint: generateDeviceFingerprint(req),
       });
 
+      // Create welcome notification for new user
+      try {
+        const Notification = require('../models/notification.model');
+        await Notification.create({
+          userId: user._id,
+          type: 'system',
+          title: 'Welcome to VocalInk!',
+          content: `Hi ${user.firstName}! We're excited to have you join our community. Start by creating your first blog post and exploring AI-powered features.`,
+          priority: 'normal',
+          data: {
+            actionUrl: '/create-blog',
+            metadata: {
+              isWelcome: true,
+              registrationDate: new Date(),
+            },
+          },
+        });
+        logger.info('Welcome notification created', { userId: user._id });
+      } catch (notifError) {
+        logger.error('Error creating welcome notification:', notifError);
+        // Don't fail registration if notification fails
+      }
+
       // Auto-verify user in test environment
       if (process.env.NODE_ENV === 'test') {
         user.isVerified = true;
@@ -628,7 +651,7 @@ class AuthController {
         email: user.email,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
-        deviceFingerprint,
+        deviceFingerprint: req.deviceFingerprint,
         twoFactorUsed: user.twoFactorEnabled,
       });
 
@@ -644,7 +667,7 @@ class AuthController {
           isVerified: user.isVerified,
           twoFactorEnabled: user.twoFactorEnabled,
         },
-        deviceFingerprint,
+        deviceFingerprint: req.deviceFingerprint,
         ...tokens,
       });
     } catch (error) {

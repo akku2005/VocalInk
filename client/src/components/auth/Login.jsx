@@ -58,24 +58,7 @@ const Login = () => {
   // Get message from location state (e.g., from registration)
   const message = location.state?.message;
 
-  // Debug state changes
-  useEffect(() => {
-    console.log('🔍 Login component state changed:', {
-      twoFactorRequired,
-      is2faRequired, // NEW LINE
-      loading,
-      error,
-      accountLocked
-    });
-  }, [twoFactorRequired, is2faRequired, loading, error, accountLocked]); // MODIFIED DEPENDENCIES
-
-  // Debug stored credentials changes
-  useEffect(() => {
-    console.log('🔍 Stored credentials changed:', {
-      email: pending2FACredentials?.email,
-      hasPassword: !!pending2FACredentials?.password
-    });
-  }, [pending2FACredentials]);
+  // Removed debug console.logs
 
   const {
     register,
@@ -101,18 +84,15 @@ const Login = () => {
     setIs2faRequired(false); // NEW LINE: Reset local 2FA state on new login attempt
     
     try {
-      console.log('🔐 Attempting login for:', data.email);
       const result = await login(data.email, data.password);
       
       if (result.success) {
         if (result.twoFactorRequired) {
           // 2FA required - store credentials for 2FA submission
-          console.log('🔐 2FA required, storing credentials');
           store2FACredentials(data.email, data.password);
           setIs2faRequired(true); // NEW LINE: Set local 2FA state
         } else {
           // Login successful, redirect
-          console.log('✅ Login successful, redirecting to:', from);
           navigate(from, { replace: true });
         }
       } else {
@@ -122,7 +102,6 @@ const Login = () => {
         }
         if (result.requiresVerification) {
           // Email verification required - redirect to verification page
-          console.log('📧 Email verification required, redirecting');
           navigate("/verify-email", { 
             state: { 
               email: data.email, 
@@ -135,22 +114,15 @@ const Login = () => {
         setFormError("root", { message: result.error });
       }
     } catch (error) {
-      console.error('❌ Login error:', error);
-      
       // Check if this is a 2FA requirement error
       if (error.twoFactorRequired) {
-        console.log('🔐 2FA required (from error), storing credentials');
-        console.log('🔐 Storing email:', data.email);
-        console.log('🔐 Storing password length:', data.password?.length);
         store2FACredentials(data.email, data.password);
         setIs2faRequired(true); // MODIFIED LINE
-        console.log('🔐 Credentials stored in context');
         return;
       }
       
       // Check if this is a verification requirement error
       if (error.requiresVerification) {
-        console.log('📧 Email verification required (from error), redirecting');
         navigate("/verify-email", { 
           state: { 
             email: data.email, 
@@ -176,20 +148,8 @@ const Login = () => {
     clearError();
     
     try {
-      console.log('🔐 Submitting 2FA code for:', pending2FACredentials?.email);
-      console.log('🔐 Stored credentials check:', { 
-        email: pending2FACredentials?.email, 
-        hasPassword: !!pending2FACredentials?.password 
-      });
-      console.log('🔐 2FA token length:', data.twoFactorToken?.length);
-      console.log('🔐 2FA token value:', data.twoFactorToken);
-      
       // Validate that we have the required credentials
       if (!pending2FACredentials?.email || !pending2FACredentials?.password) {
-        console.error('❌ Missing stored credentials:', { 
-          email: pending2FACredentials?.email, 
-          hasPassword: !!pending2FACredentials?.password 
-        });
         setFormError2FA("root", { message: "Missing login credentials. Please try logging in again." });
         return;
       }
@@ -198,27 +158,15 @@ const Login = () => {
       // as the backend expects 2FA token during login
       const result = await login(pending2FACredentials.email, pending2FACredentials.password, data.twoFactorToken);
       
-      console.log('🔐 2FA login result:', result);
-      
       if (result.success) {
         // 2FA successful, clear credentials and redirect
-        console.log('✅ 2FA successful, redirecting to:', from);
         clear2FACredentials();
         setIs2faRequired(false); // NEW LINE: Reset local 2FA state on success
         navigate(from, { replace: true });
       } else {
-        console.error('❌ 2FA failed:', result.error);
-        console.error('❌ 2FA result details:', result);
         setFormError2FA("root", { message: result.error });
       }
     } catch (error) {
-      console.error('❌ 2FA error:', error);
-      console.error('❌ 2FA error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        stack: error.stack
-      });
       setFormError2FA("root", { message: error.message || "2FA verification failed" });
     }
   };

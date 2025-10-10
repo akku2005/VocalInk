@@ -14,6 +14,8 @@ import {
   User
 } from 'lucide-react';
 import CommentForm from './CommentForm';
+import { apiService } from '../../services/api';
+import { useToast } from '../../hooks/useToast';
 
 const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) => {
   const [showReplyForm, setShowReplyForm] = useState(false);
@@ -22,19 +24,32 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
   const [isLiking, setIsLiking] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { user, isAuthenticated } = useAuth();
+  const { addToast } = useToast();
 
   const isAuthor = user?.id === comment.userId?._id || user?.id === comment.userId?.id;
   const isLiked = comment.likedBy?.includes(user?.id);
 
   const formatDate = (date) => {
+    if (!date) return 'Just now';
+    
     const now = new Date();
     const commentDate = new Date(date);
-    const diffInHours = Math.floor((now - commentDate) / (1000 * 60 * 60));
+    const diffInMs = now - commentDate;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
     
-    if (diffInHours < 1) return 'Just now';
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    return commentDate.toLocaleDateString();
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)}w ago`;
+    
+    return commentDate.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: commentDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+    });
   };
 
   const handleLike = async () => {
@@ -42,16 +57,22 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
     
     setIsLiking(true);
     try {
-      // For development, simulate like action
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Like/unlike comment via API
+      const response = await apiService.post(`/blogs/comments/${comment._id}/like`);
       
-      const updatedLikes = isLiked ? comment.likes - 1 : comment.likes + 1;
+      // Update with actual data from server
+      const updatedComment = response.data?.data || response.data;
       onCommentUpdated(comment._id, { 
-        likes: updatedLikes,
-        isLiked: !isLiked 
+        likes: updatedComment.likes,
+        likedBy: updatedComment.likedBy,
+        isLiked: updatedComment.likedBy?.includes(user?.id)
       });
     } catch (error) {
       console.error('Error liking comment:', error);
+      addToast({ 
+        type: 'error', 
+        message: 'Failed to like comment. Please try again.' 
+      });
     } finally {
       setIsLiking(false);
     }
@@ -64,12 +85,17 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
     
     setIsDeleting(true);
     try {
-      // For development, simulate delete action
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Delete comment via API
+      await apiService.delete(`/blogs/comments/${comment._id}`);
       
+      addToast({ type: 'success', message: 'Comment deleted successfully!' });
       onCommentDeleted(comment._id);
     } catch (error) {
       console.error('Error deleting comment:', error);
+      addToast({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to delete comment. Please try again.' 
+      });
     } finally {
       setIsDeleting(false);
     }

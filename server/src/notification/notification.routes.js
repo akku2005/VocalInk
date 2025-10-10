@@ -42,6 +42,13 @@ router.put(
   notificationController.updateNotificationPreferences
 );
 
+// Test/Development routes
+router.post(
+  '/seed-test',
+  protect,
+  notificationController.seedTestNotifications
+);
+
 // Admin routes
 router.post(
   '/system',

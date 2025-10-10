@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageCircle, Send, Smile, User, Lock } from 'lucide-react';
+import { apiService } from '../../services/api';
+import { useToast } from '../../hooks/useToast';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
 
 const CommentForm = ({ blogId, parentId = null, onCommentAdded, placeholder = "Write a comment..." }) => {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, isAuthenticated } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -34,31 +39,29 @@ const CommentForm = ({ blogId, parentId = null, onCommentAdded, placeholder = "W
 
     setIsSubmitting(true);
     try {
-      // For development, create a mock comment response
-      const mockComment = {
-        _id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        blogId,
-        userId: {
-          _id: user?.id || 1,
-          name: user?.name || 'Demo User',
-          avatar: null
-        },
+      // Submit comment to API
+      const payload = {
         content: content.trim(),
-        parentId: parentId || null,
-        status: 'active',
-        likes: 0,
-        likedBy: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        parentId: parentId || null
       };
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const response = await apiService.post(`/blogs/${blogId}/comments`, payload);
+      
+      // Handle different response structures
+      const newComment = response.data?.data || response.data;
 
       setContent('');
-      onCommentAdded(mockComment);
+      addToast({ type: 'success', message: 'Comment posted successfully!' });
+      
+      if (onCommentAdded && newComment) {
+        onCommentAdded(newComment);
+      }
     } catch (error) {
       console.error('Error adding comment:', error);
+      addToast({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to post comment. Please try again.' 
+      });
     } finally {
       setIsSubmitting(false);
     }

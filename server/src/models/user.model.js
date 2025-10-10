@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema(
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true, select: false },
+    username: { type: String, unique: true, sparse: true, trim: true }, // Unique username
+    displayName: { type: String, trim: true }, // Display name for profile
     role: {
       type: String,
       enum: ['user', 'reader', 'writer', 'admin'],
@@ -190,17 +192,14 @@ const userSchema = new mongoose.Schema(
       suspiciousActivityAlerts: { type: Boolean, default: true },
       autoLogout: { type: Boolean, default: false }
     },
-
     // AI preferences
     aiPreferences: {
       preferredVoice: { type: String, default: 'default' },
       autoSummarize: { type: Boolean, default: true },
       speechToText: { type: Boolean, default: false },
-      language: { type: String, default: 'en' }
+      language: { type: String, default: 'en' }, // AI language preference
     },
-
     
-
     // Legacy theme field for backward compatibility
     theme: { 
       type: String, 
@@ -216,18 +215,23 @@ const userSchema = new mongoose.Schema(
       lastAIFeature: { type: Date }
     },
     
-    // Preferences
-    emailNotifications: { type: Boolean, default: true },
-    pushNotifications: { type: Boolean, default: true },
-    marketingEmails: { type: Boolean, default: false },
+    // Account visibility
     accountVisibility: {
       type: String,
       enum: ['public', 'private', 'friends'],
       default: 'public',
     },
     
-    // Notification preferences
+    // Notification preferences - SINGLE SOURCE OF TRUTH
     notificationSettings: {
+      // Basic notification toggles
+      emailNotifications: { type: Boolean, default: true },
+      pushNotifications: { type: Boolean, default: true },
+      marketingEmails: { type: Boolean, default: false },
+      soundEnabled: { type: Boolean, default: true },
+      desktopNotifications: { type: Boolean, default: true },
+      
+      // Detailed notification preferences
       newFollowers: { type: Boolean, default: true },
       newLikes: { type: Boolean, default: true },
       newComments: { type: Boolean, default: true },
@@ -238,6 +242,8 @@ const userSchema = new mongoose.Schema(
       aiGenerations: { type: Boolean, default: false },
       weeklyDigest: { type: Boolean, default: false },
       monthlyReport: { type: Boolean, default: false },
+      
+      // Frequency settings
       emailDigestFrequency: { 
         type: String, 
         enum: ['immediate', 'daily', 'weekly', 'monthly', 'never'],
@@ -274,6 +280,15 @@ const userSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+// Virtual for full name (for backward compatibility and display)
+userSchema.virtual('name').get(function () {
+  if (this.displayName) return this.displayName;
+  if (this.firstName && this.lastName) return `${this.firstName} ${this.lastName}`;
+  if (this.firstName) return this.firstName;
+  if (this.username) return this.username;
+  return 'Anonymous';
+});
 
 // Virtual for follower count
 userSchema.virtual('followerCount').get(function () {

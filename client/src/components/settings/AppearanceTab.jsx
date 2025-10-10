@@ -49,10 +49,10 @@ const AppearanceTab = ({
   const handleSave = async () => {
     setLoading(true);
     try {
-      await settingsService.updateAppearanceSettings({ theme: appearance.theme });
+      await settingsService.updateAppearanceSection({ theme: appearance.theme });
       showToast('Theme saved successfully!', 'success');
       if (loadSettings) {
-        await loadSettings();
+        await loadSettings(true); // Force refresh
       }
     } catch (error) {
       console.error('Error saving theme:', error);

@@ -21,7 +21,7 @@ const blogSchema = new mongoose.Schema(
     },
     mood: { 
       type: String, 
-      enum: ['Motivational', 'Thoughtful', 'Educational', 'Other'],
+      enum: ['Motivational', 'Thoughtful', 'Educational', 'Humorous', 'Inspirational', 'Technical', 'Other'],
       default: 'Other'
     },
     language: { type: String, default: 'en' },

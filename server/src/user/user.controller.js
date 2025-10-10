@@ -10,6 +10,7 @@ const {
   NotFoundError,
   ConflictError,
 } = require('../utils/errors');
+const { validatePassword } = require('../utils/sanitize');
 const logger = require('../utils/logger');
 
 // Get current user's detailed profile
@@ -967,11 +968,13 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Validate new password
-    if (newPassword.length < 6) {
+    // Validate new password with standardized requirements
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: 'New password must be at least 6 characters long',
+        message: 'Password does not meet security requirements',
+        details: passwordValidation.errors,
       });
     }
 
@@ -990,12 +993,11 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    
-    // Update password
-    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+    // SECURITY FIX: Use save() to trigger pre-save hook for password hashing
+    // Pre-save hook in user.model.js will handle hashing automatically
+    user.password = newPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
     
     res.status(StatusCodes.OK).json({
       success: true,

@@ -15,6 +15,9 @@ const tokenSchema = new mongoose.Schema(
     revoked: { type: Boolean, default: false },
     lastUsedAt: { type: Date, default: Date.now },
     code: { type: String }, // For verification tokens
+    deviceFingerprint: { type: String }, // Device fingerprint for security
+    ipAddress: { type: String }, // IP address for security
+    revokedAt: { type: Date }, // When token was revoked
   },
   { timestamps: true }
 );
