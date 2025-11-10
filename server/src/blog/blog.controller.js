@@ -6,6 +6,7 @@ const Comment = require('../models/comment.model');
 const logger = require('../utils/logger');
 const EmailService = require('../services/EmailService');
 const User = require('../models/user.model');
+const Series = require('../models/series.model');
 const XPService = require('../services/XPService');
 const cacheService = require('../services/CacheService');
 const slugify = require('slugify');
@@ -179,6 +180,38 @@ exports.getallBlogs=async(req,res)=>{
     res.status(500).json({ message: err.message });
   }
 }
+const ensureNonNegative = async (Model, id, field) => {
+  if (!id || !field) return;
+  await Model.updateOne({ _id: id, [field]: { $lt: 0 } }, { $set: { [field]: 0 } });
+};
+
+const updateSeriesAnalytics = async (seriesId, increments = {}) => {
+  if (!seriesId) return;
+
+  const inc = {};
+  ['likes', 'bookmarks', 'comments'].forEach((key) => {
+    if (typeof increments[key] === 'number' && increments[key] !== 0) {
+      inc[`analytics.${key}`] = increments[key];
+    }
+  });
+
+  if (Object.keys(inc).length === 0) return;
+
+  await Series.findByIdAndUpdate(seriesId, { $inc: inc });
+
+  if (inc['analytics.likes']) {
+    await ensureNonNegative(Series, seriesId, 'analytics.likes');
+  }
+  if (inc['analytics.bookmarks']) {
+    await ensureNonNegative(Series, seriesId, 'analytics.bookmarks');
+  }
+  if (inc['analytics.comments']) {
+    await ensureNonNegative(Series, seriesId, 'analytics.comments');
+  }
+
+  await cacheService.delete(cacheService.generateKey('series', seriesId.toString()));
+};
+
 exports.getBlogById = async (req, res) => {
   try {
     const cacheKey = cacheService.generateKey('blog', req.params.id);
@@ -189,7 +222,29 @@ exports.getBlogById = async (req, res) => {
     }, 600); // Cache for 10 minutes
     
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
-    res.json(blog);
+
+    const blogObject = blog.toObject ? blog.toObject() : JSON.parse(JSON.stringify(blog));
+
+    const commentCount = await Comment.countDocuments({ blogId: blog._id, status: 'active' });
+    blogObject.commentCount = commentCount;
+
+    const userId = req.user?.id?.toString();
+    if (userId) {
+      const likedByList = (blogObject.likedBy || []).map((entry) =>
+        entry?.toString ? entry.toString() : String(entry)
+      );
+      const bookmarkedByList = (blogObject.bookmarkedBy || []).map((entry) =>
+        entry?.toString ? entry.toString() : String(entry)
+      );
+
+      blogObject.isLiked = likedByList.includes(userId);
+      blogObject.isBookmarked = bookmarkedByList.includes(userId);
+    } else {
+      blogObject.isLiked = false;
+      blogObject.isBookmarked = false;
+    }
+
+    res.json({ success: true, data: blogObject });
   } catch (err) {
     logger.error('Get blog by ID failed:', err);
     res.status(500).json({ message: err.message });
@@ -492,6 +547,8 @@ exports.likeBlog = async (req, res) => {
     const alreadyLiked = blog.likedBy.includes(userId);
     let updatedBlog;
     
+    const likeDelta = alreadyLiked ? -1 : 1;
+
     if (alreadyLiked) {
       // Unlike: Remove user from likedBy and decrement count atomically
       updatedBlog = await Blog.findByIdAndUpdate(
@@ -539,6 +596,18 @@ exports.likeBlog = async (req, res) => {
       await Blog.findByIdAndUpdate(req.params.id, { likes: 0 });
       updatedBlog.likes = 0;
     }
+
+    const authorId = updatedBlog.author?._id || updatedBlog.author;
+    if (authorId) {
+      await User.findByIdAndUpdate(authorId, { $inc: { totalLikes: likeDelta } });
+      await ensureNonNegative(User, authorId, 'totalLikes');
+    }
+
+    if (updatedBlog.seriesId) {
+      await updateSeriesAnalytics(updatedBlog.seriesId, { likes: likeDelta });
+    }
+
+    await cacheService.delete(cacheService.generateKey('blog', updatedBlog._id.toString()));
     
     res.json({ liked: !alreadyLiked, likes: updatedBlog.likes });
   } catch (err) {
@@ -560,6 +629,8 @@ exports.bookmarkBlog = async (req, res) => {
     const alreadyBookmarked = blog.bookmarkedBy.includes(userId);
     let updatedBlog;
     
+    const bookmarkDelta = alreadyBookmarked ? -1 : 1;
+
     if (alreadyBookmarked) {
       // Remove bookmark: Remove user from bookmarkedBy and decrement count atomically
       updatedBlog = await Blog.findByIdAndUpdate(
@@ -599,6 +670,15 @@ exports.bookmarkBlog = async (req, res) => {
       await Blog.findByIdAndUpdate(req.params.id, { bookmarks: 0 });
       updatedBlog.bookmarks = 0;
     }
+
+    await User.findByIdAndUpdate(userId, { $inc: { totalBookmarks: bookmarkDelta } });
+    await ensureNonNegative(User, userId, 'totalBookmarks');
+
+    if (updatedBlog.seriesId) {
+      await updateSeriesAnalytics(updatedBlog.seriesId, { bookmarks: bookmarkDelta });
+    }
+
+    await cacheService.delete(cacheService.generateKey('blog', updatedBlog._id.toString()));
     
     res.json({ bookmarked: !alreadyBookmarked, bookmarks: updatedBlog.bookmarks });
   } catch (err) {

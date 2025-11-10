@@ -183,7 +183,7 @@ class UserService {
   // Search users
   async searchUsers(query) {
     try {
-      const response = await api.get(`${this.baseURL}/search`, {
+      const response = await api.get(`/search`, {
         params: { q: query }
       });
       
@@ -210,7 +210,7 @@ class UserService {
   // Get leaderboard
   async getLeaderboard() {
     try {
-      const response = await api.get(`${this.baseURL}/leaderboard`);
+      const response = await api.get(`/leaderboard`);
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -231,7 +231,22 @@ class UserService {
       throw error;
     }
   }
+
+  // Get user series
+  async getUserSeries(userId) {
+    try {
+      const response = await api.get(`${this.baseURL}/${userId}/series`);
+      
+      if (response.data.success) {
+        return response.data.data.series;  // Extract series array
+      } else {
+        throw new Error(response.data.message || 'Failed to get user series');
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export const userService = new UserService();
-export default userService; 
+export default userService;

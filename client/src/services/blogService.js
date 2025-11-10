@@ -217,7 +217,7 @@ const blogService = {
    */
   async likeComment(commentId) {
     try {
-      const response = await api.post(`/blogs/comments/${commentId}/like`);
+      const response = await api.post(`/comments/${commentId}/like`);
       return response.data;
     } catch (error) {
       console.error('Error liking comment:', error);
@@ -232,7 +232,7 @@ const blogService = {
    */
   async deleteComment(commentId) {
     try {
-      const response = await api.delete(`/blogs/comments/${commentId}`);
+      const response = await api.delete(`/comments/${commentId}`);
       return response.data;
     } catch (error) {
       console.error('Error deleting comment:', error);

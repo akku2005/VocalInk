@@ -44,6 +44,8 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("posts");
   const [userBlogs, setUserBlogs] = useState([]);
   const [blogsLoading, setBlogsLoading] = useState(false);
+  const [userSeries, setUserSeries] = useState([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   
@@ -102,6 +104,25 @@ const ProfilePage = () => {
     };
 
     fetchUserBlogs();
+  }, [targetUserId, activeTab]);
+
+  useEffect(() => {
+    const fetchUserSeries = async () => {
+      if (!targetUserId || activeTab !== 'series') return;
+      
+      try {
+        setSeriesLoading(true);
+        const series = await userService.getUserSeries(targetUserId);
+        setUserSeries(series || []);
+      } catch (err) {
+        console.error('Error fetching user series:', err);
+        setUserSeries([]);
+      } finally {
+        setSeriesLoading(false);
+      }
+    };
+
+    fetchUserSeries();
   }, [targetUserId, activeTab]);
 
   const handleFollow = async () => {
@@ -684,26 +705,112 @@ const ProfilePage = () => {
         )}
 
         {activeTab === "series" && (
-          <div className="text-center py-12">
-            <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-text-primary mb-2">
-              No series yet
-            </h3>
-            <p className="text-text-secondary">
-              Start creating your first blog series!
-            </p>
+          <div className="space-y-6">
+            {seriesLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-text-secondary">Loading series...</p>
+              </div>
+            ) : userSeries.length > 0 ? (
+              <div className="grid gap-6">
+                {userSeries.map((series) => (
+                  <Card key={series._id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary mb-2">{series.title}</h3>
+                          <p className="text-text-secondary mb-3">{series.description?.substring(0, 150)}...</p>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {series.episodes?.length || 0} episodes
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-text-secondary">
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-4 h-4" />
+                            {series.analytics?.totalViews?.toLocaleString() || 0} views
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-4 h-4" />
+                            {series.analytics?.likes?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(series.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  No series yet
+                </h3>
+                <p className="text-text-secondary">
+                  Start creating your first blog series!
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === "likes" && (
-          <div className="text-center py-12">
-            <Heart className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-text-primary mb-2">
-              No liked posts
-            </h3>
-            <p className="text-text-secondary">
-              Posts you like will appear here.
-            </p>
+          <div className="space-y-6">
+            {blogsLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-text-secondary">Loading liked posts...</p>
+              </div>
+            ) : userBlogs.length > 0 ? (
+              <div className="grid gap-6">
+                {userBlogs.filter(blog => blog.isLiked).map((post) => (
+                  <Card key={post._id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary mb-2">{post.title}</h3>
+                          <p className="text-text-secondary mb-3">{post.summary?.substring(0, 150)}...</p>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {formatDate(post.publishedAt || post.createdAt)}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-text-secondary">
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="w-4 h-4" />
+                            {post.readTime || Math.ceil((post.content?.length || 0) / 200)} min read
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-4 h-4" />
+                            {post.likes?.length || 0}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1">
+                          <User className="w-4 h-4" />
+                          {post.views?.toLocaleString() || 0} views
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Heart className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  No liked posts
+                </h3>
+                <p className="text-text-secondary">
+                  Posts you like will appear here.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

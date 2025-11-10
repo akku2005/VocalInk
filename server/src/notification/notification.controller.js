@@ -1,5 +1,7 @@
 const { StatusCodes } = require('http-status-codes');
 
+const mongoose = require('mongoose');
+
 const Notification = require('../models/notification.model');
 const User = require('../models/user.model');
 const { NotFoundError, ValidationError } = require('../utils/errors');
@@ -33,6 +35,22 @@ exports.getUserNotifications = async (req, res) => {
     const total = await Notification.countDocuments(query);
     const unreadCount = await Notification.getUnreadCount(userId);
 
+    // Get type counts for ALL notifications (not just current page)
+    const baseQuery = {
+      userId: new mongoose.Types.ObjectId(userId),
+      isDeleted: false,
+    };
+    const typeCounts = await Notification.aggregate([
+      { $match: baseQuery },
+      { $group: { _id: '$type', count: { $sum: 1 } } },
+    ]);
+
+    // Convert to object for easier access
+    const typeCountsMap = {};
+    typeCounts.forEach(tc => {
+      typeCountsMap[tc._id] = tc.count;
+    });
+
     res.status(StatusCodes.OK).json({
       success: true,
       data: {
@@ -45,6 +63,7 @@ exports.getUserNotifications = async (req, res) => {
           hasNext: page * limit < total,
           hasPrev: page > 1,
         },
+        typeCounts: typeCountsMap,
       },
     });
   } catch (error) {
@@ -258,7 +277,7 @@ exports.getNotificationStats = async (req, res) => {
     const notificationsByType = await Notification.aggregate([
       {
         $match: {
-          userId: require('mongoose').Types.ObjectId(userId),
+          userId: new (require('mongoose').Types.ObjectId)(userId),
           isDeleted: false,
         },
       },

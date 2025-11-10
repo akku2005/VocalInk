@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -9,6 +9,7 @@ import {
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import blogService from "../services/blogService";
 import {
   Search,
   Filter,
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 
 const SearchPage = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [searchResults, setSearchResults] = useState([]);
@@ -150,117 +152,6 @@ const SearchPage = () => {
     { code: "zh", name: "Chinese" },
   ];
 
-  // Mock search results
-  const mockResults = [
-    {
-      id: 1,
-      title: "The Future of AI in Content Creation",
-      excerpt:
-        "Discover how artificial intelligence is revolutionizing the way we create, edit, and distribute content across various platforms. From automated writing assistants to intelligent content optimization...",
-      author: "Sarah Johnson",
-      authorAvatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face",
-      publishedAt: "2024-01-15",
-      readTime: 8,
-      tags: ["AI", "Technology", "Content Creation"],
-      mood: "technical",
-      language: "en",
-      likes: 124,
-      comments: 23,
-      views: 1542,
-      relevance: 95,
-    },
-    {
-      id: 2,
-      title: "Building a Successful Blog Series: A Complete Guide",
-      excerpt:
-        "Learn the strategies and techniques needed to create engaging blog series that keep readers coming back for more. This comprehensive guide covers everything from planning to execution...",
-      author: "Michael Chen",
-      authorAvatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face",
-      publishedAt: "2024-01-12",
-      readTime: 12,
-      tags: ["Blogging", "Content Strategy", "Writing"],
-      mood: "educational",
-      language: "en",
-      likes: 89,
-      comments: 15,
-      views: 892,
-      relevance: 88,
-    },
-    {
-      id: 3,
-      title: "Voice-to-Text: The Next Big Thing in Writing",
-      excerpt:
-        "Explore how speech recognition technology is changing the landscape of content creation and making writing more accessible to everyone. Discover the latest tools and techniques...",
-      author: "Emily Rodriguez",
-      authorAvatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face",
-      publishedAt: "2024-01-10",
-      readTime: 6,
-      tags: ["Voice Technology", "Accessibility", "Innovation"],
-      mood: "technical",
-      language: "en",
-      likes: 156,
-      comments: 31,
-      views: 2341,
-      relevance: 92,
-    },
-    {
-      id: 4,
-      title: "Gamification in Learning: Making Education Fun",
-      excerpt:
-        "How game mechanics and rewards systems are transforming the way we learn and retain information. This post explores the psychology behind gamification and its applications...",
-      author: "David Kim",
-      authorAvatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face",
-      publishedAt: "2024-01-08",
-      readTime: 10,
-      tags: ["Education", "Gamification", "Learning"],
-      mood: "educational",
-      language: "en",
-      likes: 203,
-      comments: 42,
-      views: 3456,
-      relevance: 85,
-    },
-    {
-      id: 5,
-      title: "The Psychology of Social Media Engagement",
-      excerpt:
-        "Understanding what makes content go viral and how to create posts that truly resonate with your audience. Deep dive into the psychological principles that drive engagement...",
-      author: "Lisa Thompson",
-      authorAvatar:
-        "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face",
-      publishedAt: "2024-01-05",
-      readTime: 9,
-      tags: ["Psychology", "Social Media", "Marketing"],
-      mood: "thoughtful",
-      language: "en",
-      likes: 178,
-      comments: 28,
-      views: 2890,
-      relevance: 90,
-    },
-    {
-      id: 6,
-      title: "Sustainable Living: Small Changes, Big Impact",
-      excerpt:
-        "Practical tips and strategies for reducing your environmental footprint through everyday choices and habits. Learn how small changes can lead to significant positive impact...",
-      author: "Alex Green",
-      authorAvatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face",
-      publishedAt: "2024-01-03",
-      readTime: 7,
-      tags: ["Sustainability", "Lifestyle", "Environment"],
-      mood: "inspirational",
-      language: "en",
-      likes: 145,
-      comments: 19,
-      views: 1876,
-      relevance: 87,
-    },
-  ];
 
   const popularTags = [
     "Technology",
@@ -311,65 +202,67 @@ const SearchPage = () => {
 
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Fetch blogs from API
+      const blogs = await blogService.getBlogs({ 
+        status: 'published',
+        limit: 50 
+      });
 
       // Filter results based on search query and filters
-      let filtered = mockResults.filter((result) => {
+      let filtered = (blogs || []).filter((blog) => {
         const matchesQuery =
-          result.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          result.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          result.tags.some((tag) =>
+          blog.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          blog.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          blog.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (blog.tags && Array.isArray(blog.tags) && blog.tags.some((tag) =>
             tag.toLowerCase().includes(searchQuery.toLowerCase())
-          );
+          ));
 
-        const matchesMood = !filters.mood || result.mood === filters.mood;
-        const matchesLanguage =
-          !filters.language || result.language === filters.language;
         const matchesReadTime =
           !filters.readTime ||
-          (filters.readTime === "0-5" && result.readTime <= 5) ||
+          (filters.readTime === "0-5" && (blog.readingTime || 0) <= 5) ||
           (filters.readTime === "5-10" &&
-            result.readTime > 5 &&
-            result.readTime <= 10) ||
+            (blog.readingTime || 0) > 5 &&
+            (blog.readingTime || 0) <= 10) ||
           (filters.readTime === "10-15" &&
-            result.readTime > 10 &&
-            result.readTime <= 15) ||
-          (filters.readTime === "15+" && result.readTime > 15);
+            (blog.readingTime || 0) > 10 &&
+            (blog.readingTime || 0) <= 15) ||
+          (filters.readTime === "15+" && (blog.readingTime || 0) > 15);
 
-        return (
-          matchesQuery && matchesMood && matchesLanguage && matchesReadTime
-        );
+        return matchesQuery && matchesReadTime;
       });
 
       // Sort results
       switch (filters.sortBy) {
         case "newest":
           filtered.sort(
-            (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
+            (a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt)
           );
           break;
         case "oldest":
           filtered.sort(
-            (a, b) => new Date(a.publishedAt) - new Date(b.publishedAt)
+            (a, b) => new Date(a.publishedAt || a.createdAt) - new Date(b.publishedAt || b.createdAt)
           );
           break;
         case "popular":
-          filtered.sort((a, b) => b.likes - a.likes);
+          filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
           break;
         case "trending":
-          filtered.sort((a, b) => b.views - a.views);
+          filtered.sort((a, b) => (b.bookmarks || 0) - (a.bookmarks || 0));
           break;
         case "readTime":
-          filtered.sort((a, b) => a.readTime - b.readTime);
+          filtered.sort((a, b) => (a.readingTime || 0) - (b.readingTime || 0));
           break;
         default:
-          filtered.sort((a, b) => b.relevance - a.relevance);
+          filtered.sort(
+            (a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt)
+          );
       }
 
       setSearchResults(filtered);
     } catch (error) {
       console.error("Search error:", error);
+      setSearchResults([]);
     } finally {
       setLoading(false);
     }
@@ -892,22 +785,21 @@ const SearchPage = () => {
           >
             {searchResults.map((result) => (
               <Card
-                key={result.id}
+                key={result._id || result.id}
                 className="hover:shadow-lg transition-all duration-300 cursor-pointer"
+                onClick={() => navigate(`/article/${result._id || result.id}`)}
               >
                 <CardContent className="p-4 sm:p-6">
                   <div className="space-y-3 sm:space-y-4">
                     {/* Header */}
                     <div className="flex items-start justify-between gap-2 sm:gap-3">
                       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                        <img
-                          src={result.authorAvatar}
-                          alt={result.author}
-                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0"
-                        />
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold text-xs sm:text-sm">
+                          {result.author?.displayName?.[0] || result.author?.username?.[0] || '?'}
+                        </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-text-primary text-sm sm:text-base truncate">
-                            {result.author}
+                            {typeof result.author === 'string' ? result.author : result.author?.displayName || result.author?.username || 'Anonymous'}
                           </div>
                           <div className="text-xs sm:text-sm text-text-secondary">
                             {new Date(
@@ -934,13 +826,13 @@ const SearchPage = () => {
                         {result.title}
                       </h3>
                       <p className="text-xs sm:text-sm text-text-secondary leading-relaxed mb-3 line-clamp-3">
-                        {result.excerpt}
+                        {result.summary || result.excerpt || result.content?.substring(0, 150) || 'No description available'}
                       </p>
                     </div>
 
                     {/* Tags */}
                     <div className="flex flex-wrap gap-1">
-                      {result.tags.slice(0, 3).map((tag) => (
+                      {(result.tags || []).slice(0, 3).map((tag) => (
                         <Badge
                           key={tag}
                           variant="outline"
@@ -949,9 +841,9 @@ const SearchPage = () => {
                           {tag}
                         </Badge>
                       ))}
-                      {result.tags.length > 3 && (
+                      {(result.tags || []).length > 3 && (
                         <Badge variant="outline" className="text-xs px-2 py-0.5">
-                          +{result.tags.length - 3}
+                          +{(result.tags || []).length - 3}
                         </Badge>
                       )}
                     </div>
@@ -961,21 +853,13 @@ const SearchPage = () => {
                       <div className="flex items-center gap-3 sm:gap-4">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                          {result.readTime} min read
+                          {result.readingTime || 5} min read
                         </span>
                         <span className="flex items-center gap-1">
                           <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
-                          {result.likes}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                          {result.comments}
+                          {result.likes || 0}
                         </span>
                       </div>
-                      <span className="flex items-center gap-1">
-                        <BookOpen className="w-3 h-3 sm:w-4 sm:h-4" />
-                        {result.views.toLocaleString()}
-                      </span>
                     </div>
                   </div>
                 </CardContent>

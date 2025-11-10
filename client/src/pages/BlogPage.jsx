@@ -26,6 +26,7 @@ const BlogPage = () => {
   const params = new URLSearchParams(location.search);
 
   const [searchQuery, setSearchQuery] = useState(params.get("q") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
     params.get("cat") || "all"
   );
@@ -71,10 +72,24 @@ const BlogPage = () => {
     fetchBlogs();
   }, []);
 
-  // Generate categories dynamically from blogs
+  // Generate categories dynamically from blogs with search-aware counts
   const categories = useMemo(() => {
+    // Filter blogs based on search query for accurate counts
+    const searchText = debouncedQuery.toLowerCase();
+    const searchFilteredBlogs = blogs.filter(blog => {
+      if (!searchText) return true;
+      return (
+        blog.title?.toLowerCase().includes(searchText) ||
+        blog.summary?.toLowerCase().includes(searchText) ||
+        blog.content?.toLowerCase().includes(searchText) ||
+        (blog.tags && Array.isArray(blog.tags) && blog.tags.some((tag) =>
+          tag.toLowerCase().includes(searchText)
+        ))
+      );
+    });
+
     const tagCounts = {};
-    blogs.forEach(blog => {
+    searchFilteredBlogs.forEach(blog => {
       if (blog.tags && Array.isArray(blog.tags)) {
         blog.tags.forEach(tag => {
           const tagLower = tag.toLowerCase();
@@ -84,23 +99,25 @@ const BlogPage = () => {
     });
 
     const categoryList = [
-      { id: "all", name: "All Posts", count: blogs.length }
+      { id: "all", name: "All Posts", count: searchFilteredBlogs.length }
     ];
 
-    // Add top categories
+    // Add top categories (only show categories with at least 1 blog)
     Object.entries(tagCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .forEach(([tag, count]) => {
-        categoryList.push({
-          id: tag,
-          name: tag.charAt(0).toUpperCase() + tag.slice(1),
-          count
-        });
+        if (count > 0) {
+          categoryList.push({
+            id: tag,
+            name: tag.charAt(0).toUpperCase() + tag.slice(1),
+            count
+          });
+        }
       });
 
     return categoryList;
-  }, [blogs]);
+  }, [blogs, debouncedQuery]);
 
   const sortOptions = [
     { id: "recent", name: "Most Recent" },
@@ -125,7 +142,6 @@ const BlogPage = () => {
   }, [searchQuery, selectedCategory, viewMode, sortBy, navigate]);
 
   // Debounced search
-  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(searchQuery), 300);
     return () => clearTimeout(id);

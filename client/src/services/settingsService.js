@@ -241,23 +241,15 @@ class SettingsService {
     }
   }
 
-  // Enable/disable two-factor authentication
+  // Enable/disable two-factor authentication - DEPRECATED: Use enable2FA() or disable2FA() instead
   async toggleTwoFactor(enabled) {
     try {
-      const response = await api.patch(`${this.baseURL}/me`, {
-        twoFactorEnabled: enabled
-      });
-      
-      if (response.data.success) {
-        return response.data.data;
+      if (enabled) {
+        return await this.enable2FA();
       } else {
-        throw new Error(response.data.message || 'Failed to update two-factor authentication');
+        return await this.disable2FA();
       }
     } catch (error) {
-      if (error.response && error.response.data && !error.response.data.success) {
-        const errorData = error.response.data;
-        throw new Error(errorData.message || 'Failed to update two-factor authentication');
-      }
       throw error;
     }
   }
@@ -342,10 +334,10 @@ class SettingsService {
     }
   }
 
-  // Delete account
-  async deleteAccount(confirmation) {
+  // Delete account - DEPRECATED: Use deleteAccount(password, confirmText) instead
+  async deleteAccountOld(confirmation) {
     try {
-      const response = await api.delete(`${this.baseURL}/me`, {
+      const response = await api.delete(`/settings/account`, {
         data: { confirmation }
       });
       

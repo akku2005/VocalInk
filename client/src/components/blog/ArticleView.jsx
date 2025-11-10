@@ -7,7 +7,6 @@ import Button from "../ui/Button.jsx";
 import EngagementButtons from "../engagement/EngagementButtons";
 import AudioPlayer from "../audio/AudioPlayer";
 import CommentList from "../comment/CommentList";
-import { apiService } from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
 import blogService from "../../services/blogService";
 
@@ -29,10 +28,10 @@ export default function ArticleView() {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiService.get(`/blogs/${id}`);
+        const response = await blogService.getBlogById(id);
         
         // Handle different response structures
-        const blogData = response.data?.data || response.data;
+        const blogData = response?.data || response;
         
         if (blogData) {
           // Extract author information properly
@@ -65,7 +64,7 @@ export default function ArticleView() {
             id: blogData._id,
             title: blogData.title,
             content: blogData.content,
-            aurthor: authorName,
+            author: authorName,
             authorId: authorId,
             summary: blogData.summary,
             tags: blogData.tags || [],
@@ -75,8 +74,10 @@ export default function ArticleView() {
             updatedAt: blogData.updatedAt,
             publishedAt: blogData.publishedAt,
             likes: blogData.likes || 0,
-            comments: blogData.comments || 0,
+            commentCount: blogData.commentCount || 0,
             bookmarks: blogData.bookmarks || 0,
+            isLiked: blogData.isLiked || false,
+            isBookmarked: blogData.isBookmarked || false,
           });
         } else {
           setError('Blog not found');
@@ -212,7 +213,7 @@ export default function ArticleView() {
               className="font-medium hover:underline cursor-pointer bg-transparent border-none"
               disabled={!article.authorId}
             >
-              {article.aurthor}
+              {article.author || 'Anonymous'}
             </button>{" "}
             . Published on {formattedDate}
           </span>
@@ -243,10 +244,10 @@ export default function ArticleView() {
           <EngagementButtons
             blogId={id}
             initialLikes={article.likes || 0}
-            initialComments={article.comments || 0}
+            initialComments={article.commentCount || 0}
             initialBookmarks={article.bookmarks || 0}
-            isLiked={false}
-            isBookmarked={false}
+            isLiked={article.isLiked || false}
+            isBookmarked={article.isBookmarked || false}
             onCommentClick={handleCommentClick}
           />
         </div>

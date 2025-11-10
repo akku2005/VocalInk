@@ -6,8 +6,14 @@ const { protect, requireAdmin } = require('../middleware/auth');
 const notificationController = require('./notification.controller');
 
 // User notification routes (require authentication)
+// NOTE: Specific routes must come BEFORE parameterized routes to avoid conflicts
 router.get('/', protect, notificationController.getUserNotifications);
 router.get('/stats', protect, notificationController.getNotificationStats);
+router.patch(
+  '/read-all',
+  protect,
+  notificationController.markAllNotificationsRead
+);
 router.get('/:id', protect, notificationController.getNotificationById);
 router.patch(
   '/:notificationId/read',
@@ -18,11 +24,6 @@ router.patch(
   '/:notificationId/unread',
   protect,
   notificationController.markNotificationUnread
-);
-router.patch(
-  '/read-all',
-  protect,
-  notificationController.markAllNotificationsRead
 );
 router.delete(
   '/:notificationId',

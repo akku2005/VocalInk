@@ -17,6 +17,7 @@ const {
 } = require('../validations/seriesSchema');
 
 const seriesController = require('./series.controller');
+const seriesImageController = require('./seriesImageController');
 
 // Series Management Routes
 router.get('/', optionalAuth, validate(seriesQuerySchema, 'query'), seriesController.getSeries);
@@ -49,5 +50,10 @@ router.delete('/:id/bookmarks/:episodeId', protect, seriesController.removeBookm
 
 // Analytics Routes
 router.get('/:id/analytics', protect, validate(analyticsQuerySchema, 'query'), seriesController.getSeriesAnalytics);
+
+// Image Upload Routes
+router.post('/:seriesId/images/cover', protect, seriesImageController.upload.single('coverImage'), seriesImageController.uploadCoverImage);
+router.post('/:seriesId/images/banner', protect, seriesImageController.upload.single('bannerImage'), seriesImageController.uploadBannerImage);
+router.delete('/:seriesId/images/cover', protect, seriesImageController.deleteCoverImage);
 
 module.exports = router;

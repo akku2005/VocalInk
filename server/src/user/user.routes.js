@@ -20,6 +20,7 @@ router.delete('/:targetUserId/follow', protect, userController.unfollowUser);
 
 // User content
 router.get('/:id/blogs', userController.getUserBlogs);
+router.get('/:id/series', userController.getUserSeries);
 router.get('/:id/badges', userController.getUserBadges);
 
 // Notifications

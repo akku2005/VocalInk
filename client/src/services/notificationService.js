@@ -21,12 +21,18 @@ const notificationService = {
       if (params.page) queryParams.append('page', params.page);
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.type) queryParams.append('type', params.type);
-      if (params.unreadOnly) queryParams.append('unreadOnly', params.unreadOnly);
+      if (params.unreadOnly !== undefined) queryParams.append('unreadOnly', params.unreadOnly);
 
       const queryString = queryParams.toString();
       const url = queryString ? `/notifications?${queryString}` : '/notifications';
       
       const response = await api.get(url);
+      
+      // Verify response structure
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to fetch notifications');
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -57,6 +63,11 @@ const notificationService = {
   async markAsRead(notificationId) {
     try {
       const response = await api.patch(`/notifications/${notificationId}/read`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to mark notification as read');
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -71,6 +82,11 @@ const notificationService = {
   async markAllAsRead() {
     try {
       const response = await api.patch('/notifications/read-all');
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to mark all notifications as read');
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -86,6 +102,11 @@ const notificationService = {
   async markAsUnread(notificationId) {
     try {
       const response = await api.patch(`/notifications/${notificationId}/unread`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to mark notification as unread');
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error marking notification as unread:', error);
@@ -101,6 +122,11 @@ const notificationService = {
   async deleteNotification(notificationId) {
     try {
       const response = await api.delete(`/notifications/${notificationId}`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to delete notification');
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -109,16 +135,17 @@ const notificationService = {
   },
 
   /**
-   * Delete multiple notifications
+   * Delete multiple notifications - DEPRECATED: Use deleteNotification in a loop instead
    * @param {Array<string>} notificationIds - Array of notification IDs
    * @returns {Promise<Object>} Success response
    */
   async deleteMultiple(notificationIds) {
     try {
-      const response = await api.post('/notifications/delete-multiple', {
-        notificationIds,
-      });
-      return response.data;
+      // Delete notifications one by one since backend doesn't support bulk delete
+      const results = await Promise.all(
+        notificationIds.map(id => this.deleteNotification(id))
+      );
+      return { success: true, data: results };
     } catch (error) {
       console.error('Error deleting notifications:', error);
       throw error;
@@ -140,13 +167,24 @@ const notificationService = {
   },
 
   /**
-   * Get unread count
+   * Get unread count - FALLBACK: Gets all notifications and counts unread
    * @returns {Promise<number>} Unread notification count
    */
   async getUnreadCount() {
     try {
-      const response = await api.get('/notifications/unread-count');
-      return response.data;
+      // Try the dedicated endpoint first
+      try {
+        const response = await api.get('/notifications/unread-count');
+        return response.data;
+      } catch (err) {
+        // Fallback: Get all notifications and count unread ones
+        const response = await api.get('/notifications?limit=1000');
+        if (response.data.success && response.data.data) {
+          const unreadCount = response.data.data.filter(n => !n.isRead).length;
+          return { success: true, data: unreadCount };
+        }
+        throw err;
+      }
     } catch (error) {
       console.error('Error fetching unread count:', error);
       throw error;
@@ -154,16 +192,17 @@ const notificationService = {
   },
 
   /**
-   * Mark multiple notifications as read
+   * Mark multiple notifications as read - DEPRECATED: Use markAsRead in a loop instead
    * @param {Array<string>} notificationIds - Array of notification IDs
    * @returns {Promise<Object>} Success response
    */
   async markMultipleAsRead(notificationIds) {
     try {
-      const response = await api.post('/notifications/mark-multiple-read', {
-        notificationIds,
-      });
-      return response.data;
+      // Mark notifications one by one since backend doesn't support bulk mark
+      const results = await Promise.all(
+        notificationIds.map(id => this.markAsRead(id))
+      );
+      return { success: true, data: results };
     } catch (error) {
       console.error('Error marking notifications as read:', error);
       throw error;

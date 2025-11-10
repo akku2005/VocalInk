@@ -289,7 +289,7 @@ const Home = () => {
             // Real blogs
             featuredBlogs.map((blog) => (
               <Link key={blog._id} to={`/article/${blog._id}`}>
-                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md ">
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md h-full flex flex-col">
                   {blog.coverImage ? (
                     <img 
                       src={blog.coverImage} 
@@ -299,7 +299,7 @@ const Home = () => {
                   ) : (
                     <div className="h-48 bg-gradient-to-br from-indigo-500 to-gray-500 rounded-t-lg mb-4"></div>
                   )}
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-2 flex-grow">
                     <CardTitle className="group-hover:text-primary-500 transition-colors font-medium text-lg line-clamp-2">
                       {blog.title}
                     </CardTitle>
@@ -307,7 +307,7 @@ const Home = () => {
                       {getCleanExcerpt(blog, 150)}
                     </p>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="mt-auto">
                     <div className="flex items-center justify-between text-sm text-text-secondary">
                       <div 
                         className={`flex items-center space-x-2 ${blog.author?._id ? 'cursor-pointer hover:opacity-80' : ''}`}

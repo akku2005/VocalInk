@@ -142,6 +142,11 @@ export default function AppRoutes() {
               <EditBlogPage />
             </ProtectedRoute>
           } />
+          <Route path="series/:id" element={
+            <ProtectedRoute>
+              <SeriesTimelinePage />
+            </ProtectedRoute>
+          } />
           <Route path="series/:id/timeline" element={
             <ProtectedRoute>
               <SeriesTimelinePage />

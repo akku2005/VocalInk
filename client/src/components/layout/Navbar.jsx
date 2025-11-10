@@ -1,9 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "../../styles/Navbar.css";
 import Tooltip from "../ui/Tooltip";
 import { useTheme } from "../context/ThemeContext";
+import { useNotification } from "../context/NotificationContext";
 import IconButton from "../ui/IconButton";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import notificationService from "../../services/notificationService";
 import {
   SearchIcon,
   LucideBell,
@@ -16,11 +18,54 @@ import {
 } from "lucide-react";
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [themeIcon, setThemeIcon] = useState(false);
   const { toggleTheme, theme } = useTheme();
+  const { unreadCount, updateUnreadCount } = useNotification();
   const timeoutRef = useRef(null);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    let isMounted = true;
+    let lastFetchTime = 0;
+
+    const fetchUnreadCount = async () => {
+      // Prevent rapid consecutive fetches
+      const now = Date.now();
+      if (now - lastFetchTime < 5000) return;
+      lastFetchTime = now;
+
+      try {
+        const response = await notificationService.getNotifications({ limit: 1 });
+        if (isMounted && response.success && response.data.pagination) {
+          updateUnreadCount(response.data.pagination.unreadCount || 0);
+        }
+      } catch (error) {
+        // Silently fail on rate limit or network errors
+        if (error.response?.status !== 429) {
+          console.error('Failed to fetch unread count:', error);
+        }
+      }
+    };
+
+    // Delay initial fetch by 2 seconds to avoid rate limiting on app load
+    const initialTimer = setTimeout(() => {
+      if (isMounted) {
+        fetchUnreadCount();
+      }
+    }, 2000);
+    
+    // Poll for updates every 90 seconds (reduced frequency to avoid rate limits)
+    const interval = setInterval(fetchUnreadCount, 90000);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [updateUnreadCount]);
 
   const handleMouseEnter = () => {
     clearTimeout(timeoutRef.current);
@@ -193,9 +238,20 @@ export default function Navbar() {
             </span>
           </div>
 
-          {/* Bell */}
-          <Tooltip content="Notifications">
-            <IconButton icon={LucideBell} />
+          {/* Bell with unread badge */}
+          <Tooltip content={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}>
+            <button
+              onClick={() => navigate('/notifications')}
+              className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Notifications"
+            >
+              <LucideBell size={24} />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full animate-pulse">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
           </Tooltip>
 
           {/* change theme icon */}

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useAuth } from "../../hooks/useAuth";
-import { useToast } from "../../hooks/useToast";
 import { Heart, Bookmark, Share2, MessageCircle } from "lucide-react";
 import LoginPromptModal from "../auth/LoginPromptModal";
+import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
+import blogService from "../../services/blogService";
 
 const EngagementButtons = ({
   blogId,
@@ -38,22 +39,30 @@ const EngagementButtons = ({
     if (isLiking) return;
 
     setIsLiking(true);
+    const previousState = isLikedState;
+    const previousLikes = likes;
     try {
-      // For now, simulate the API call
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const optimisticLiked = !isLikedState;
+      setIsLikedState(optimisticLiked);
+      setLikes((prev) => (optimisticLiked ? prev + 1 : Math.max(prev - 1, 0)));
 
-      const newIsLiked = !isLikedState;
-      setIsLikedState(newIsLiked);
-      setLikes((prev) => (newIsLiked ? prev + 1 : prev - 1));
+      const result = await blogService.likeBlog(blogId);
+
+      setIsLikedState(result.liked);
+      setLikes(result.likes ?? 0);
 
       if (onEngagementUpdate) {
-        onEngagementUpdate("likes", newIsLiked);
+        onEngagementUpdate("likes", {
+          active: result.liked,
+          count: result.likes ?? 0,
+        });
       }
 
-      showSuccess(newIsLiked ? "Post liked!" : "Post unliked!");
+      showSuccess(result.liked ? "Post liked!" : "Post unliked!");
     } catch (error) {
-      showError("Failed to like post. Please try again.");
+      setIsLikedState(previousState);
+      setLikes(previousLikes);
+      showError(error.response?.data?.message || "Failed to like post. Please try again.");
     } finally {
       setIsLiking(false);
     }
@@ -76,24 +85,32 @@ const EngagementButtons = ({
     if (isBookmarking) return;
 
     setIsBookmarking(true);
+    const previousState = isBookmarkedState;
+    const previousBookmarks = bookmarks;
     try {
-      // For now, simulate the API call
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const optimisticBookmarked = !isBookmarkedState;
+      setIsBookmarkedState(optimisticBookmarked);
+      setBookmarks((prev) => (optimisticBookmarked ? prev + 1 : Math.max(prev - 1, 0)));
 
-      const newIsBookmarked = !isBookmarkedState;
-      setIsBookmarkedState(newIsBookmarked);
-      setBookmarks((prev) => (newIsBookmarked ? prev + 1 : prev - 1));
+      const result = await blogService.bookmarkBlog(blogId);
+
+      setIsBookmarkedState(result.bookmarked);
+      setBookmarks(result.bookmarks ?? 0);
 
       if (onEngagementUpdate) {
-        onEngagementUpdate("bookmarks", newIsBookmarked);
+        onEngagementUpdate("bookmarks", {
+          active: result.bookmarked,
+          count: result.bookmarks ?? 0,
+        });
       }
 
       showSuccess(
-        newIsBookmarked ? "Post bookmarked!" : "Post removed from bookmarks!"
+        result.bookmarked ? "Post bookmarked!" : "Post removed from bookmarks!"
       );
     } catch (error) {
-      showError("Failed to bookmark post. Please try again.");
+      setIsBookmarkedState(previousState);
+      setBookmarks(previousBookmarks);
+      showError(error.response?.data?.message || "Failed to bookmark post. Please try again.");
     } finally {
       setIsBookmarking(false);
     }

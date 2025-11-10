@@ -33,8 +33,10 @@ import {
   Target,
   Zap,
   Shield,
+  AlertCircle,
 } from "lucide-react";
 import DiscoverSeriesDropDown from "../components/ui/DiscoverSeriesDropdown";
+import seriesService from "../services/seriesService";
 
 const SeriesPage = () => {
   const navigate = useNavigate();
@@ -54,666 +56,113 @@ const SeriesPage = () => {
   );
   const [viewMode, setViewMode] = useState(params.get("view") || "grid");
   const [sortBy, setSortBy] = useState(params.get("sort") || "recent");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [series, setSeries] = useState([]);
+  const [error, setError] = useState(null);
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
 
-  // Enhanced sample series data with more realistic content
-  const sampleSeries = [
-    {
-      id: "1",
-      title: "Complete Web Development Bootcamp",
-      description:
-        "A comprehensive journey from HTML basics to full-stack development with modern frameworks and best practices.",
-      summary:
-        "Master web development from scratch with hands-on projects and real-world applications. Learn HTML, CSS, JavaScript, React, Node.js, and deployment strategies.",
-      coverImage: "/api/series/1/cover",
-      category: "Technology",
-      template: "educational_course",
-      difficulty: "beginner",
-      tags: [
-        "Web Development",
-        "JavaScript",
-        "React",
-        "Node.js",
-        "HTML",
-        "CSS",
-      ],
-      status: "active",
-      visibility: "public",
-      publishedAt: "2024-01-15",
-      updatedAt: "2024-01-20",
-      episodes: [
-        {
-          title: "Introduction to HTML",
-          status: "published",
-          order: 1,
-          readTime: 12,
-          publishedAt: "2024-01-15",
-        },
-        {
-          title: "CSS Fundamentals",
-          status: "published",
-          order: 2,
-          readTime: 15,
-          publishedAt: "2024-01-16",
-        },
-        {
-          title: "JavaScript Basics",
-          status: "published",
-          order: 3,
-          readTime: 18,
-          publishedAt: "2024-01-17",
-        },
-        {
-          title: "React Fundamentals",
-          status: "published",
-          order: 4,
-          readTime: 22,
-          publishedAt: "2024-01-18",
-        },
-        {
-          title: "Backend with Node.js",
-          status: "draft",
-          order: 5,
-          readTime: 25,
-          publishedAt: null,
-        },
-        {
-          title: "Database Integration",
-          status: "draft",
-          order: 6,
-          readTime: 20,
-          publishedAt: null,
-        },
-        {
-          title: "Deployment Strategies",
-          status: "draft",
-          order: 7,
-          readTime: 16,
-          publishedAt: null,
-        },
-      ],
-      author: {
-        name: "Sarah Johnson",
-        profilePicture: "/api/users/sarah/avatar",
-        verified: true,
-      },
-      analytics: {
-        totalViews: 15420,
-        totalReads: 8900,
-        completionRate: 68,
-        subscribers: 1240,
-        likes: 892,
-        comments: 156,
-        bookmarks: 445,
-      },
-      collaborators: [
-        {
-          name: "Mike Chen",
-          role: "contributor",
-          profilePicture: "/api/users/mike/avatar",
-        },
-        {
-          name: "Emily Rodriguez",
-          role: "reviewer",
-          profilePicture: "/api/users/emily/avatar",
-        },
-      ],
-      isBookmarked: false,
-      isSubscribed: false,
-      isLiked: false,
-      rating: 4.8,
-      totalRatings: 234,
-    },
-    {
-      id: "2",
-      title: "The Future of AI: A Deep Dive into Machine Learning",
-      description:
-        "Explore the cutting-edge developments in artificial intelligence and their impact on various industries.",
-      summary:
-        "Comprehensive analysis of AI trends, technologies, and future implications across healthcare, finance, and technology sectors.",
-      coverImage: "/api/series/2/cover",
-      category: "Technology",
-      template: "research_journey",
-      difficulty: "advanced",
-      tags: [
-        "Artificial Intelligence",
-        "Machine Learning",
-        "Future Tech",
-        "Deep Learning",
-        "Neural Networks",
-      ],
-      status: "active",
-      visibility: "premium",
-      publishedAt: "2024-01-10",
-      updatedAt: "2024-01-19",
-      episodes: [
-        {
-          title: "AI Fundamentals",
-          status: "published",
-          order: 1,
-          readTime: 14,
-          publishedAt: "2024-01-10",
-        },
-        {
-          title: "Machine Learning Basics",
-          status: "published",
-          order: 2,
-          readTime: 16,
-          publishedAt: "2024-01-11",
-        },
-        {
-          title: "Deep Learning Revolution",
-          status: "published",
-          order: 3,
-          readTime: 20,
-          publishedAt: "2024-01-12",
-        },
-        {
-          title: "AI in Healthcare",
-          status: "published",
-          order: 4,
-          readTime: 18,
-          publishedAt: "2024-01-13",
-        },
-        {
-          title: "The Future of Work",
-          status: "published",
-          order: 5,
-          readTime: 22,
-          publishedAt: "2024-01-14",
-        },
-        {
-          title: "Ethical AI Considerations",
-          status: "draft",
-          order: 6,
-          readTime: 19,
-          publishedAt: null,
-        },
-      ],
-      author: {
-        name: "Dr. Michael Chen",
-        profilePicture: "/api/users/michael/avatar",
-        verified: true,
-      },
-      analytics: {
-        totalViews: 8900,
-        totalReads: 5600,
-        completionRate: 72,
-        subscribers: 890,
-        likes: 567,
-        comments: 89,
-        bookmarks: 298,
-      },
-      collaborators: [
-        {
-          name: "Prof. Lisa Wang",
-          role: "contributor",
-          profilePicture: "/api/users/lisa/avatar",
-        },
-      ],
-      isBookmarked: true,
-      isSubscribed: true,
-      isLiked: true,
-      rating: 4.9,
-      totalRatings: 178,
-    },
-    {
-      id: "3",
-      title: "Sustainable Living Chronicles: A Family's Journey",
-      description:
-        "A personal journey towards sustainable living with practical tips and real-world experiences.",
-      summary:
-        "Follow one family's transition to eco-friendly living with actionable advice for reducing environmental impact.",
-      coverImage: "/api/series/3/cover",
-      category: "Lifestyle",
-      template: "story_arc",
-      difficulty: "beginner",
-      tags: [
-        "Sustainability",
-        "Lifestyle",
-        "Environment",
-        "Green Living",
-        "Eco-Friendly",
-      ],
-      status: "active",
-      visibility: "public",
-      publishedAt: "2024-01-08",
-      updatedAt: "2024-01-18",
-      episodes: [
-        {
-          title: "Why We Started This Journey",
-          status: "published",
-          order: 1,
-          readTime: 8,
-          publishedAt: "2024-01-08",
-        },
-        {
-          title: "Reducing Plastic Waste",
-          status: "published",
-          order: 2,
-          readTime: 10,
-          publishedAt: "2024-01-09",
-        },
-        {
-          title: "Energy Conservation at Home",
-          status: "published",
-          order: 3,
-          readTime: 12,
-          publishedAt: "2024-01-10",
-        },
-        {
-          title: "Sustainable Food Choices",
-          status: "published",
-          order: 4,
-          readTime: 9,
-          publishedAt: "2024-01-11",
-        },
-        {
-          title: "Community Impact",
-          status: "draft",
-          order: 5,
-          readTime: 11,
-          publishedAt: null,
-        },
-        {
-          title: "Our Results After 6 Months",
-          status: "draft",
-          order: 6,
-          readTime: 13,
-          publishedAt: null,
-        },
-      ],
-      author: {
-        name: "Alex Green",
-        profilePicture: "/api/users/alex/avatar",
-        verified: false,
-      },
-      analytics: {
-        totalViews: 6700,
-        totalReads: 4200,
-        completionRate: 85,
-        subscribers: 560,
-        likes: 423,
-        comments: 67,
-        bookmarks: 189,
-      },
-      collaborators: [
-        {
-          name: "Lisa Green",
-          role: "contributor",
-          profilePicture: "/api/users/lisa-green/avatar",
-        },
-        {
-          name: "Tom Wilson",
-          role: "photographer",
-          profilePicture: "/api/users/tom/avatar",
-        },
-      ],
-      isBookmarked: false,
-      isSubscribed: false,
-      isLiked: false,
-      rating: 4.7,
-      totalRatings: 145,
-    },
-    {
-      id: "4",
-      title: "Digital Marketing Mastery: From Beginner to Expert",
-      description:
-        "Complete guide to digital marketing covering SEO, social media, content marketing, and analytics.",
-      summary:
-        "Learn modern digital marketing strategies with hands-on examples and real campaign case studies.",
-      coverImage: "/api/series/4/cover",
-      category: "Marketing",
-      template: "educational_course",
-      difficulty: "intermediate",
-      tags: [
-        "Digital Marketing",
-        "SEO",
-        "Social Media",
-        "Content Marketing",
-        "Analytics",
-      ],
-      status: "active",
-      visibility: "public",
-      publishedAt: "2024-01-05",
-      updatedAt: "2024-01-17",
-      episodes: [
-        {
-          title: "Digital Marketing Fundamentals",
-          status: "published",
-          order: 1,
-          readTime: 15,
-          publishedAt: "2024-01-05",
-        },
-        {
-          title: "SEO Best Practices",
-          status: "published",
-          order: 2,
-          readTime: 18,
-          publishedAt: "2024-01-06",
-        },
-        {
-          title: "Social Media Strategy",
-          status: "published",
-          order: 3,
-          readTime: 16,
-          publishedAt: "2024-01-07",
-        },
-        {
-          title: "Content Marketing Excellence",
-          status: "published",
-          order: 4,
-          readTime: 20,
-          publishedAt: "2024-01-08",
-        },
-        {
-          title: "Email Marketing Automation",
-          status: "draft",
-          order: 5,
-          readTime: 17,
-          publishedAt: null,
-        },
-      ],
-      author: {
-        name: "Maria Rodriguez",
-        profilePicture: "/api/users/maria/avatar",
-        verified: true,
-      },
-      analytics: {
-        totalViews: 12300,
-        totalReads: 7800,
-        completionRate: 74,
-        subscribers: 980,
-        likes: 654,
-        comments: 112,
-        bookmarks: 321,
-      },
-      collaborators: [],
-      isBookmarked: true,
-      isSubscribed: false,
-      isLiked: false,
-      rating: 4.6,
-      totalRatings: 201,
-    },
-    {
-      id: "5",
-      title: "Photography Essentials: Capturing Life's Moments",
-      description:
-        "Master the art of photography from basic techniques to advanced composition and editing.",
-      summary:
-        "Comprehensive photography course covering camera basics, composition, lighting, and post-processing.",
-      coverImage: "/api/series/5/cover",
-      category: "Creative",
-      template: "educational_course",
-      difficulty: "beginner",
-      tags: [
-        "Photography",
-        "Visual Arts",
-        "Editing",
-        "Composition",
-        "Lighting",
-      ],
-      status: "active",
-      visibility: "public",
-      publishedAt: "2024-01-03",
-      updatedAt: "2024-01-16",
-      episodes: [
-        {
-          title: "Camera Basics and Settings",
-          status: "published",
-          order: 1,
-          readTime: 12,
-          publishedAt: "2024-01-03",
-        },
-        {
-          title: "Understanding Light and Exposure",
-          status: "published",
-          order: 2,
-          readTime: 14,
-          publishedAt: "2024-01-04",
-        },
-        {
-          title: "Composition Techniques",
-          status: "published",
-          order: 3,
-          readTime: 16,
-          publishedAt: "2024-01-05",
-        },
-        {
-          title: "Portrait Photography",
-          status: "published",
-          order: 4,
-          readTime: 18,
-          publishedAt: "2024-01-06",
-        },
-        {
-          title: "Landscape Photography",
-          status: "draft",
-          order: 5,
-          readTime: 15,
-          publishedAt: null,
-        },
-        {
-          title: "Photo Editing Fundamentals",
-          status: "draft",
-          order: 6,
-          readTime: 20,
-          publishedAt: null,
-        },
-      ],
-      author: {
-        name: "James Parker",
-        profilePicture: "/api/users/james/avatar",
-        verified: true,
-      },
-      analytics: {
-        totalViews: 9800,
-        totalReads: 6200,
-        completionRate: 79,
-        subscribers: 720,
-        likes: 512,
-        comments: 89,
-        bookmarks: 267,
-      },
-      collaborators: [
-        {
-          name: "Sophie Chen",
-          role: "contributor",
-          profilePicture: "/api/users/sophie/avatar",
-        },
-      ],
-      isBookmarked: false,
-      isSubscribed: true,
-      isLiked: true,
-      rating: 4.8,
-      totalRatings: 167,
-    },
-    {
-      id: "6",
-      title: "Personal Finance Mastery: Building Wealth Step by Step",
-      description:
-        "Complete guide to personal finance, investing, and building long-term wealth.",
-      summary:
-        "Learn budgeting, investing strategies, and wealth-building techniques from financial experts.",
-      coverImage: "/api/series/6/cover",
-      category: "Finance",
-      template: "step_by_step",
-      difficulty: "intermediate",
-      tags: [
-        "Personal Finance",
-        "Investing",
-        "Wealth Building",
-        "Budgeting",
-        "Financial Planning",
-      ],
-      status: "active",
-      visibility: "premium",
-      publishedAt: "2024-01-01",
-      updatedAt: "2024-01-15",
-      episodes: [
-        {
-          title: "Financial Basics and Budgeting",
-          status: "published",
-          order: 1,
-          readTime: 16,
-          publishedAt: "2024-01-01",
-        },
-        {
-          title: "Emergency Fund Strategy",
-          status: "published",
-          order: 2,
-          readTime: 12,
-          publishedAt: "2024-01-02",
-        },
-        {
-          title: "Investment Fundamentals",
-          status: "published",
-          order: 3,
-          readTime: 20,
-          publishedAt: "2024-01-03",
-        },
-        {
-          title: "Stock Market Basics",
-          status: "published",
-          order: 4,
-          readTime: 18,
-          publishedAt: "2024-01-04",
-        },
-        {
-          title: "Real Estate Investing",
-          status: "draft",
-          order: 5,
-          readTime: 22,
-          publishedAt: null,
-        },
-        {
-          title: "Retirement Planning",
-          status: "draft",
-          order: 6,
-          readTime: 19,
-          publishedAt: null,
-        },
-      ],
-      author: {
-        name: "Robert Chang",
-        profilePicture: "/api/users/robert/avatar",
-        verified: true,
-      },
-      analytics: {
-        totalViews: 14200,
-        totalReads: 9100,
-        completionRate: 81,
-        subscribers: 1150,
-        likes: 789,
-        comments: 134,
-        bookmarks: 456,
-      },
-      collaborators: [
-        {
-          name: "Jennifer Lee",
-          role: "contributor",
-          profilePicture: "/api/users/jennifer/avatar",
-        },
-      ],
-      isBookmarked: true,
-      isSubscribed: true,
-      isLiked: false,
-      rating: 4.9,
-      totalRatings: 289,
-    },
-  ];
+  // Fetch series from API
+  useEffect(() => {
+    const fetchSeries = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await seriesService.getSeries({
+          page: 1,
+          limit: 50,
+          category: selectedCategory !== 'all' ? selectedCategory.toLowerCase() : undefined,
+          template: selectedTemplate !== 'all' ? selectedTemplate : undefined,
+          difficulty: selectedDifficulty !== 'all' ? selectedDifficulty : undefined,
+          sortBy: sortBy === 'recent' ? 'createdAt' : sortBy === 'popular' ? 'analytics.totalViews' : 'createdAt',
+          sortOrder: 'desc',
+          search: debouncedQuery
+        });
+        setSeries(data);
+      } catch (err) {
+        console.error('Error fetching series:', err);
+        setError('Failed to load series. Please try again later.');
+        setSeries([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Dynamic categories based on actual data
-  const categories = [
-    { id: "all", name: "All Series", count: sampleSeries.length },
-    {
-      id: "technology",
-      name: "Technology",
-      count: sampleSeries.filter(
-        (s) => s.category.toLowerCase() === "technology"
-      ).length,
-    },
-    {
-      id: "lifestyle",
-      name: "Lifestyle",
-      count: sampleSeries.filter(
-        (s) => s.category.toLowerCase() === "lifestyle"
-      ).length,
-    },
-    {
-      id: "marketing",
-      name: "Marketing",
-      count: sampleSeries.filter(
-        (s) => s.category.toLowerCase() === "marketing"
-      ).length,
-    },
-    {
-      id: "creative",
-      name: "Creative",
-      count: sampleSeries.filter((s) => s.category.toLowerCase() === "creative")
-        .length,
-    },
-    {
-      id: "finance",
-      name: "Finance",
-      count: sampleSeries.filter((s) => s.category.toLowerCase() === "finance")
-        .length,
-    },
-  ];
+    fetchSeries();
+  }, [selectedCategory, selectedTemplate, selectedDifficulty, sortBy, debouncedQuery]);
 
-  const templates = [
-    { id: "all", name: "All Templates", count: sampleSeries.length },
-    {
-      id: "educational_course",
-      name: "Educational Course",
-      count: sampleSeries.filter((s) => s.template === "educational_course")
-        .length,
-    },
-    {
-      id: "research_journey",
-      name: "Research Journey",
-      count: sampleSeries.filter((s) => s.template === "research_journey")
-        .length,
-    },
-    {
-      id: "story_arc",
-      name: "Story Arc",
-      count: sampleSeries.filter((s) => s.template === "story_arc").length,
-    },
-    {
-      id: "step_by_step",
-      name: "Step by Step",
-      count: sampleSeries.filter((s) => s.template === "step_by_step").length,
-    },
-  ];
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
 
-  const difficulties = [
-    {
+  // Dynamic categories based on API data
+  const categories = useMemo(() => {
+    const categoryMap = {};
+    series.forEach(s => {
+      const cat = s.category || 'Other';
+      categoryMap[cat] = (categoryMap[cat] || 0) + 1;
+    });
+    
+    const cats = [{ id: "all", name: "All Series", count: series.length }];
+    Object.entries(categoryMap).forEach(([name, count]) => {
+      cats.push({
+        id: name.toLowerCase(),
+        name: name,
+        count
+      });
+    });
+    return cats;
+  }, [series]);
+
+  const templates = useMemo(() => {
+    const templateMap = {};
+    series.forEach(s => {
+      const tmpl = s.template || 'Other';
+      templateMap[tmpl] = (templateMap[tmpl] || 0) + 1;
+    });
+    
+    const tmpls = [{ id: "all", name: "All Templates", count: series.length }];
+    Object.entries(templateMap).forEach(([name, count]) => {
+      tmpls.push({
+        id: name,
+        name: name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        count
+      });
+    });
+    return tmpls;
+  }, [series]);
+
+  const difficulties = useMemo(() => {
+    const difficultyMap = {};
+    series.forEach(s => {
+      const diff = s.difficulty || 'Other';
+      difficultyMap[diff] = (difficultyMap[diff] || 0) + 1;
+    });
+    
+    const diffs = [{
       id: "all",
       name: "All Levels",
-      count: sampleSeries.length,
+      count: series.length,
       color: "bg-gray-500 text-white hover:bg-gray-600",
-    },
-    {
-      id: "beginner",
-      name: "Beginner",
-      count: sampleSeries.filter((s) => s.difficulty === "beginner").length,
-      color: "bg-indigo-600 text-white hover:bg-indigo-700",
-    },
-    {
-      id: "intermediate",
-      name: "Intermediate",
-      count: sampleSeries.filter((s) => s.difficulty === "intermediate").length,
-      color: "bg-black text-white hover:bg-gray-800",
-    },
-    {
-      id: "advanced",
-      name: "Advanced",
-      count: sampleSeries.filter((s) => s.difficulty === "advanced").length,
-      color: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-100",
-    },
-  ];
+    }];
+    
+    const colorMap = {
+      beginner: "bg-indigo-600 text-white hover:bg-indigo-700",
+      intermediate: "bg-black text-white hover:bg-gray-800",
+      advanced: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-100",
+    };
+    
+    Object.entries(difficultyMap).forEach(([name, count]) => {
+      diffs.push({
+        id: name,
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        count,
+        color: colorMap[name] || "bg-gray-500 text-white hover:bg-gray-600",
+      });
+    });
+    return diffs;
+  }, [series]);
 
   // URL sync effect (matching BlogPage pattern)
   useEffect(() => {
@@ -750,89 +199,44 @@ const SeriesPage = () => {
     navigate,
   ]);
 
-  // Debounced search (matching BlogPage pattern)
-  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
-  useEffect(() => {
-    const id = setTimeout(() => setDebouncedQuery(searchQuery), 300);
-    return () => clearTimeout(id);
-  }, [searchQuery]);
-
-  // Simulated loading when filters/search change (matching BlogPage pattern)
-  useEffect(() => {
-    setIsLoading(true);
-    const id = setTimeout(() => setIsLoading(false), 350);
-    return () => clearTimeout(id);
-  }, [
-    debouncedQuery,
-    selectedCategory,
-    selectedTemplate,
-    selectedDifficulty,
-    sortBy,
-    viewMode,
-  ]);
-
-  // Enhanced filtering and sorting logic
+  // Client-side filtering and sorting of API data
   const filteredAndSortedSeries = useMemo(() => {
-    const filtered = sampleSeries.filter((series) => {
-      const matchesSearch =
-        series.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-        series.description
-          .toLowerCase()
-          .includes(debouncedQuery.toLowerCase()) ||
-        series.summary.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-        series.tags.some((tag) =>
-          tag.toLowerCase().includes(debouncedQuery.toLowerCase())
-        ) ||
-        series.author.name.toLowerCase().includes(debouncedQuery.toLowerCase());
+    // API already filters by search and category, but we can do additional client-side filtering
+    let filtered = series;
 
-      const matchesCategory =
-        selectedCategory === "all" ||
-        series.category.toLowerCase() === selectedCategory.toLowerCase();
-
+    // Additional client-side filtering for template and difficulty
+    filtered = filtered.filter((s) => {
       const matchesTemplate =
-        selectedTemplate === "all" || series.template === selectedTemplate;
-
+        selectedTemplate === "all" || s.template === selectedTemplate;
       const matchesDifficulty =
-        selectedDifficulty === "all" ||
-        series.difficulty === selectedDifficulty;
-
-      return (
-        matchesSearch && matchesCategory && matchesTemplate && matchesDifficulty
-      );
+        selectedDifficulty === "all" || s.difficulty === selectedDifficulty;
+      return matchesTemplate && matchesDifficulty;
     });
 
+    // Sorting
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === "recent") {
-        return new Date(b.publishedAt) - new Date(a.publishedAt);
+        return new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt);
       }
       if (sortBy === "popular") {
-        const aScore =
-          a.analytics.totalViews + a.analytics.subscribers + a.analytics.likes;
-        const bScore =
-          b.analytics.totalViews + b.analytics.subscribers + b.analytics.likes;
+        const aScore = (a.analytics?.totalViews || 0) + (a.analytics?.subscribers || 0) + (a.likes || 0);
+        const bScore = (b.analytics?.totalViews || 0) + (b.analytics?.subscribers || 0) + (b.likes || 0);
         return bScore - aScore;
       }
       if (sortBy === "episodes") {
-        return b.episodes.length - a.episodes.length;
+        return (b.episodes?.length || 0) - (a.episodes?.length || 0);
       }
       if (sortBy === "completion") {
-        return b.analytics.completionRate - a.analytics.completionRate;
+        return (b.analytics?.completionRate || 0) - (a.analytics?.completionRate || 0);
       }
       if (sortBy === "rating") {
-        return b.rating - a.rating;
+        return (b.rating || 0) - (a.rating || 0);
       }
       return 0;
     });
 
     return sorted;
-  }, [
-    sampleSeries,
-    debouncedQuery,
-    selectedCategory,
-    selectedTemplate,
-    selectedDifficulty,
-    sortBy,
-  ]);
+  }, [series, selectedTemplate, selectedDifficulty, sortBy]);
 
   // Utility functions
   const formatNumber = (num) => {
@@ -904,15 +308,22 @@ const SeriesPage = () => {
 
   // SeriesCard component with improved mobile design
   const SeriesCard = ({ series, viewMode }) => {
-    const publishedEpisodes = getPublishedEpisodesCount(series.episodes);
+    const publishedEpisodes = getPublishedEpisodesCount(series.episodes || []);
     const totalReadTime = getTotalReadTime(
-      series.episodes.filter((ep) => ep.status === "published")
+      (series.episodes || []).filter((ep) => ep.status === "published")
     );
-    const progress = getSeriesProgress(series.episodes);
+    const progress = getSeriesProgress(series.episodes || []);
+
+    const handleCardClick = () => {
+      navigate(`/series/${series._id || series.id}`);
+    };
 
     if (viewMode === "list") {
       return (
-        <Card className="cursor-pointer group hover:shadow-lg transition-all duration-300 border border-[var(--border-color)]">
+        <Card 
+          className="cursor-pointer group hover:shadow-lg transition-all duration-300 border border-[var(--border-color)] bg-surface/50 dark:bg-white/5 backdrop-blur-sm"
+          onClick={handleCardClick}
+        >
           <div className="flex flex-col lg:flex-row">
             {/* Cover Image */}
             <div className="w-full lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-400  to-gray-400 flex items-center justify-center relative overflow-hidden rounded-l-2xl">
@@ -1026,8 +437,8 @@ const SeriesPage = () => {
                 <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
                   <div className="flex items-center gap-2">
                     <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="font-medium">{series.author.name}</span>
-                    {series.author.verified && (
+                    <span className="font-medium">{series.authorId?.name || 'Unknown'}</span>
+                    {series.authorId?.verified && (
                       <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
                     )}
                   </div>
@@ -1050,31 +461,35 @@ const SeriesPage = () => {
                     <div className="flex items-center gap-1">
                       <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="font-medium">
-                        {formatNumber(series.analytics.totalViews)}
+                        {formatNumber(series.analytics?.totalViews || 0)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span className="font-medium">
-                        {formatNumber(series.analytics.subscribers)}
+                        {formatNumber(series.analytics?.subscribers || 0)}
                       </span>
                     </div>
                     <div className="hidden sm:flex items-center gap-1">
                       <Heart className="w-4 h-4" />
                       <span className="font-medium">
-                        {formatNumber(series.analytics.likes)}
+                        {formatNumber(series.analytics?.likes || 0)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="font-medium">{series.rating}</span>
-                      <span className="opacity-75 hidden lg:inline">
-                        ({series.totalRatings})
-                      </span>
-                    </div>
+                    {series.rating !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span className="font-medium">{series.rating}</span>
+                        {series.totalRatings !== undefined && (
+                          <span className="opacity-75 hidden lg:inline">
+                            ({series.totalRatings})
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="text-xs text-text-secondary">
-                    {series.collaborators.length > 0 && (
+                    {series.collaborators?.length > 0 && (
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
                         {series.collaborators.length} collaborator
@@ -1092,7 +507,10 @@ const SeriesPage = () => {
 
     // Grid View
     return (
-      <Card className="cursor-pointer group overflow-hidden hover:shadow-lg transition-all duration-300 border border-[var(--border-color)]">
+      <Card 
+        className="cursor-pointer group overflow-hidden hover:shadow-lg transition-all duration-300 border border-[var(--border-color)] bg-surface/50 dark:bg-white/5 backdrop-blur-sm"
+        onClick={handleCardClick}
+      >
         {/* Cover Image */}
         <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400 flex items-center justify-center relative overflow-hidden rounded-t-2xl">
           <div className="text-3xl sm:text-4xl opacity-30">📚</div>
@@ -1200,8 +618,8 @@ const SeriesPage = () => {
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
             <div className="flex items-center gap-2">
               <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="font-medium">{series.author.name}</span>
-              {series.author.verified && (
+              <span className="font-medium">{series.authorId?.name || 'Unknown'}</span>
+              {series.authorId?.verified && (
                 <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
               )}
             </div>
@@ -1222,25 +640,29 @@ const SeriesPage = () => {
               <div className="flex items-center gap-1">
                 <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="font-medium">
-                  {formatNumber(series.analytics.totalViews)}
+                  {formatNumber(series.analytics?.totalViews || 0)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
                 <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="font-medium">
-                  {formatNumber(series.analytics.subscribers)}
+                  {formatNumber(series.analytics?.subscribers || 0)}
                 </span>
               </div>
-              <div className="flex items-center gap-1">
-                <Star className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="font-medium">{series.rating}</span>
-                <span className="opacity-75 hidden lg:inline">
-                  ({series.totalRatings})
-                </span>
-              </div>
+              {series.rating !== undefined && (
+                <div className="flex items-center gap-1">
+                  <Star className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="font-medium">{series.rating}</span>
+                  {series.totalRatings !== undefined && (
+                    <span className="opacity-75 hidden lg:inline">
+                      ({series.totalRatings})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="text-xs text-text-secondary">
-              {series.collaborators.length > 0 && (
+              {series.collaborators?.length > 0 && (
                 <span className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
                   {series.collaborators.length}
@@ -1464,26 +886,50 @@ const SeriesPage = () => {
         </div>
       </div>
 
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="text-center py-12 sm:py-16">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-red-600" />
+          </div>
+          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary mb-2">
+            Error Loading Series
+          </h3>
+          <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto px-4">
+            {error}
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Results Summary */}
-      <div
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 sm:py-4 border-b border-[var(--border-color)]"
-        aria-live="polite"
-      >
-        <div className="text-sm sm:text-base text-text-secondary">
-          Showing{" "}
-          <span className="font-semibold text-text-primary">
-            {filteredAndSortedSeries.length}
-          </span>{" "}
-          of{" "}
-          <span className="font-semibold text-text-primary">
-            {sampleSeries.length}
-          </span>{" "}
-          series
+      {!error && (
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 sm:py-4 border-b border-[var(--border-color)]"
+          aria-live="polite"
+        >
+          <div className="text-sm sm:text-base text-text-secondary">
+            Showing{" "}
+            <span className="font-semibold text-text-primary">
+              {filteredAndSortedSeries.length}
+            </span>{" "}
+            of{" "}
+            <span className="font-semibold text-text-primary">
+              {series.length}
+            </span>{" "}
+            series
+          </div>
+          <div className="text-xs sm:text-sm text-text-secondary">
+            Updated {new Date().toLocaleDateString()}
+          </div>
         </div>
-        <div className="text-xs sm:text-sm text-text-secondary">
-          Updated {new Date().toLocaleDateString()}
-        </div>
-      </div>
+      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -1501,7 +947,7 @@ const SeriesPage = () => {
       )}
 
       {/* Series Grid */}
-      {!isLoading && filteredAndSortedSeries.length > 0 && (
+      {!isLoading && !error && filteredAndSortedSeries.length > 0 && (
         <div
           id="series-grid"
           className={`grid gap-4 sm:gap-6 ${
@@ -1517,7 +963,7 @@ const SeriesPage = () => {
       )}
 
       {/* Empty State */}
-      {!isLoading && filteredAndSortedSeries.length === 0 && (
+      {!isLoading && !error && filteredAndSortedSeries.length === 0 && (
         <div className="text-center py-12 sm:py-16 px-4">
           <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
             <Layers className="w-8 h-8 sm:w-10 sm:h-10 text-primary-600" />

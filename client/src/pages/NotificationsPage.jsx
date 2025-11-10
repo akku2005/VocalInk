@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useNotification } from "../components/context/NotificationContext";
 import {
   Card,
   CardHeader,
@@ -20,7 +21,6 @@ import {
   Square,
   ChevronLeft,
   ChevronRight,
-  Zap,
 } from "lucide-react";
 import notificationService from "../services/notificationService";
 import {
@@ -32,6 +32,7 @@ import {
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
+  const { updateUnreadCount } = useNotification();
   
   // State management
   const [notifications, setNotifications] = useState([]);
@@ -50,6 +51,9 @@ const NotificationsPage = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
+  
+  // Type counts from backend
+  const [typeCounts, setTypeCounts] = useState({});
   
   const ITEMS_PER_PAGE = 20;
 
@@ -81,6 +85,14 @@ const NotificationsPage = () => {
         setUnreadCount(pagination.unreadCount);
         setHasNext(pagination.hasNext);
         setHasPrev(pagination.hasPrev);
+        
+        // Update type counts from backend
+        if (response.data.typeCounts) {
+          setTypeCounts(response.data.typeCounts);
+        }
+        
+        // Sync navbar unread count
+        updateUnreadCount(pagination.unreadCount);
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -95,34 +107,17 @@ const NotificationsPage = () => {
     fetchNotifications(1, filter);
   }, [filter]);
 
-  // Get notification type counts from actual data
-  const getTypeCounts = () => {
-    const typeCounts = {};
-    
-    // Count notifications by type
-    notifications.forEach(notif => {
-      typeCounts[notif.type] = (typeCounts[notif.type] || 0) + 1;
-    });
-
-    const types = [
-      'like',
-      'comment',
-      'follow',
-      'badge_earned',
-      'level_up',
-      'system',
-    ];
-
-    return types.map(type => ({
-      id: type,
-      name: getNotificationTypeName(type),
-      count: typeCounts[type] || 0,
-    }));
-  };
-
+  // Build notification types with counts from backend
+  // typeCounts always contains counts for ALL notification types
+  // totalNotifications is the count for the current filter
   const notificationTypes = [
-    { id: "all", name: "All", count: totalNotifications },
-    ...getTypeCounts(),
+    { id: "all", name: "All", count: typeCounts.all || Object.values(typeCounts).reduce((a, b) => a + b, 0) },
+    { id: "like", name: getNotificationTypeName("like"), count: typeCounts.like || 0 },
+    { id: "comment", name: getNotificationTypeName("comment"), count: typeCounts.comment || 0 },
+    { id: "follow", name: getNotificationTypeName("follow"), count: typeCounts.follow || 0 },
+    { id: "badge_earned", name: getNotificationTypeName("badge_earned"), count: typeCounts.badge_earned || 0 },
+    { id: "level_up", name: getNotificationTypeName("level_up"), count: typeCounts.level_up || 0 },
+    { id: "system", name: getNotificationTypeName("system"), count: typeCounts.system || 0 },
   ];
 
   // Filter notifications by search query (client-side)
@@ -139,15 +134,29 @@ const NotificationsPage = () => {
   // Mark notification as read
   const markAsRead = async (notificationId) => {
     try {
+      // Find the notification to check if it's unread
+      const notification = notifications.find(n => n._id === notificationId);
+      const wasUnread = notification && !notification.read;
+      
       await notificationService.markAsRead(notificationId);
       
       // Update local state
       setNotifications((prev) =>
-        prev.map((n) => (n._id === notificationId ? { ...n, read: true, readAt: new Date() } : n))
+        prev.map((n) => (n._id === notificationId ? { ...n, read: true, readAt: new Date().toISOString() } : n))
       );
       
-      // Update unread count
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      // Update unread count only if it was unread
+      if (wasUnread) {
+        const newCount = Math.max(0, unreadCount - 1);
+        setUnreadCount(newCount);
+        // Sync navbar unread count
+        updateUnreadCount(newCount);
+      }
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        fetchNotifications(currentPage, filter);
+      }, 300);
     } catch (err) {
       console.error('Error marking notification as read:', err);
     }
@@ -159,8 +168,16 @@ const NotificationsPage = () => {
       await notificationService.markAllAsRead();
       
       // Update local state
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, readAt: new Date() })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, readAt: new Date().toISOString() })));
       setUnreadCount(0);
+      
+      // Sync navbar unread count immediately
+      updateUnreadCount(0);
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        fetchNotifications(1, filter);
+      }, 300);
     } catch (err) {
       console.error('Error marking all as read:', err);
     }
@@ -169,16 +186,33 @@ const NotificationsPage = () => {
   // Delete notification
   const deleteNotification = async (notificationId) => {
     try {
+      // Find the notification to check if it's unread
+      const notification = notifications.find(n => n._id === notificationId);
+      const wasUnread = notification && !notification.read;
+      
       await notificationService.deleteNotification(notificationId);
       
       // Update local state
       setNotifications((prev) => prev.filter((n) => n._id !== notificationId));
-      setTotalNotifications(prev => prev - 1);
+      setTotalNotifications(prev => Math.max(0, prev - 1));
+      
+      // Update unread count if it was unread
+      if (wasUnread) {
+        const newCount = Math.max(0, unreadCount - 1);
+        setUnreadCount(newCount);
+        // Sync navbar unread count
+        updateUnreadCount(newCount);
+      }
       
       // Remove from selection
       const newSelected = new Set(selectedNotifications);
       newSelected.delete(notificationId);
       setSelectedNotifications(newSelected);
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        fetchNotifications(currentPage, filter);
+      }, 300);
     } catch (err) {
       console.error('Error deleting notification:', err);
     }
@@ -189,6 +223,11 @@ const NotificationsPage = () => {
     try {
       const idsToDelete = Array.from(selectedNotifications);
       
+      // Count unread notifications being deleted
+      const unreadDeleted = notifications.filter(
+        n => selectedNotifications.has(n._id) && !n.read
+      ).length;
+      
       // Delete each notification
       await Promise.all(
         idsToDelete.map(id => notificationService.deleteNotification(id))
@@ -198,9 +237,23 @@ const NotificationsPage = () => {
       setNotifications((prev) =>
         prev.filter((n) => !selectedNotifications.has(n._id))
       );
-      setTotalNotifications(prev => prev - idsToDelete.length);
+      setTotalNotifications(prev => Math.max(0, prev - idsToDelete.length));
+      
+      // Update unread count
+      if (unreadDeleted > 0) {
+        const newCount = Math.max(0, unreadCount - unreadDeleted);
+        setUnreadCount(newCount);
+        // Sync navbar unread count
+        updateUnreadCount(newCount);
+      }
+      
       setSelectedNotifications(new Set());
       setBulkMode(false);
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        fetchNotifications(currentPage, filter);
+      }, 300);
     } catch (err) {
       console.error('Error deleting notifications:', err);
     }
@@ -220,18 +273,23 @@ const NotificationsPage = () => {
       setNotifications((prev) =>
         prev.map((n) => 
           selectedNotifications.has(n._id) 
-            ? { ...n, read: true, readAt: new Date() } 
+            ? { ...n, read: true, readAt: new Date().toISOString() } 
             : n
         )
       );
       
       // Update unread count
       const unreadSelected = notifications.filter(
-        n => selectedNotifications.has(n._id) && !n.read
+        n => selectedNotifications.has(n._id) && n.read === false
       ).length;
       setUnreadCount(prev => Math.max(0, prev - unreadSelected));
       
       setSelectedNotifications(new Set());
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        fetchNotifications(currentPage, filter);
+      }, 300);
     } catch (err) {
       console.error('Error marking notifications as read:', err);
     }
@@ -337,17 +395,35 @@ const NotificationsPage = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setBulkMode(!bulkMode)}
+              onClick={() => {
+                if (bulkMode) {
+                  // If already in bulk mode, toggle select all
+                  if (selectedNotifications.size === filteredNotifications.length && filteredNotifications.length > 0) {
+                    deselectAll();
+                  } else {
+                    selectAll();
+                  }
+                } else {
+                  // Enter bulk mode and select all
+                  setBulkMode(true);
+                  selectAll();
+                }
+              }}
               className={`flex items-center gap-2 px-3 py-2 text-sm ${
                 bulkMode ? "bg-primary-100 text-primary-700" : ""
               }`}
+              title={bulkMode && selectedNotifications.size === filteredNotifications.length ? "Deselect all" : "Select all"}
             >
-              {bulkMode ? (
+              {bulkMode && selectedNotifications.size === filteredNotifications.length ? (
                 <CheckSquare className="w-4 h-4" />
               ) : (
                 <Square className="w-4 h-4" />
               )}
-              <span className="hidden sm:inline">Select</span>
+              <span className="hidden sm:inline">
+                {bulkMode && selectedNotifications.size > 0 
+                  ? `${selectedNotifications.size} selected` 
+                  : "Select"}
+              </span>
             </Button>
           </div>
         </div>
@@ -374,55 +450,6 @@ const NotificationsPage = () => {
             Filters
           </Button>
 
-          {/* Test Data Button - Remove in production */}
-          {process.env.NODE_ENV === 'development' && (
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/notifications/seed-test', {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                      'Content-Type': 'application/json',
-                    },
-                  });
-                  
-                  console.log('Response status:', response.status);
-                  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-                  
-                  // Check if response has content
-                  const contentType = response.headers.get('content-type');
-                  if (!contentType || !contentType.includes('application/json')) {
-                    // Try to get text response for debugging
-                    const textResponse = await response.text();
-                    console.error('Non-JSON response body:', textResponse);
-                    throw new Error(`Server returned non-JSON response. Status: ${response.status}. Check server logs and console.`);
-                  }
-                  
-                  const data = await response.json();
-                  
-                  if (response.ok) {
-                    alert(`Success! Created ${data.data?.count || 10} test notifications`);
-                    fetchNotifications(1, filter);
-                  } else {
-                    console.error('Seed error:', data);
-                    const errorMsg = data.message || 'Unknown error';
-                    const errorDetails = data.error ? `\n\nDetails: ${data.error}` : '';
-                    alert(`Failed to seed notifications:\n${errorMsg}${errorDetails}\n\nCheck console for more details.`);
-                  }
-                } catch (err) {
-                  console.error('Failed to seed notifications:', err);
-                  alert(`Error: ${err.message}\n\nThis usually means:\n1. Database is not connected\n2. Server crashed\n3. Network error\n\nCheck browser console and server logs for details.`);
-                }
-              }}
-              className="flex items-center gap-2 text-xs sm:text-sm bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-            >
-              <Zap className="w-4 h-4" />
-              <span className="hidden xs:inline">Seed Test Data</span>
-              <span className="xs:hidden">Test</span>
-            </Button>
-          )}
 
           <Button
             variant="outline"
