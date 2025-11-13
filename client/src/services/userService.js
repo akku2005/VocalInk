@@ -183,7 +183,7 @@ class UserService {
   // Search users
   async searchUsers(query) {
     try {
-      const response = await api.get(`/search`, {
+      const response = await api.get(`${this.baseURL}/search`, {
         params: { q: query }
       });
       
@@ -210,7 +210,7 @@ class UserService {
   // Get leaderboard
   async getLeaderboard() {
     try {
-      const response = await api.get(`/leaderboard`);
+      const response = await api.get(`${this.baseURL}/leaderboard`);
       
       // Check if the response indicates success or failure
       if (response.data.success) {

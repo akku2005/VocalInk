@@ -616,7 +616,7 @@ class SettingsService {
   async deleteAccount(password, confirmText) {
     try {
       const response = await api.delete('/settings/account', {
-        data: { password, confirmText }
+        data: { password, confirmationText: confirmText }
       });
       
       if (response.data.success) {

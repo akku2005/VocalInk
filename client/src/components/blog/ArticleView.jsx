@@ -21,6 +21,8 @@ export default function ArticleView() {
   const [audioUrl, setAudioUrl] = useState(null);
   const [showActions, setShowActions] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
   const commentsSectionRef = useRef(null);
   
   useEffect(() => {
@@ -78,7 +80,14 @@ export default function ArticleView() {
             bookmarks: blogData.bookmarks || 0,
             isLiked: blogData.isLiked || false,
             isBookmarked: blogData.isBookmarked || false,
+            ttsUrl: blogData.ttsUrl || null,
+            audioDuration: blogData.audioDuration || null,
           });
+          
+          // Set cached audio URL if available
+          if (blogData.ttsUrl) {
+            setAudioUrl(blogData.ttsUrl);
+          }
         } else {
           setError('Blog not found');
         }
@@ -160,6 +169,21 @@ export default function ArticleView() {
       alert(error.response?.data?.message || 'Failed to delete blog');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const regenerateSummary = async () => {
+    try {
+      setSummaryLoading(true);
+      setSummaryError(null);
+      const res = await blogService.regenerateSummary(id, { maxLength: 250 });
+      const newSummary = res?.data?.summary || res?.summary || 'Summary updated';
+      setArticle(prev => ({ ...prev, summary: newSummary }));
+    } catch (error) {
+      console.error('Error regenerating summary:', error);
+      setSummaryError(error?.response?.data?.message || 'Failed to regenerate summary');
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -251,6 +275,24 @@ export default function ArticleView() {
             onCommentClick={handleCommentClick}
           />
         </div>
+
+        {/* AI Summary Controls */}
+        <div className="px-4 py-2 flex items-center gap-3">
+          <div className="flex-1 text-sm text-text-secondary">
+            {article.summary}
+          </div>
+          <button
+            onClick={regenerateSummary}
+            disabled={summaryLoading}
+            className="px-3 py-1.5 text-sm rounded-md border border-[var(--border-color)] bg-transparent hover:bg-surface disabled:opacity-50"
+            aria-label="Regenerate AI summary"
+          >
+            {summaryLoading ? 'Updating…' : 'Regenerate Summary'}
+          </button>
+        </div>
+        {summaryError && (
+          <div className="px-4 text-sm text-red-500">{summaryError}</div>
+        )}
 
         {/* Audio Player */}
         <div className="px-4 py-3">

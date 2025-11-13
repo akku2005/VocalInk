@@ -255,7 +255,7 @@ const CreateBlogPage = () => {
     if (!plainText || plainText.trim().length < 10) {
       e.push("Content must be at least 10 characters");
     }
-    if (formData.tags.length === 0) e.push("Add at least one tag");
+    // Tags are optional - removed requirement
     setErrors(e);
     return e.length === 0;
   };

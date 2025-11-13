@@ -224,4 +224,12 @@ All fixes are backward compatible and don't require database migrations. The fal
 2. Test error scenarios and edge cases
 3. Monitor logs for any API errors
 4. Consider implementing backend bulk endpoints for better performance
+## 2025-11-14 Comprehensive Enhancements
+
+- Cloudinary image uploads: Confirmed and aligned frontend services (`imageUploadService`) with backend routes (`/images/avatar`, `/images/cover`) using memory storage and Cloudinary. Improved validation and loading states.
+- Series images: Updated SeriesPage list/grid cards to render `series.coverImage` when available.
+- Error boundaries: Wrapped ArticlePage and SeriesPage with `ErrorBoundary` for resilient UX.
+- Account deletion: Backend now requires `confirmationText` (or `confirmText`) and `password`; client updated to send correct payload. Added supertest coverage.
+- AI summary: Added “Regenerate Summary” control in ArticleView that calls `/blogs/:id/summary` with loading/error states.
+- TTS: AudioPlayer refactored to use centralized axios client with proper Authorization.
 

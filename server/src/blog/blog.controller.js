@@ -59,18 +59,18 @@ exports.createBlog = async (req, res) => {
 
     const blog = new Blog({ 
       ...req.body, 
-      author: req.user.id,
+      author: req.user._id,
       slug,
       summary,
       publishedAt
     });
     
     await blog.save();
-    logger.info(`Blog created`, { user: req.user.id, blog: blog._id, slug });
+    logger.info(`Blog created`, { user: req.user._id.toString(), blog: blog._id, slug });
     
     // Award XP for blog creation
     try {
-      await XPService.awardXP(req.user.id, 'create_blog_draft', {
+      await XPService.awardXP(req.user._id.toString(), 'create_blog_draft', {
         blogId: blog._id,
         category: req.body.tags?.[0] || 'general',
         language: req.body.language || 'en',
@@ -79,14 +79,14 @@ exports.createBlog = async (req, res) => {
         userAgent: req.get('User-Agent'),
         platform: 'web',
       });
-      logger.info('XP awarded for blog creation', { userId: req.user.id, blogId: blog._id });
+      logger.info('XP awarded for blog creation', { userId: req.user._id.toString(), blogId: blog._id });
     } catch (xpError) {
-      logger.error('Failed to award XP for blog creation', { userId: req.user.id, error: xpError.message });
+      logger.error('Failed to award XP for blog creation', { userId: req.user._id.toString(), error: xpError.message });
     }
     
     res.status(201).json(blog);
   } catch (err) {
-    logger.error(`Blog creation failed`, { user: req.user.id, error: err.message });
+    logger.error(`Blog creation failed`, { user: req.user._id.toString(), error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -263,7 +263,7 @@ exports.getBlogBySlug = async (req, res) => {
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
     
     // Only return published blogs for public access
-    if (blog.status !== 'published' && (!req.user || blog.author._id.toString() !== req.user.id)) {
+    if (blog.status !== 'published' && (!req.user || blog.author._id.toString() !== req.user._id.toString())) {
       return res.status(404).json({ message: 'Blog not found' });
     }
     
@@ -278,13 +278,13 @@ exports.updateBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
-      logger.warn(`Blog not found for update`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for update`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
 
     // Check if user is the author
-    if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized blog update attempt`, { user: req.user.id, blog: blog._id });
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      logger.warn(`Unauthorized blog update attempt`, { user: req.user._id, blog: blog._id });
       return res.status(403).json({ message: 'Forbidden: Only the author can update this blog' });
     }
 
@@ -315,10 +315,10 @@ exports.updateBlog = async (req, res) => {
       new: true,
     }).populate('author', 'name email avatar');
 
-    logger.info(`Blog updated`, { user: req.user.id, blog: blog._id });
+    logger.info(`Blog updated`, { user: req.user._id.toString(), blog: blog._id });
     res.json(updatedBlog);
   } catch (err) {
-    logger.error(`Blog update failed`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Blog update failed`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -327,21 +327,21 @@ exports.deleteBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
-      logger.warn(`Blog not found for delete`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for delete`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
 
     // Check if user is the author
-    if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized blog deletion attempt`, { user: req.user.id, blog: blog._id });
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      logger.warn(`Unauthorized blog deletion attempt`, { user: req.user._id, blog: blog._id });
       return res.status(403).json({ message: 'Forbidden: Only the author can delete this blog' });
     }
 
     await Blog.findByIdAndDelete(req.params.id);
-    logger.info(`Blog deleted`, { user: req.user.id, blog: blog._id });
+    logger.info(`Blog deleted`, { user: req.user._id.toString(), blog: blog._id });
     res.json({ message: 'Blog deleted' });
   } catch (err) {
-    logger.error(`Blog deletion failed`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Blog deletion failed`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -350,13 +350,13 @@ exports.regenerateSummary = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
-      logger.warn(`Blog not found for summary regeneration`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for summary regeneration`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
 
     // Check if user is the author
-    if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized summary regeneration attempt`, { user: req.user.id, blog: blog._id });
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      logger.warn(`Unauthorized summary regeneration attempt`, { user: req.user._id, blog: blog._id });
       return res.status(403).json({ message: 'Forbidden: Only the author can regenerate summary' });
     }
 
@@ -372,7 +372,7 @@ exports.regenerateSummary = async (req, res) => {
     await blog.save();
 
     logger.info(`Blog summary regenerated`, { 
-      user: req.user.id, 
+      user: req.user._id.toString(), 
       blog: blog._id, 
       provider: summaryResult.provider 
     });
@@ -383,7 +383,7 @@ exports.regenerateSummary = async (req, res) => {
       metadata: summaryResult.metadata
     });
   } catch (err) {
-    logger.error(`Summary regeneration failed`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Summary regeneration failed`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -392,13 +392,13 @@ exports.publishBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
-      logger.warn(`Blog not found for publishing`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for publishing`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
 
     // Check if user is the author
-    if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized blog publishing attempt`, { user: req.user.id, blog: blog._id });
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      logger.warn(`Unauthorized blog publishing attempt`, { user: req.user._id, blog: blog._id });
       return res.status(403).json({ message: 'Forbidden: Only the author can publish this blog' });
     }
 
@@ -409,7 +409,7 @@ exports.publishBlog = async (req, res) => {
 
     // Award XP for publishing
     try {
-      await XPService.awardXP(req.user.id, 'publish_blog', {
+      await XPService.awardXP(req.user._id.toString(), 'publish_blog', {
         blogId: blog._id,
         category: blog.tags?.[0] || 'general',
         language: blog.language || 'en',
@@ -418,18 +418,18 @@ exports.publishBlog = async (req, res) => {
         userAgent: req.get('User-Agent'),
         platform: 'web',
       });
-      logger.info('XP awarded for blog publishing', { userId: req.user.id, blogId: blog._id });
+      logger.info('XP awarded for blog publishing', { userId: req.user._id.toString(), blogId: blog._id });
     } catch (xpError) {
-      logger.error('Failed to award XP for blog publishing', { userId: req.user.id, error: xpError.message });
+      logger.error('Failed to award XP for blog publishing', { userId: req.user._id.toString(), error: xpError.message });
     }
 
-    logger.info(`Blog published`, { user: req.user.id, blog: blog._id });
+    logger.info(`Blog published`, { user: req.user._id.toString(), blog: blog._id });
     res.json({
       message: 'Blog published successfully',
       publishedAt: blog.publishedAt
     });
   } catch (err) {
-    logger.error(`Blog publishing failed`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Blog publishing failed`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -439,14 +439,15 @@ exports.generateTTS = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
-      logger.warn(`Blog not found for TTS`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for TTS`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
-    // Only author or admin can generate TTS
-    if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized TTS attempt`, { user: req.user.id, blog: blog._id });
-      return res.status(403).json({ message: 'Forbidden' });
-    }
+    // Any authenticated user can generate TTS for any blog
+    logger.debug(`TTS generation requested`, { 
+      userId: req.user._id.toString(),
+      blogId: blog._id.toString(),
+      userRole: req.user.role 
+    });
     // Generate via unified TTS service (uses provider selection and fallbacks)
     const content = blog.content || '';
     const result = await ttsService.generateSpeech(content, {
@@ -490,23 +491,36 @@ exports.generateTTS = async (req, res) => {
     blog.audioDuration = result.duration;
     await blog.save();
 
-    logger.info(`TTS generated`, { user: req.user.id, blog: blog._id, ttsUrl: blog.ttsUrl, provider: result.provider });
-    res.json({ ttsUrl: blog.ttsUrl, provider: result.provider, duration: result.duration, metadata: result.metadata });
+    logger.info(`TTS generated`, { 
+      user: req.user._id.toString(), 
+      blog: blog._id, 
+      ttsUrl: blog.ttsUrl, 
+      provider: result.provider,
+      resultUrl: result.url,
+      resultPath: result.path,
+      fullResult: JSON.stringify(result)
+    });
+    res.json({ success: true, ttsUrl: blog.ttsUrl, provider: result.provider, duration: result.duration, metadata: result.metadata });
   } catch (err) {
-    logger.error(`TTS generation error`, { user: req.user.id, blog: req.params.id, error: err.message });
-    res.status(500).json({ message: err.message });
+    const message = err?.message || 'TTS generation failed';
+    const lower = message.toLowerCase();
+    let status = 500;
+    if (lower.includes('invalid api key')) status = 401;
+    else if (lower.includes('unsupported language') || lower.includes('invalid') || lower.includes('bad request') || lower.includes('api error (400)')) status = 400;
+    logger.error(`TTS generation error`, { user: req.user._id.toString(), blog: req.params.id, error: message });
+    res.status(status).json({ success: false, message });
   }
 };
 exports.translateBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
-      logger.warn(`Blog not found for translation`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for translation`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
     // Only author or admin can translate
-    if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized translation attempt`, { user: req.user.id, blog: blog._id });
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      logger.warn(`Unauthorized translation attempt`, { user: req.user._id.toString(), blog: blog._id });
       return res.status(403).json({ message: 'Forbidden' });
     }
     const { targetLang } = req.body;
@@ -521,26 +535,26 @@ exports.translateBlog = async (req, res) => {
     }, {
       headers: { 'accept': 'application/json' }
     });
-    logger.info(`Blog translated`, { user: req.user.id, blog: blog._id, targetLang });
+    logger.info(`Blog translated`, { user: req.user._id.toString(), blog: blog._id, targetLang });
     res.json({
       original: blog.content,
       translated: response.data.translatedText,
       targetLang,
     });
   } catch (err) {
-    logger.error(`Translation error`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Translation error`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
 exports.likeBlog = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id.toString();
     
     // RACE CONDITION FIX: Use atomic operations to prevent count inconsistencies
     // First, check if user already liked the blog
     const blog = await Blog.findById(req.params.id).populate('author');
     if (!blog) {
-      logger.warn(`Blog not found for like`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for like`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
     
@@ -559,7 +573,7 @@ exports.likeBlog = async (req, res) => {
         },
         { new: true }
       ).populate('author');
-      logger.info(`Blog unliked`, { user: req.user.id, blog: blog._id });
+      logger.info(`Blog unliked`, { user: req.user._id.toString(), blog: blog._id });
     } else {
       // Like: Add user to likedBy and increment count atomically
       updatedBlog = await Blog.findByIdAndUpdate(
@@ -570,7 +584,7 @@ exports.likeBlog = async (req, res) => {
         },
         { new: true }
       ).populate('author');
-      logger.info(`Blog liked`, { user: req.user.id, blog: blog._id });
+      logger.info(`Blog liked`, { user: req.user._id.toString(), blog: blog._id });
       
       // Create in-app notification for blog author
       if (updatedBlog.author && updatedBlog.author._id.toString() !== userId) {
@@ -611,18 +625,18 @@ exports.likeBlog = async (req, res) => {
     
     res.json({ liked: !alreadyLiked, likes: updatedBlog.likes });
   } catch (err) {
-    logger.error(`Like error`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Like error`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
 exports.bookmarkBlog = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id.toString();
     
     // RACE CONDITION FIX: Use atomic operations to prevent count inconsistencies
     const blog = await Blog.findById(req.params.id).populate('author');
     if (!blog) {
-      logger.warn(`Blog not found for bookmark`, { user: req.user.id, blog: req.params.id });
+      logger.warn(`Blog not found for bookmark`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
     
@@ -641,7 +655,7 @@ exports.bookmarkBlog = async (req, res) => {
         },
         { new: true }
       ).populate('author');
-      logger.info(`Blog unbookmarked`, { user: req.user.id, blog: blog._id });
+      logger.info(`Blog unbookmarked`, { user: req.user._id.toString(), blog: blog._id });
     } else {
       // Add bookmark: Add user to bookmarkedBy and increment count atomically
       updatedBlog = await Blog.findByIdAndUpdate(
@@ -652,7 +666,7 @@ exports.bookmarkBlog = async (req, res) => {
         },
         { new: true }
       ).populate('author');
-      logger.info(`Blog bookmarked`, { user: req.user.id, blog: blog._id });
+      logger.info(`Blog bookmarked`, { user: req.user._id.toString(), blog: blog._id });
       
       // Email notification to blog author (FIXED: Use notificationSettings)
       if (updatedBlog.author && 
@@ -682,7 +696,7 @@ exports.bookmarkBlog = async (req, res) => {
     
     res.json({ bookmarked: !alreadyBookmarked, bookmarks: updatedBlog.bookmarks });
   } catch (err) {
-    logger.error(`Bookmark error`, { user: req.user.id, blog: req.params.id, error: err.message });
+    logger.error(`Bookmark error`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -725,13 +739,13 @@ exports.addBlogComment = async (req, res) => {
     if (!content) return res.status(400).json({ message: 'Content is required' });
     const comment = new Comment({
       blogId: req.params.id,
-      userId: req.user.id,
+      userId: req.user._id,
       content,
       parentId: parentId || null,
     });
     await comment.save();
     await comment.populate('userId', 'firstName lastName displayName avatar username email');
-    logger.info(`Comment added`, { user: req.user.id, blog: req.params.id, comment: comment._id });
+    logger.info(`Comment added`, { user: req.user._id.toString(), blog: req.params.id, comment: comment._id });
 
     // Email notification to blog author (FIXED: Use notificationSettings)
     const blog = await Blog.findById(req.params.id).populate('author');

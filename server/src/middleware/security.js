@@ -273,6 +273,11 @@ const securityMonitor = (req, res, next) => {
   if (bodyForScanning.summary && req.path.includes('/blog')) {
     bodyForScanning.summary = '[SUMMARY_CONTENT]';
   }
+  
+  // Exclude text field from TTS endpoints as it contains HTML content from rich text editor
+  if (bodyForScanning.text && (req.path.includes('/tts') || req.path.includes('/ai/summary'))) {
+    bodyForScanning.text = '[HTML_CONTENT]';
+  }
 
   const requestString = JSON.stringify({
     body: bodyForScanning,
@@ -313,14 +318,14 @@ const securityMonitor = (req, res, next) => {
 const deviceFingerprint = (req, res, next) => {
   const crypto = require('crypto');
   
+  // IMPORTANT: Do NOT include timestamp in fingerprint - it changes on every request
+  // and will cause token verification to fail after token refresh
   const fingerprint = {
     ip: req.ip,
     userAgent: req.headers['user-agent'],
     acceptLanguage: req.headers['accept-language'],
     acceptEncoding: req.headers['accept-encoding'],
-    referer: req.headers['referer'],
-    timestamp: new Date().toISOString(),
-    // Add additional fingerprinting data
+    // Add additional fingerprinting data (but not timestamp or referer which can vary)
     xForwardedFor: req.headers['x-forwarded-for'],
     xRealIp: req.headers['x-real-ip'],
     xForwardedProto: req.headers['x-forwarded-proto'],

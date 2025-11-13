@@ -88,7 +88,8 @@ class TTSService {
       similarityBoost = this.elevenlabsConfig.defaultSettings.similarityBoost,
       style = this.elevenlabsConfig.defaultSettings.style,
       useSpeakerBoost = this.elevenlabsConfig.defaultSettings.useSpeakerBoost,
-      modelId = 'eleven_monolingual_v1'
+      language = 'en',
+      modelId: providedModelId
     } = options;
 
     if (!this.elevenlabsConfig.apiKey) {
@@ -107,9 +108,11 @@ class TTSService {
       }
 
       // Prepare request payload
+      // Note: eleven_monolingual_v1 and eleven_multilingual_v1 are deprecated on free tier
+      // Use v2 models which are available on all tiers
       const payload = {
         text: cleanText,
-        model_id: modelId,
+        model_id: providedModelId || (language && language !== 'en' ? 'eleven_multilingual_v2' : 'eleven_multilingual_v2'),
         voice_settings: {
           stability,
           similarity_boost: similarityBoost,
@@ -117,6 +120,12 @@ class TTSService {
           use_speaker_boost: useSpeakerBoost
         }
       };
+
+      // Debug: Log API key info (first 10 and last 10 chars only)
+      const apiKeyDebug = this.elevenlabsConfig.apiKey.length > 20 
+        ? `${this.elevenlabsConfig.apiKey.substring(0, 10)}...${this.elevenlabsConfig.apiKey.substring(this.elevenlabsConfig.apiKey.length - 10)}`
+        : '***';
+      logger.debug(`ElevenLabs TTS Request: voiceId=${voiceId}, model=${payload.model_id}, apiKey=${apiKeyDebug}`);
 
       // Make API request to ElevenLabs
       const response = await axios({
@@ -130,6 +139,46 @@ class TTSService {
         data: payload,
         responseType: 'arraybuffer',
         timeout: 30000 // 30 second timeout
+      });
+
+      // Validate response is actual audio data
+      if (!response.data || response.data.length === 0) {
+        logger.error('ElevenLabs returned empty response', { 
+          dataLength: response.data?.length,
+          contentType: response.headers['content-type'],
+          status: response.status
+        });
+        throw new Error('ElevenLabs returned empty audio data');
+      }
+
+      // Check if response looks like audio
+      // MP3 files can start with:
+      // - 0xFF 0xFB or 0xFF 0xFA (MP3 frame header)
+      // - 0x49 0x44 0x33 (ID3 tag: "ID3")
+      const firstBytes = Buffer.from(response.data).slice(0, 3);
+      const firstBytesHex = firstBytes.toString('hex');
+      
+      // Check for MP3 frame header
+      const isMP3Frame = (firstBytes[0] === 0xFF && (firstBytes[1] === 0xFB || firstBytes[1] === 0xFA));
+      // Check for ID3 tag (ID3v2 metadata)
+      const isID3Tag = (firstBytes[0] === 0x49 && firstBytes[1] === 0x44 && firstBytes[2] === 0x33);
+      const isValidMP3 = isMP3Frame || isID3Tag;
+      
+      if (!isValidMP3) {
+        logger.error('ElevenLabs response is not valid MP3', {
+          firstBytes: firstBytesHex,
+          dataLength: response.data.length,
+          contentType: response.headers['content-type'],
+          responseData: response.data.toString('utf-8', 0, 200) // Log first 200 chars to see if it's JSON error
+        });
+        throw new Error('ElevenLabs response is not valid audio data');
+      }
+
+      logger.debug('Valid MP3 audio received from ElevenLabs', {
+        dataLength: response.data.length,
+        firstBytes: firstBytesHex,
+        hasID3: isID3Tag,
+        hasFrameHeader: isMP3Frame
       });
 
       // Save audio file locally
@@ -157,7 +206,14 @@ class TTSService {
         }
       }
 
-      logger.info('ElevenLabs audio generated successfully', { url, storage, voiceId, textLength: cleanText.length });
+      // Verify file exists before returning
+      const fileExists = await fs.access(audioPath).then(() => true).catch(() => false);
+      if (!fileExists) {
+        logger.error('Audio file was not created', { audioPath, filename });
+        throw new Error(`Audio file was not created at ${audioPath}`);
+      }
+
+      logger.info('ElevenLabs audio generated successfully', { url, storage, voiceId, textLength: cleanText.length, audioPath, fileExists });
 
       return {
         url,
@@ -165,12 +221,18 @@ class TTSService {
         provider: 'elevenlabs',
         voiceId,
         duration: this.estimateDuration(cleanText, 150),
-        metadata: { modelId, stability, similarityBoost, style, useSpeakerBoost, storage, authToken }
+        metadata: { modelId: payload.model_id, stability, similarityBoost, style, useSpeakerBoost, storage, authToken }
       };
     } catch (error) {
-      logger.error('ElevenLabs TTS generation failed:', error);
+      logger.error('ElevenLabs TTS generation failed:', { message: error.message });
       
       if (error.response) {
+        logger.error('ElevenLabs API Response:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
         const errorMessage = this.handleElevenLabsError(error.response);
         throw new Error(`ElevenLabs API Error: ${errorMessage}`);
       }
@@ -353,63 +415,77 @@ class TTSService {
     } = options;
 
     try {
-      const filename = `gtts-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.mp3`;
-      const audioPath = path.join(this.audioDir, filename);
-      
-      // Clean text for gTTS
       const cleanText = this.sanitizeText(text, 5000);
-      
-      // gTTS API endpoint (free tier)
-      const gttsUrl = `https://translate.google.com/translate_tts`;
-      const params = {
-        ie: 'UTF-8',
-        q: cleanText,
-        tl: language,
-        client: 'tw-ob',
-        total: 1,
-        idx: 0,
-        textlen: cleanText.length
-      };
 
-      const response = await axios({
-        method: 'GET',
-        url: gttsUrl,
-        params: params,
-        responseType: 'arraybuffer',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: 30000
-      });
+      // gTTS hard limit; chunk into ~200-character sentences
+      const chunks = this.chunkText(cleanText, 200);
+      const segments = [];
 
-      await fs.writeFile(audioPath, response.data);
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const filename = `gtts-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 6)}.mp3`;
+        const audioPath = path.join(this.audioDir, filename);
 
-      let audioUrl = `/audio/${filename}`;
-      let storage = 'local';
-      let authToken = null;
+        const gttsUrl = `https://translate.googleapis.com/translate_tts`;
+        const params = {
+          ie: 'UTF-8',
+          q: chunk,
+          tl: language,
+          client: 'tw-ob',
+          total: chunks.length,
+          idx: i,
+          textlen: chunk.length,
+          hl: language
+        };
 
-      const uploader = await ensureB2Uploader();
-      if (uploader) {
-        try {
-          const objectKey = `audio/${filename}`;
-          const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
-          if (typeof uploadRes === 'string') {
-            audioUrl = uploadRes;
-          } else if (uploadRes && uploadRes.url) {
-            audioUrl = uploadRes.url;
-            authToken = uploadRes.token || null;
+        const response = await axios({
+          method: 'GET',
+          url: gttsUrl,
+          params,
+          responseType: 'arraybuffer',
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 30000,
+        });
+
+        await fs.writeFile(audioPath, response.data);
+
+        let audioUrl = `/audio/${filename}`;
+        let storage = 'local';
+        let authToken = null;
+
+        const uploader = await ensureB2Uploader();
+        if (uploader) {
+          try {
+            const objectKey = `audio/${filename}`;
+            const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
+            if (typeof uploadRes === 'string') {
+              audioUrl = uploadRes;
+            } else if (uploadRes && uploadRes.url) {
+              audioUrl = uploadRes.url;
+              authToken = uploadRes.token || null;
+            }
+            storage = 'b2';
+          } catch (e) {
+            logger.warn('B2 upload failed, serving locally', { message: e.message });
           }
-          storage = 'b2';
-        } catch (e) {
-          logger.warn('B2 upload failed, serving locally', { message: e.message });
         }
+
+        segments.push({ url: audioUrl, path: audioPath, length: chunk.length, storage, authToken });
       }
 
-      logger.info('gTTS audio generated successfully', { url: audioUrl, storage });
+      const totalDuration = this.estimateDuration(cleanText, 150);
+      logger.info('gTTS audio generated successfully', { segments: segments.length });
 
-      return { url: audioUrl, path: audioPath, provider: 'gtts', duration: this.estimateDuration(cleanText, 150), metadata: { storage, authToken } };
+      return {
+        url: segments[0]?.url,
+        path: segments[0]?.path,
+        provider: 'gtts',
+        duration: totalDuration,
+        segments,
+        metadata: { segmented: true }
+      };
     } catch (error) {
-      logger.error('gTTS service error:', error);
+      logger.error('gTTS service error:', { message: error.message });
       throw error;
     }
   }
@@ -489,7 +565,7 @@ class TTSService {
         }
       };
     } catch (error) {
-      logger.error('Google Cloud TTS generation failed:', error);
+      logger.error('Google Cloud TTS generation failed:', { message: error.message });
       
       if (error.code) {
         const errorMessage = this.handleGoogleCloudError(error);
@@ -652,7 +728,7 @@ class TTSService {
           result = await this.generateWithResponsiveVoice(text, { voice });
           break;
         default:
-          // Try ElevenLabs first, then Google Cloud, fallback to eSpeak
+          // Try ElevenLabs first, then Google Cloud, fallback to gTTS, then eSpeak (Windows-safe)
           try {
             result = await this.generateWithElevenLabs(text, {
               voiceId: voiceId || this.elevenlabsConfig.defaultVoiceId,
@@ -675,8 +751,17 @@ class TTSService {
                   effectsProfileId
                 });
               } catch (googleError) {
-                logger.info('Google Cloud failed, falling back to eSpeak');
-                result = await this.generateWithESpeak(text, { voice, speed });
+                try {
+                  logger.info('Google Cloud failed, falling back to gTTS');
+                  result = await this.generateWithGTTS(text, { language });
+                } catch (gttsError) {
+                  if (process.platform === 'win32') {
+                    logger.warn('Skipping eSpeak fallback on Windows');
+                    throw gttsError;
+                  }
+                  logger.info('gTTS failed, falling back to eSpeak');
+                  result = await this.generateWithESpeak(text, { voice, speed });
+                }
               }
             } else {
               throw error;
@@ -686,11 +771,20 @@ class TTSService {
 
       return result;
     } catch (error) {
-      logger.error(`TTS generation failed with ${provider}:`, error);
+      logger.error(`TTS generation failed with ${provider}:`, { message: error.message });
       
       if (fallback && provider !== 'espeak') {
-        logger.info('Falling back to eSpeak');
-        return await this.generateWithESpeak(text, { voice, speed });
+        try {
+          logger.info('Primary provider failed, trying gTTS fallback');
+          return await this.generateWithGTTS(text, { language });
+        } catch (gttsError) {
+          if (process.platform === 'win32') {
+            logger.warn('Skipping eSpeak fallback on Windows');
+            throw error;
+          }
+          logger.info('gTTS fallback failed, trying eSpeak');
+          return await this.generateWithESpeak(text, { voice, speed });
+        }
       }
       
       throw error;
@@ -790,6 +884,28 @@ class TTSService {
   }
 
   /**
+   * Chunk text by sentences without exceeding maxLen
+   */
+  chunkText(text, maxLen = 200) {
+    const sentences = text.split(/([.!?])\s+/);
+    const chunks = [];
+    let buf = '';
+    for (let i = 0; i < sentences.length; i++) {
+      const part = sentences[i];
+      if (!part) continue;
+      const next = buf ? `${buf} ${part}` : part;
+      if (next.length <= maxLen) {
+        buf = next;
+      } else {
+        if (buf) chunks.push(buf.trim());
+        buf = part;
+      }
+    }
+    if (buf) chunks.push(buf.trim());
+    return chunks.length ? chunks : [text.substring(0, Math.min(text.length, maxLen))];
+  }
+
+  /**
    * Estimate audio duration based on text length and speed
    */
   estimateDuration(text, wordsPerMinute = 150) {
@@ -853,4 +969,4 @@ class TTSService {
   }
 }
 
-module.exports = TTSService; 
+module.exports = TTSService;

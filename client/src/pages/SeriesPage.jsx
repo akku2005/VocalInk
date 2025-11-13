@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import DiscoverSeriesDropDown from "../components/ui/DiscoverSeriesDropdown";
 import seriesService from "../services/seriesService";
+import ErrorBoundary from "../components/error/ErrorBoundary.jsx";
 
 const SeriesPage = () => {
   const navigate = useNavigate();
@@ -326,8 +327,18 @@ const SeriesPage = () => {
         >
           <div className="flex flex-col lg:flex-row">
             {/* Cover Image */}
-            <div className="w-full lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-400  to-gray-400 flex items-center justify-center relative overflow-hidden rounded-l-2xl">
-              <div className="text-4xl opacity-30">📚</div>
+            <div className="w-full lg:w-80 aspect-video lg:aspect-square relative overflow-hidden rounded-l-2xl bg-gradient-to-br from-indigo-400 to-gray-400">
+              {series.coverImage ? (
+                <img
+                  src={series.coverImage}
+                  alt={series.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-4xl opacity-30">📚</div>
+                </div>
+              )}
 
               {/* Overlay Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-2">
@@ -512,8 +523,18 @@ const SeriesPage = () => {
         onClick={handleCardClick}
       >
         {/* Cover Image */}
-        <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400 flex items-center justify-center relative overflow-hidden rounded-t-2xl">
-          <div className="text-3xl sm:text-4xl opacity-30">📚</div>
+        <div className="aspect-video relative overflow-hidden rounded-t-2xl bg-gradient-to-br from-indigo-400 to-gray-400">
+          {series.coverImage ? (
+            <img
+              src={series.coverImage}
+              alt={series.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-3xl sm:text-4xl opacity-30">📚</div>
+            </div>
+          )}
 
           {/* Template and Difficulty Badges */}
           {/* Left Side */}
@@ -676,6 +697,7 @@ const SeriesPage = () => {
   };
 
   return (
+    <ErrorBoundary>
     <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8">
       {/* Header Section */}
       <div className="text-center space-y-3 sm:space-y-4 py-4 sm:py-8">
@@ -992,6 +1014,7 @@ const SeriesPage = () => {
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 };
 

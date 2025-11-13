@@ -38,7 +38,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",
     "@aws-sdk/s3-request-presigner": "^3.864.0",
-    "@elevenlabs/elevenlabs-js": "^2.7.0",
+    "@elevenlabs/elevenlabs-js": "^2.24.0",
     "@google-cloud/text-to-speech": "^6.2.0",
     "@sentry/node": "^8.55.0",
     "axios": "^1.11.0",
@@ -80,6 +80,7 @@
     "swagger-ui-express": "^5.0.1",
     "ua-parser-js": "^2.0.4",
     "uuid": "^11.1.0",
+    "web-push": "^3.6.7",
     "ws": "^8.18.3"
   },
   "devDependencies": {

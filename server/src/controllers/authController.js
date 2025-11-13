@@ -1277,8 +1277,8 @@ class AuthController {
       // Revoke the used refresh token
       await JWTService.revokeRefreshToken(refreshToken);
       
-      // Generate new tokens
-      const tokens = JWTService.generateTokenPair(user);
+      // Generate new tokens with request context for device/IP binding
+      const tokens = JWTService.generateTokenPair(user, req);
       
       res.status(200).json({
         success: true,

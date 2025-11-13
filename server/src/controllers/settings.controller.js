@@ -812,12 +812,29 @@ const exportUserData = async (req, res) => {
 const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { confirmationText } = req.body;
+    const { confirmationText, confirmText, password } = req.body;
 
-    if (confirmationText !== 'DELETE') {
+    const text = confirmationText || confirmText;
+    if (!text || !['DELETE', 'DELETE MY ACCOUNT'].includes(text)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid confirmation text. Please type "DELETE" to confirm.'
+        message: 'Invalid confirmation text. Type "DELETE" to confirm.'
+      });
+    }
+
+    // Verify password if provided; if not, require it for additional safety
+    const user = await User.findById(userId).select('+password');
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (!password || !(await user.comparePassword(password))) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid password'
       });
     }
 
@@ -825,7 +842,7 @@ const deleteAccount = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       isDeleted: true,
       deletedAt: new Date(),
-      email: `deleted_${userId}_${Date.now()}@deleted.com` // Prevent email conflicts
+      email: `deleted_${userId}_${Date.now()}@deleted.com`
     });
 
     res.json({
