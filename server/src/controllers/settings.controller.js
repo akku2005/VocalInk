@@ -1,13 +1,38 @@
 const { StatusCodes } = require('http-status-codes');
+const bcrypt = require('bcryptjs'); // FIXED: Added missing import
 const User = require('../models/user.model');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
 const { ValidationError, UnauthorizedError, NotFoundError, BadRequestError } = require('../utils/errors');
 const SessionManager = require('../utils/sessionManager');
+const { validatePassword } = require('../utils/sanitize');
 
 // Get all user settings
 const getAllSettings = async (req, res) => {
   try {
+    if (!req.user) {
+      // Return default settings for unauthenticated users
+      return res.status(200).json({
+        success: true,
+        data: {
+          appearance: {
+            theme: 'system'
+          },
+          notifications: {
+            emailNotifications: true,
+            pushNotifications: true,
+            marketingEmails: false
+          },
+          privacy: {
+            profileVisibility: 'public',
+            postVisibility: 'public',
+            allowSearch: true,
+            showOnlineStatus: true
+          }
+        }
+      });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -29,12 +54,13 @@ const getAllSettings = async (req, res) => {
         role: user.role,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
-        emailNotifications: user.notificationPreferences?.emailNotifications !== undefined ? user.notificationPreferences.emailNotifications : true,
-        pushNotifications: user.notificationPreferences?.pushNotifications !== undefined ? user.notificationPreferences.pushNotifications : true,
-        marketingEmails: user.notificationPreferences?.marketingEmails !== undefined ? user.notificationPreferences.marketingEmails : false,
+        emailNotifications: user.notificationSettings?.emailNotifications !== undefined ? user.notificationSettings.emailNotifications : true,
+        pushNotifications: user.notificationSettings?.pushNotifications !== undefined ? user.notificationSettings.pushNotifications : true,
+        marketingEmails: user.notificationSettings?.marketingEmails !== undefined ? user.notificationSettings.marketingEmails : false,
         isPublic: user.isPublic !== undefined ? user.isPublic : true,
         showOnlineStatus: user.showOnlineStatus !== undefined ? user.showOnlineStatus : true,
-        twoFactorEnabled: user.twoFactorEnabled || false
+        twoFactorEnabled: user.twoFactorEnabled || false,
+        accountVisibility: user.accountVisibility || 'public'
       },
       privacy: {
         profileVisibility: user.privacySettings?.profileVisibility || user.privacy?.profileVisibility || 'public',
@@ -48,16 +74,28 @@ const getAllSettings = async (req, res) => {
         allowMessages: user.privacySettings?.allowMessages !== undefined ? user.privacySettings.allowMessages : (user.privacy?.allowMessages !== undefined ? user.privacy.allowMessages : true)
       },
       notifications: {
-        emailNotifications: user.notificationPreferences?.emailNotifications !== undefined ? user.notificationPreferences.emailNotifications : true,
-        pushNotifications: user.notificationPreferences?.pushNotifications !== undefined ? user.notificationPreferences.pushNotifications : true,
-        marketingEmails: user.notificationPreferences?.marketingEmails !== undefined ? user.notificationPreferences.marketingEmails : false,
-        soundEnabled: user.notificationPreferences?.soundEnabled !== undefined ? user.notificationPreferences.soundEnabled : true,
-        desktopNotifications: user.notificationPreferences?.desktopNotifications !== undefined ? user.notificationPreferences.desktopNotifications : true
+        emailNotifications: user.notificationSettings?.emailNotifications !== undefined ? user.notificationSettings.emailNotifications : true,
+        pushNotifications: user.notificationSettings?.pushNotifications !== undefined ? user.notificationSettings.pushNotifications : true,
+        marketingEmails: user.notificationSettings?.marketingEmails !== undefined ? user.notificationSettings.marketingEmails : false,
+        soundEnabled: user.notificationSettings?.soundEnabled !== undefined ? user.notificationSettings.soundEnabled : true,
+        desktopNotifications: user.notificationSettings?.desktopNotifications !== undefined ? user.notificationSettings.desktopNotifications : true,
+        newFollowers: user.notificationSettings?.newFollowers !== undefined ? user.notificationSettings.newFollowers : true,
+        newLikes: user.notificationSettings?.newLikes !== undefined ? user.notificationSettings.newLikes : true,
+        newComments: user.notificationSettings?.newComments !== undefined ? user.notificationSettings.newComments : true,
+        newMentions: user.notificationSettings?.newMentions !== undefined ? user.notificationSettings.newMentions : true,
+        badgeEarned: user.notificationSettings?.badgeEarned !== undefined ? user.notificationSettings.badgeEarned : true,
+        levelUp: user.notificationSettings?.levelUp !== undefined ? user.notificationSettings.levelUp : true,
+        seriesUpdates: user.notificationSettings?.seriesUpdates !== undefined ? user.notificationSettings.seriesUpdates : true,
+        aiGenerations: user.notificationSettings?.aiGenerations !== undefined ? user.notificationSettings.aiGenerations : false,
+        weeklyDigest: user.notificationSettings?.weeklyDigest !== undefined ? user.notificationSettings.weeklyDigest : false,
+        monthlyReport: user.notificationSettings?.monthlyReport !== undefined ? user.notificationSettings.monthlyReport : false,
+        emailDigestFrequency: user.notificationSettings?.emailDigestFrequency || 'weekly',
+        pushNotificationTime: user.notificationSettings?.pushNotificationTime || 'immediate'
       },
       appearance: {
         theme: user.theme || 'system'
       },
-      aiPreferences: {
+      ai: {
         preferredVoice: user.aiPreferences?.preferredVoice || 'default',
         autoSummarize: user.aiPreferences?.autoSummarize !== undefined ? user.aiPreferences.autoSummarize : true,
         speechToText: user.aiPreferences?.speechToText !== undefined ? user.aiPreferences.speechToText : false,
@@ -141,21 +179,24 @@ const updateProfile = async (req, res) => {
 const updateAccount = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { visibility, postVisibility, emailNotifications, pushNotifications, marketingEmails } = req.body;
+    const { accountVisibility, emailNotifications, pushNotifications, marketingEmails } = req.body;
+
+    // Get current user to merge notification settings
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      throw new NotFoundError('User not found');
+    }
 
     const updateData = {};
-    if (visibility !== undefined) updateData.visibility = visibility;
-    if (postVisibility !== undefined) updateData.postVisibility = postVisibility;
+    
+    // Update account visibility
+    if (accountVisibility !== undefined) {
+      updateData.accountVisibility = accountVisibility;
+    }
 
-    // Handle notification preferences - store them directly on user for easier access
-    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
-    if (pushNotifications !== undefined) updateData.pushNotifications = pushNotifications;
-    if (marketingEmails !== undefined) updateData.marketingEmails = marketingEmails;
-
-    // Also update notificationSettings object for consistency
+    // Update notification settings - SINGLE SOURCE OF TRUTH
     if (emailNotifications !== undefined || pushNotifications !== undefined || marketingEmails !== undefined) {
-      const user = await User.findById(userId);
-      const currentNotificationSettings = user.notificationSettings || {};
+      const currentNotificationSettings = currentUser.notificationSettings || {};
       
       updateData.notificationSettings = {
         ...currentNotificationSettings,
@@ -177,16 +218,16 @@ const updateAccount = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       data: { 
-        visibility: user.visibility, 
-        postVisibility: user.postVisibility,
-        emailNotifications: user.emailNotifications,
-        pushNotifications: user.pushNotifications,
-        marketingEmails: user.marketingEmails,
+        accountVisibility: user.accountVisibility,
+        emailNotifications: user.notificationSettings?.emailNotifications,
+        pushNotifications: user.notificationSettings?.pushNotifications,
+        marketingEmails: user.notificationSettings?.marketingEmails,
         // Also include account status info for frontend
         isVerified: user.isVerified || false,
         role: user.role || 'user',
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
+        twoFactorEnabled: user.twoFactorEnabled || false,
         accountStatus: user.isVerified ? 'verified' : 'unverified'
       },
       message: 'Account settings updated successfully'
@@ -261,26 +302,21 @@ const updateNotifications = async (req, res) => {
     const userId = req.user.id;
     const notificationData = req.body;
 
-    // Separate basic notification preferences from detailed settings
-    const { emailNotifications, pushNotifications, marketingEmails, ...detailedSettings } = notificationData;
-
-    const updateData = {};
-
-    // Update individual notification fields if provided
-    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
-    if (pushNotifications !== undefined) updateData.pushNotifications = pushNotifications;
-    if (marketingEmails !== undefined) updateData.marketingEmails = marketingEmails;
-
-    // Update the notificationSettings object with detailed settings
-    if (Object.keys(detailedSettings).length > 0) {
-      const user = await User.findById(userId);
-      const currentNotificationSettings = user.notificationSettings || {};
-      
-      updateData.notificationSettings = {
-        ...currentNotificationSettings,
-        ...detailedSettings
-      };
+    // Get current user to merge settings
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      throw new NotFoundError('User not found');
     }
+
+    // Merge all notification data into notificationSettings - SINGLE SOURCE OF TRUTH
+    const currentNotificationSettings = currentUser.notificationSettings || {};
+    
+    const updateData = {
+      notificationSettings: {
+        ...currentNotificationSettings,
+        ...notificationData
+      }
+    };
 
     const user = await User.findByIdAndUpdate(
       userId,
@@ -292,13 +328,8 @@ const updateNotifications = async (req, res) => {
       throw new NotFoundError('User not found');
     }
 
-    // Return the combined notification data in the same format as getAllSettings
-    const responseData = {
-      emailNotifications: user.emailNotifications,
-      pushNotifications: user.pushNotifications,
-      marketingEmails: user.marketingEmails,
-      ...(user.notificationSettings || {})
-    };
+    // Return notification settings
+    const responseData = user.notificationSettings || {};
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -781,12 +812,29 @@ const exportUserData = async (req, res) => {
 const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { confirmationText } = req.body;
+    const { confirmationText, confirmText, password } = req.body;
 
-    if (confirmationText !== 'DELETE') {
+    const text = confirmationText || confirmText;
+    if (!text || !['DELETE', 'DELETE MY ACCOUNT'].includes(text)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid confirmation text. Please type "DELETE" to confirm.'
+        message: 'Invalid confirmation text. Type "DELETE" to confirm.'
+      });
+    }
+
+    // Verify password if provided; if not, require it for additional safety
+    const user = await User.findById(userId).select('+password');
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (!password || !(await user.comparePassword(password))) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid password'
       });
     }
 
@@ -794,7 +842,7 @@ const deleteAccount = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       isDeleted: true,
       deletedAt: new Date(),
-      email: `deleted_${userId}_${Date.now()}@deleted.com` // Prevent email conflicts
+      email: `deleted_${userId}_${Date.now()}@deleted.com`
     });
 
     res.json({
@@ -874,10 +922,13 @@ const changePassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 6) {
+    // Validate new password with standardized requirements
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be at least 6 characters long'
+        message: 'Password does not meet security requirements',
+        details: passwordValidation.errors
       });
     }
 
@@ -891,7 +942,7 @@ const changePassword = async (req, res) => {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
         success: false,
@@ -899,15 +950,11 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password and track change
-    await User.findByIdAndUpdate(userId, {
-      password: hashedNewPassword,
-      passwordChangedAt: new Date()
-    });
+    // SECURITY FIX: Use save() to trigger pre-save hook for password hashing
+    // Pre-save hook in user.model.js will handle hashing automatically
+    user.password = newPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
 
     res.json({
       success: true,

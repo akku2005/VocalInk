@@ -4,12 +4,14 @@ const User = require('../models/user.model');
 const Blog = require('../models/blog.model');
 const Badge = require('../models/badge.model');
 const Notification = require('../models/notification.model');
+const Series = require('../models/series.model'); // Add this line
 const bcrypt = require('bcryptjs');
 const {
   ValidationError,
   NotFoundError,
   ConflictError,
 } = require('../utils/errors');
+const { validatePassword } = require('../utils/sanitize');
 const logger = require('../utils/logger');
 
 // Get current user's detailed profile
@@ -33,8 +35,15 @@ exports.getMyProfile = async (req, res) => {
       author: user._id,
       status: 'published',
     });
+    profile.seriesCount = await Series.countDocuments({
+      authorId: user._id,
+      status: 'published',
+    });
     profile.followerCount = user.followers.length;
     profile.followingCount = user.following.length;
+
+    // Add view counts
+    profile.totalViews = user.totalViews || 0;
 
     // Calculate engagement score
     profile.engagementScore = Math.min(100, Math.floor(
@@ -96,8 +105,15 @@ exports.getProfile = async (req, res) => {
       author: user._id,
       status: 'published',
     });
+    profile.seriesCount = await Series.countDocuments({
+      authorId: user._id,
+      status: 'published',
+    });
     profile.followerCount = user.followers.length;
     profile.followingCount = user.following.length;
+
+    // Add view counts
+    profile.totalViews = user.totalViews || 0;
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -241,13 +257,9 @@ exports.followUser = async (req, res) => {
     });
 
     // Create notification for the followed user
-    await Notification.create({
-      userId: targetUserId,
-      type: 'follow',
-      title: 'New Follower',
-      content: `${follower.name} started following you`,
-      read: false,
-    });
+    const NotificationTriggers = require('../utils/notificationTriggers');
+    await NotificationTriggers.createFollowNotification(targetUserId, followerId)
+      .catch(err => logger.error('Failed to create follow notification', err));
 
     // Award XP for following (engagement)
     await awardXP(followerId, 5, 'follow_user');
@@ -967,11 +979,13 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Validate new password
-    if (newPassword.length < 6) {
+    // Validate new password with standardized requirements
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: 'New password must be at least 6 characters long',
+        message: 'Password does not meet security requirements',
+        details: passwordValidation.errors,
       });
     }
 
@@ -990,12 +1004,11 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    
-    // Update password
-    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+    // SECURITY FIX: Use save() to trigger pre-save hook for password hashing
+    // Pre-save hook in user.model.js will handle hashing automatically
+    user.password = newPassword;
+    user.passwordChangedAt = new Date();
+    await user.save();
     
     res.status(StatusCodes.OK).json({
       success: true,
@@ -1012,6 +1025,60 @@ exports.changePassword = async (req, res) => {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: 'An error occurred while changing password',
+      });
+    }
+  }
+};
+
+// Get user's series
+exports.getUserSeries = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 10, status = 'published' } = req.query;
+
+    const user = await User.findById(id);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const query = { authorId: id };
+    if (status !== 'all') {
+      query.status = status;
+    }
+
+    const series = await Series.find(query)
+      .populate('authorId', 'name email avatar username')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const total = await Series.countDocuments(query);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        series,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalSeries: total,
+          hasNext: page * limit < total,
+          hasPrev: page > 1,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Error in getUserSeries:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while fetching user series',
       });
     }
   }

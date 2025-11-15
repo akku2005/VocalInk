@@ -48,6 +48,7 @@ export default function AppRoutes() {
           <Route path="blogs" element={<BlogPage />} />
           <Route path="series" element={<SeriesPage />} />
           <Route path="article/:id" element={<ArticlePage />} />
+          <Route path="blog/:id" element={<ArticlePage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="badges" element={<BadgeGalleryPage />} />
@@ -139,6 +140,11 @@ export default function AppRoutes() {
           <Route path="edit-blog/:id" element={
             <ProtectedRoute>
               <EditBlogPage />
+            </ProtectedRoute>
+          } />
+          <Route path="series/:id" element={
+            <ProtectedRoute>
+              <SeriesTimelinePage />
             </ProtectedRoute>
           } />
           <Route path="series/:id/timeline" element={

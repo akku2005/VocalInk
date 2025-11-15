@@ -240,7 +240,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        console.log('🔐 Initializing authentication...');
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
         
         // Store current route before authentication check
@@ -252,49 +251,36 @@ export const AuthProvider = ({ children }) => {
         // Check for cached user profile first
         const cachedProfile = getCachedUserProfile();
         if (cachedProfile) {
-          console.log('📦 Using cached user profile');
           dispatch({ type: AUTH_ACTIONS.SET_USER_PROFILE, payload: cachedProfile });
         }
         
         const tokens = authService.getStoredTokens();
-        console.log('📦 Stored tokens found:', !!tokens.accessToken, !!tokens.refreshToken);
-        console.log('🔑 Access token (first 20 chars):', tokens.accessToken ? tokens.accessToken.substring(0, 20) + '...' : 'none');
         
         if (tokens.accessToken && tokens.refreshToken) {
           // Set the auth header first
           authService.setAuthHeader(tokens.accessToken);
-          console.log('🔑 Auth header set');
           
           // Immediately set authenticated state to prevent redirect during token verification
           dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user: null, ...tokens } });
-          console.log('🔐 Optimistically set authenticated state');
           
           try {
             // Verify token and get user data
-            console.log('👤 Fetching current user...');
             const user = await authService.getCurrentUser();
-            console.log('👤 User data received:', user ? { email: user.email, id: user.id } : 'null');
             
             if (user) {
               // Token is valid, update with user data
-              console.log('✅ User data retrieved:', user.email);
               dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user, ...tokens } });
-              console.log('🎉 Auth state restored successfully');
             } else {
               // User data not found, clear tokens
-              console.warn('⚠️ User data not found, clearing tokens');
               authService.clearTokens();
               clearCachedUserProfile();
               dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
             }
           } catch (error) {
-            console.error('❌ Token verification failed:', error.message);
             // Token might be expired, try to refresh
             try {
-              console.log('🔄 Attempting token refresh...');
               const refreshResult = await authService.refreshToken();
               if (refreshResult.success) {
-                console.log('✅ Token refreshed successfully');
                 const user = await authService.getCurrentUser();
                 if (user) {
                   dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { 
@@ -302,28 +288,23 @@ export const AuthProvider = ({ children }) => {
                     accessToken: refreshResult.accessToken, 
                     refreshToken: refreshResult.refreshToken 
                   } });
-                  console.log('🎉 Auth state restored after refresh');
                 } else {
-                  console.warn('⚠️ User data not found after refresh');
                   authService.clearTokens();
                   clearCachedUserProfile();
                   dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
                 }
               } else {
-                console.error('❌ Token refresh failed:', refreshResult.error);
                 authService.clearTokens();
                 clearCachedUserProfile();
                 dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
               }
             } catch (refreshError) {
-              console.error('❌ Token refresh error:', refreshError.message);
               authService.clearTokens();
               clearCachedUserProfile();
               dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
             }
           }
         } else {
-          console.log('📝 No stored tokens found');
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
         }
       } catch (error) {
@@ -339,34 +320,22 @@ export const AuthProvider = ({ children }) => {
   const actions = {
     // Login
     login: async (email, password, twoFactorToken = null) => {
-      console.log('[AuthContext] login: Execution started.');
       try {
         dispatch({ type: AUTH_ACTIONS.LOGIN_START });
-        console.log('[AuthContext] login: Calling authService.login...');
         const response = await authService.login(email, password, twoFactorToken);
-        console.log('[AuthContext] login: authService.login responded successfully:', response);
         
         if (response.twoFactorRequired) {
-          console.log('[AuthContext] login: 2FA required based on response. Dispatching SET_TWO_FACTOR_REQUIRED.');
           dispatch({ type: AUTH_ACTIONS.SET_TWO_FACTOR_REQUIRED, payload: true });
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
           return { success: true, twoFactorRequired: true };
         }
         
-        console.log('[AuthContext] login: Login successful. Dispatching LOGIN_SUCCESS.');
         dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: response });
         
         return { success: true };
       } catch (error) {
-        console.error('[AuthContext] login: Caught an error:', error);
-        console.log('[AuthContext] login: Checking error properties...');
-        console.log(`[AuthContext] login: Does error have twoFactorRequired? ${!!error.twoFactorRequired}`);
-        console.log(`[AuthContext] login: Does error have accountLocked? ${!!error.accountLocked}`);
-        console.log(`[AuthContext] login: Does error have requiresVerification? ${!!error.requiresVerification}`);
-
         // Handle specific error types
         if (error.accountLocked) {
-          console.log('[AuthContext] login: Handling account locked error.');
           dispatch({ 
             type: AUTH_ACTIONS.SET_ACCOUNT_LOCKED, 
             payload: { 
@@ -379,7 +348,6 @@ export const AuthProvider = ({ children }) => {
         }
         
         if (error.requiresVerification) {
-          console.log('[AuthContext] login: Handling requires verification error.');
           dispatch({ 
             type: AUTH_ACTIONS.SET_REQUIRES_VERIFICATION, 
             payload: { 
@@ -391,14 +359,11 @@ export const AuthProvider = ({ children }) => {
         }
         
         if (error.twoFactorRequired) {
-          console.log('[AuthContext] login: Handling 2FA required error. Dispatching SET_TWO_FACTOR_REQUIRED.');
           dispatch({ type: AUTH_ACTIONS.SET_TWO_FACTOR_REQUIRED, payload: true });
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
-          console.log('[AuthContext] login: Returning success with twoFactorRequired=true.');
           return { success: true, twoFactorRequired: true };
         }
         
-        console.log('[AuthContext] login: Handling generic login failure. Dispatching LOGIN_FAILURE.');
         // Provide user-friendly error messages
         let errorMessage = error.message || 'Login failed';
         
@@ -418,25 +383,20 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
         dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
         
-        console.log('🔐 AuthContext: Starting registration for:', userData.email);
         const response = await authService.register(userData);
-        console.log('🔐 AuthContext: AuthService response:', response);
         
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
         
         // AuthService.register returns the server response directly if successful
         // Server response format: { success: true, message: "...", userId: "...", email: "...", isVerified: false }
         if (response && response.success) {
-          console.log('✅ AuthContext: Registration successful');
           return { success: true, data: response };
         } else {
-          console.error('❌ AuthContext: Registration failed - invalid response:', response);
           const errorMessage = response?.message || 'Registration failed';
           dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: errorMessage });
           return { success: false, error: errorMessage };
         }
       } catch (error) {
-        console.error('❌ AuthContext: Registration error caught:', error);
         const errorMessage = error.message || 'Registration failed';
         dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: errorMessage });
         return { success: false, error: errorMessage };
@@ -687,13 +647,11 @@ export const AuthProvider = ({ children }) => {
         if (!forceRefresh) {
           const cachedProfile = getCachedUserProfile();
           if (cachedProfile) {
-            console.log('📦 Using cached user profile, skipping API call');
             dispatch({ type: AUTH_ACTIONS.SET_USER_PROFILE, payload: cachedProfile });
             return { success: true, profile: cachedProfile, fromCache: true };
           }
         }
         
-        console.log('🚀 Fetching fresh user profile from API');
         const profile = await userService.getMyProfile();
         dispatch({ type: AUTH_ACTIONS.SET_USER_PROFILE, payload: profile });
         return { success: true, profile, fromCache: false };

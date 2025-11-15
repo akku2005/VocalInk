@@ -5,7 +5,8 @@ const baseSeriesSchema = {
   title: Joi.string().min(3).max(200).required().trim(),
   description: Joi.string().min(10).max(2000).required().trim(),
   summary: Joi.string().max(500).optional().trim(),
-  coverImage: Joi.string().uri().optional(),
+  coverImage: Joi.string().uri().optional().allow(''),
+  coverImageKey: Joi.string().optional().allow(''),
   bannerImage: Joi.string().uri().optional(),
   category: Joi.string().required(),
   tags: Joi.array().items(Joi.string().trim()).max(20).optional(),
@@ -101,6 +102,18 @@ const baseSeriesSchema = {
 // Create series schema
 const createSeriesSchema = Joi.object({
   ...baseSeriesSchema,
+  status: Joi.string().valid('draft', 'active', 'completed', 'archived', 'suspended').optional(),
+  isPublic: Joi.boolean().optional(),
+  episodes: Joi.array().items(Joi.object({
+    episodeId: Joi.string().hex().length(24).required(),
+    order: Joi.number().min(1).required(),
+    title: Joi.string().min(1).max(200).optional().trim(),
+    status: Joi.string().valid('draft', 'scheduled', 'published', 'archived').optional(),
+    scheduledAt: Joi.date().optional(),
+    prerequisites: Joi.array().items(Joi.number().min(1)).optional(),
+    estimatedReadTime: Joi.number().min(1).optional(),
+    isPremium: Joi.boolean().optional()
+  })).optional(),
   collaborators: Joi.array().items(Joi.object({
     userId: Joi.string().hex().length(24).required(),
     role: Joi.string().valid('creator', 'editor', 'contributor', 'reviewer').optional(),

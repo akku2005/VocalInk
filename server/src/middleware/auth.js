@@ -14,9 +14,23 @@ const protect = async (req, res, next) => {
     // Development-only authentication bypass
     logger.debug('Protect route processing');
 
-    if (process.env.DEV_AUTH_BYPASS === 'true') {
+    // SECURITY FIX: Only allow dev bypass in development environment
+    if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true') {
+      // Security fix: Remove role assignment from headers, add IP restriction
+      const allowedIPs = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+      const clientIP = req.ip || req.connection.remoteAddress;
+      
+      if (!allowedIPs.includes(clientIP)) {
+        logger.error('DEV_AUTH_BYPASS attempted from unauthorized IP', {
+          ip: clientIP,
+          url: req.originalUrl,
+          method: req.method,
+        });
+        throw new UnauthorizedError('Development bypass not allowed from this IP');
+      }
+
       const devUserId = process.env.DEV_AUTH_USER_ID || '000000000000000000000001';
-      const devUserRole = process.env.DEV_AUTH_ROLE || req.headers['x-dev-user-role'] || 'admin';
+      const devUserRole = process.env.DEV_AUTH_ROLE || 'reader'; // Fixed role, no header override
       const devUserEmail = process.env.DEV_AUTH_EMAIL || 'devuser@example.com';
 
       req.user = {
@@ -31,7 +45,7 @@ const protect = async (req, res, next) => {
         userId: devUserId,
         email: devUserEmail,
         role: devUserRole,
-        ip: req.ip,
+        ip: clientIP,
         url: req.originalUrl,
         method: req.method,
       });
@@ -165,9 +179,10 @@ const authorize = (...roles) => {
 // Optional authentication with enhanced security
 const optionalAuth = async (req, res, next) => {
   try {
-    if (process.env.DEV_AUTH_BYPASS === 'true') {
+    // SECURITY FIX: Only allow dev bypass in development environment, no header override
+    if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true') {
       const devUserId = process.env.DEV_AUTH_USER_ID || '000000000000000000000001';
-      const devUserRole = process.env.DEV_AUTH_ROLE || req.headers['x-dev-user-role'] || 'admin';
+      const devUserRole = process.env.DEV_AUTH_ROLE || 'reader'; // FIXED: No header override
       const devUserEmail = process.env.DEV_AUTH_EMAIL || 'devuser@example.com';
 
       req.user = {

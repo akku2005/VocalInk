@@ -19,7 +19,7 @@ function validate(req, res, next) {
 router.use(apiLimiter);
 
 // Get all comments for a blog
-router.get('/blog/:id', commentController.getComments);
+router.get('/blog/:id', protect, commentController.getComments);
 
 // Add a new comment to a blog
 router.post(

@@ -131,27 +131,39 @@ class XPService {
       // Create transaction
       const transaction = await this.createTransaction(user, action, baseAmount, finalAmount, multiplier, bonuses, metadata, requestInfo, fraudCheck);
 
-      // Update user XP
+      // Update user XP atomically to prevent race conditions
       const previousXP = user.xp;
       const previousLevel = user.level;
+      const newXP = previousXP + finalAmount;
+      const newLevel = this.calculateLevel(newXP);
       
-      user.xp += finalAmount;
-      user.level = this.calculateLevel(user.xp);
-      await user.save();
+      // Use atomic update to prevent race conditions
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { 
+          $inc: { xp: finalAmount },
+          $set: { level: newLevel }
+        },
+        { new: true }
+      );
 
-      // Update transaction with final values
-      transaction.newXP = user.xp;
-      transaction.newLevel = user.level;
-      await transaction.save();
-
-      // Check for level up
-      const levelUp = user.level > previousLevel;
-      if (levelUp) {
-        await this.handleLevelUp(user, previousLevel, user.level);
+      if (!updatedUser) {
+        throw new Error('Failed to update user XP');
       }
 
-      // Check for badge eligibility
-      await this.checkBadgeEligibility(user);
+      // Update transaction with final values
+      transaction.newXP = updatedUser.xp;
+      transaction.newLevel = updatedUser.level;
+      await transaction.save();
+
+      // Check for level up using updated user data
+      const levelUp = updatedUser.level > previousLevel;
+      if (levelUp) {
+        await this.handleLevelUp(updatedUser, previousLevel, updatedUser.level);
+      }
+
+      // Check for badge eligibility using updated user data
+      await this.checkBadgeEligibility(updatedUser);
 
       logger.info(`XP awarded: ${finalAmount} to user ${userId} for ${action}`, {
         userId,
@@ -167,8 +179,8 @@ class XPService {
       return {
         success: true,
         xpAwarded: finalAmount,
-        newTotalXP: user.xp,
-        newLevel: user.level,
+        newTotalXP: updatedUser.xp,
+        newLevel: updatedUser.level,
         levelUp,
         transaction: transaction._id,
         fraudFlagged: fraudCheck.flagged,

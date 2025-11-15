@@ -6,8 +6,10 @@ const seriesSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
     summary: { type: String },
-    coverImage: { type: String },
+    coverImage: { type: String }, // Cloudinary URL
+    coverImageKey: { type: String }, // Cloudinary public ID for cover image
     bannerImage: { type: String },
+    bannerImageKey: { type: String }, // Cloudinary public ID for banner image
     
     // Author and Ownership
     authorId: {
@@ -171,6 +173,9 @@ const seriesSchema = new mongoose.Schema(
       totalReads: { type: Number, default: 0 },
       completionRate: { type: Number, default: 0 },
       averageReadTime: { type: Number, default: 0 },
+      likes: { type: Number, default: 0 },
+      bookmarks: { type: Number, default: 0 },
+      comments: { type: Number, default: 0 },
       dropOffPoints: [{
         episodeOrder: { type: Number },
         dropOffRate: { type: Number }

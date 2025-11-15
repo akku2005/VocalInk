@@ -352,6 +352,14 @@ class TTSEnhancedService {
         throw new Error('pitch must be between -20.0 and 20.0');
       }
     }
+
+    // Language validation (basic whitelist used for gtts/espeak/general)
+    if (options.language) {
+      const supported = ['en','es','fr','de','it','pt','ja','ko','zh','hi'];
+      if (!supported.includes(options.language)) {
+        throw new Error(`Unsupported language: ${options.language}. Supported: ${supported.join(', ')}`);
+      }
+    }
   }
 
   /**
@@ -494,4 +502,4 @@ class TTSEnhancedService {
   }
 }
 
-module.exports = TTSEnhancedService; 
+module.exports = TTSEnhancedService;

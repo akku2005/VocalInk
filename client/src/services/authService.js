@@ -1,8 +1,9 @@
-import api from './api';
+import api, { apiHelpers } from './api';
+import API_CONFIG from '../constants/apiConfig';
 
 class AuthService {
   constructor() {
-    this.baseURL = '/auth';
+    // No longer need baseURL - using centralized config
   }
 
   // Token management
@@ -34,32 +35,17 @@ class AuthService {
   // Registration
   async register(userData) {
     try {
-      console.log('📧 AuthService: Sending registration request for:', userData.email);
-      const response = await api.post(`${this.baseURL}/register`, userData);
-      
-      console.log('📧 AuthService: Registration response received:', {
-        status: response.status,
-        success: response.data.success,
-        message: response.data.message,
-        hasUserId: !!response.data.userId
-      });
-      
+      const response = await apiHelpers.post('AUTH.REGISTER', userData);
+
       // Check if the response indicates success or failure
       if (response.data.success) {
-        console.log('✅ AuthService: Registration successful');
         return response.data;
       } else {
-        console.error('❌ AuthService: Registration failed with response:', response.data);
         // Backend returned success: false in the response body
         const error = new Error(response.data.message || 'Registration failed');
         throw error;
       }
     } catch (error) {
-      console.error('❌ AuthService: Registration error caught:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
       
       // If it's an HTTP error with specific error data, handle it
       if (error.response && error.response.data && !error.response.data.success) {
@@ -75,29 +61,19 @@ class AuthService {
   // Login
   async login(email, password, twoFactorToken = null) {
     try {
-      const loginData = { email, password };
+      // Ensure device fingerprint exists (stored locally for frontend use)
+      this.ensureDeviceFingerprint();
+      
+      const loginData = { 
+        email, 
+        password
+      };
+      
       if (twoFactorToken) {
         loginData.twoFactorToken = twoFactorToken;
-        console.log('🔐 Login with 2FA token:', { email, has2FA: !!twoFactorToken, tokenLength: twoFactorToken?.length });
-      } else {
-        console.log('🔐 Login without 2FA token:', { email });
       }
 
-      // Ensure device fingerprint exists
-      const deviceFingerprint = this.ensureDeviceFingerprint();
-      console.log('🔐 Using device fingerprint:', deviceFingerprint);
-
-      const response = await api.post(`${this.baseURL}/login`, loginData);
-      
-      console.log('🔐 Login response received:', {
-        status: response.status,
-        success: response.data.success,
-        hasUser: !!response.data.user,
-        hasTokens: !!(response.data.accessToken && response.data.refreshToken),
-        twoFactorRequired: response.data.twoFactorRequired,
-        requiresVerification: response.data.requiresVerification,
-        accountLocked: response.data.accountLocked
-      });
+      const response = await apiHelpers.post('AUTH.LOGIN', loginData);
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -112,28 +88,22 @@ class AuthService {
           localStorage.setItem('deviceFingerprint', serverFingerprint);
         }
         
-        console.log('✅ Login successful');
         return response.data;
       } else {
         // Backend returned success: false in the response body
         // This means the request was successful but authentication failed
         const error = new Error(response.data.message || 'Login failed');
         
-        console.log('🔐 Login failed with response:', response.data);
-        
         // Add specific error properties for the frontend to handle
         if (response.data.twoFactorRequired) {
           error.twoFactorRequired = true;
-          console.log('🔐 2FA required for user:', email);
         }
         if (response.data.requiresVerification) {
           error.requiresVerification = true;
-          console.log('📧 Email verification required for user:', email);
         }
         if (response.data.accountLocked) {
           error.accountLocked = true;
           error.lockoutUntil = response.data.lockoutUntil;
-          console.log('🔒 Account locked for user:', email);
         }
         
         // Improve error message for better user experience
@@ -144,14 +114,6 @@ class AuthService {
         throw error;
       }
     } catch (error) {
-      console.log('🔐 Login error caught:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        twoFactorRequired: error.twoFactorRequired,
-        requiresVerification: error.requiresVerification,
-        accountLocked: error.accountLocked
-      });
       
       // If it's already our custom error, re-throw it
       if (error.twoFactorRequired || error.requiresVerification || error.accountLocked) {
@@ -165,8 +127,6 @@ class AuthService {
           const errorData = error.response.data;
           let errorMessage = errorData.message || 'Login failed';
           
-          console.log('🔐 Processing error response:', errorData);
-          
           // Improve error message for better user experience
           if (errorMessage === 'Invalid credentials') {
             errorMessage = 'The email address or password you entered is incorrect. Please check your credentials and try again.';
@@ -177,16 +137,13 @@ class AuthService {
           // Add specific error properties
           if (errorData.twoFactorRequired) {
             customError.twoFactorRequired = true;
-            console.log('🔐 2FA required (from error response) for user:', email);
           }
           if (errorData.requiresVerification) {
             customError.requiresVerification = true;
-            console.log('📧 Email verification required (from error response) for user:', email);
           }
           if (errorData.accountLocked) {
             customError.accountLocked = true;
             customError.lockoutUntil = errorData.lockoutUntil;
-            console.log('🔒 Account locked (from error response) for user:', email);
           }
           
           throw customError;
@@ -214,7 +171,7 @@ class AuthService {
   // Email verification
   async verifyEmail(email, code) {
     try {
-      const response = await api.post(`${this.baseURL}/verify-email`, { email, code });
+      const response = await apiHelpers.post('AUTH.VERIFY_EMAIL', { email, code });
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -248,7 +205,8 @@ class AuthService {
   // Resend verification code
   async resendVerification(email) {
     try {
-      const response = await api.post(`${this.baseURL}/resend-verification`, { email });
+      // FIXED: Use apiHelpers instead of this.baseURL
+      const response = await apiHelpers.post('AUTH.RESEND_VERIFICATION', { email });
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -273,7 +231,7 @@ class AuthService {
   // Forgot password
   async forgotPassword(email) {
     try {
-      const response = await api.post(`${this.baseURL}/forgot-password`, { email });
+      const response = await apiHelpers.post('AUTH.FORGOT_PASSWORD', { email });
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -298,7 +256,7 @@ class AuthService {
   // Reset password
   async resetPassword(token, code, newPassword) {
     try {
-      const response = await api.post(`${this.baseURL}/reset-password`, {
+      const response = await apiHelpers.post('AUTH.RESET_PASSWORD', {
         token,
         code,
         newPassword
@@ -327,7 +285,7 @@ class AuthService {
   // Change password (authenticated)
   async changePassword(currentPassword, newPassword) {
     try {
-      const response = await api.post(`${this.baseURL}/change-password`, {
+      const response = await apiHelpers.post('AUTH.CHANGE_PASSWORD', {
         currentPassword,
         newPassword
       });
@@ -355,7 +313,7 @@ class AuthService {
   // 2FA Setup
   async setup2FA() {
     try {
-      const response = await api.post(`${this.baseURL}/2fa/setup`);
+      const response = await apiHelpers.post('AUTH.SETUP_2FA');
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -380,7 +338,7 @@ class AuthService {
   // Verify 2FA Setup
   async verify2FASetup(token) {
     try {
-      const response = await api.post(`${this.baseURL}/2fa/verify`, { token });
+      const response = await apiHelpers.post('AUTH.VERIFY_2FA', { token });
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -405,7 +363,7 @@ class AuthService {
   // Disable 2FA
   async disable2FA(token) {
     try {
-      const response = await api.post(`${this.baseURL}/2fa/disable`, { token });
+      const response = await apiHelpers.post('AUTH.DISABLE_2FA', { token });
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -430,15 +388,12 @@ class AuthService {
   // Get current user
   async getCurrentUser() {
     try {
-      const response = await api.get(`${this.baseURL}/me`);
-      
-      console.log('🔐 AuthService: getCurrentUser response:', response.data);
+      const response = await apiHelpers.get('AUTH.ME');
       
       // Check if the response indicates success or failure
       if (response.data.success) {
         // Backend returns user data in response.data.data
         const userData = response.data.data;
-        console.log('✅ AuthService: User data retrieved:', userData ? { email: userData.email, id: userData._id } : 'null');
         return userData;
       } else {
         // Backend returned success: false in the response body
@@ -446,7 +401,6 @@ class AuthService {
         throw error;
       }
     } catch (error) {
-      console.error('❌ AuthService: getCurrentUser error:', error);
       // If it's an HTTP error with specific error data, handle it
       if (error.response && error.response.data && !error.response.data.success) {
         const errorData = error.response.data;
@@ -466,7 +420,7 @@ class AuthService {
         throw new Error('No refresh token available');
       }
 
-      const response = await api.post(`${this.baseURL}/refresh-token`, {
+      const response = await apiHelpers.post('AUTH.REFRESH', {
         refreshToken
       });
 
@@ -496,9 +450,9 @@ class AuthService {
   // Logout
   async logout() {
     try {
-      await api.post(`${this.baseURL}/logout`);
+      await apiHelpers.post('AUTH.LOGOUT');
     } catch (error) {
-      console.error('Logout error:', error);
+      // Silently handle logout errors
     } finally {
       this.clearTokens();
       this.setAuthHeader(null);
@@ -510,9 +464,9 @@ class AuthService {
   // Logout all devices
   async logoutAll() {
     try {
-      await api.post(`${this.baseURL}/logout-all`);
+      await apiHelpers.post('AUTH.LOGOUT_ALL');
     } catch (error) {
-      console.error('Logout all error:', error);
+      // Silently handle logout errors
     } finally {
       this.clearTokens();
       this.setAuthHeader(null);
@@ -524,7 +478,7 @@ class AuthService {
   // Get user sessions
   async getUserSessions() {
     try {
-      const response = await api.get(`${this.baseURL}/sessions`);
+      const response = await apiHelpers.get('AUTH.SESSIONS');
       
       // Check if the response indicates success or failure
       if (response.data.success) {
@@ -656,7 +610,6 @@ class AuthService {
       }
       return null;
     } catch (error) {
-      console.error('Auth initialization failed:', error);
       this.clearTokens();
       this.setAuthHeader(null);
       return null;

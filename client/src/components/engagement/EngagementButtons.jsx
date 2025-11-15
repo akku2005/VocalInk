@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useAuth } from "../../hooks/useAuth";
-import { useToast } from "../../hooks/useToast";
 import { Heart, Bookmark, Share2, MessageCircle } from "lucide-react";
 import LoginPromptModal from "../auth/LoginPromptModal";
+import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
+import blogService from "../../services/blogService";
 
 const EngagementButtons = ({
   blogId,
@@ -38,26 +39,30 @@ const EngagementButtons = ({
     if (isLiking) return;
 
     setIsLiking(true);
+    const previousState = isLikedState;
+    const previousLikes = likes;
     try {
-      // For now, simulate the API call
-      console.log("Liking blog:", blogId);
+      const optimisticLiked = !isLikedState;
+      setIsLikedState(optimisticLiked);
+      setLikes((prev) => (optimisticLiked ? prev + 1 : Math.max(prev - 1, 0)));
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const result = await blogService.likeBlog(blogId);
 
-      const newIsLiked = !isLikedState;
-      setIsLikedState(newIsLiked);
-      setLikes((prev) => (newIsLiked ? prev + 1 : prev - 1));
+      setIsLikedState(result.liked);
+      setLikes(result.likes ?? 0);
 
       if (onEngagementUpdate) {
-        onEngagementUpdate("likes", newIsLiked);
+        onEngagementUpdate("likes", {
+          active: result.liked,
+          count: result.likes ?? 0,
+        });
       }
 
-      showSuccess(newIsLiked ? "Post liked!" : "Post unliked!");
-      console.log("Like successful:", newIsLiked);
+      showSuccess(result.liked ? "Post liked!" : "Post unliked!");
     } catch (error) {
-      showError("Failed to like post. Please try again.");
-      console.error("Error liking blog:", error);
+      setIsLikedState(previousState);
+      setLikes(previousLikes);
+      showError(error.response?.data?.message || "Failed to like post. Please try again.");
     } finally {
       setIsLiking(false);
     }
@@ -80,28 +85,32 @@ const EngagementButtons = ({
     if (isBookmarking) return;
 
     setIsBookmarking(true);
+    const previousState = isBookmarkedState;
+    const previousBookmarks = bookmarks;
     try {
-      // For now, simulate the API call
-      console.log("Bookmarking blog:", blogId);
+      const optimisticBookmarked = !isBookmarkedState;
+      setIsBookmarkedState(optimisticBookmarked);
+      setBookmarks((prev) => (optimisticBookmarked ? prev + 1 : Math.max(prev - 1, 0)));
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const result = await blogService.bookmarkBlog(blogId);
 
-      const newIsBookmarked = !isBookmarkedState;
-      setIsBookmarkedState(newIsBookmarked);
-      setBookmarks((prev) => (newIsBookmarked ? prev + 1 : prev - 1));
+      setIsBookmarkedState(result.bookmarked);
+      setBookmarks(result.bookmarks ?? 0);
 
       if (onEngagementUpdate) {
-        onEngagementUpdate("bookmarks", newIsBookmarked);
+        onEngagementUpdate("bookmarks", {
+          active: result.bookmarked,
+          count: result.bookmarks ?? 0,
+        });
       }
 
       showSuccess(
-        newIsBookmarked ? "Post bookmarked!" : "Post removed from bookmarks!"
+        result.bookmarked ? "Post bookmarked!" : "Post removed from bookmarks!"
       );
-      console.log("Bookmark successful:", newIsBookmarked);
     } catch (error) {
-      showError("Failed to bookmark post. Please try again.");
-      console.error("Error bookmarking blog:", error);
+      setIsBookmarkedState(previousState);
+      setBookmarks(previousBookmarks);
+      showError(error.response?.data?.message || "Failed to bookmark post. Please try again.");
     } finally {
       setIsBookmarking(false);
     }
@@ -128,12 +137,10 @@ const EngagementButtons = ({
         try {
           await navigator.clipboard.writeText(url);
           showSuccess("Link copied to clipboard!");
-          console.log("URL copied to clipboard");
           setShowShareMenu(false);
           return;
         } catch (error) {
           showError("Failed to copy link to clipboard");
-          console.error("Failed to copy URL:", error);
         }
         break;
       default:
@@ -291,7 +298,6 @@ const EngagementButtons = ({
       {/* Login Prompt Modal */}
       {showLoginModal && (
         <div>
-          {console.log('Modal should be visible, action:', loginAction)}
           <LoginPromptModal
             action={loginAction}
             onClose={() => setShowLoginModal(false)}

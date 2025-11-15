@@ -3,9 +3,22 @@ const logger = require('../utils/logger');
 
 class OpenAIService {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    this.openai = null;
+    
+    // Only initialize OpenAI client if API key is available
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim()) {
+      try {
+        this.openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY.trim(),
+        });
+        logger.info('OpenAI service initialized successfully');
+      } catch (error) {
+        logger.error('Failed to initialize OpenAI client:', error.message);
+        this.openai = null;
+      }
+    } else {
+      logger.warn('OpenAI API key not configured - OpenAI features will be disabled');
+    }
   }
 
   /**
@@ -19,8 +32,8 @@ class OpenAIService {
     } = options;
 
     try {
-      if (!process.env.OPENAI_API_KEY) {
-        logger.warn('OpenAI API key not configured, falling back to local summary generation');
+      if (!this.openai) {
+        logger.warn('OpenAI client not available, falling back to local summary generation');
         return this.generateLocalSummary(content, options);
       }
 
@@ -190,7 +203,7 @@ TL;DR Summary:`;
    * Check if OpenAI is available
    */
   isAvailable() {
-    return !!process.env.OPENAI_API_KEY;
+    return !!this.openai;
   }
 
   /**

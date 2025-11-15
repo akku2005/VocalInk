@@ -181,24 +181,44 @@ app.use(express.urlencoded({
   limit: process.env.MAX_REQUEST_SIZE || '10mb' 
 }));
 
-// Custom mongo sanitize middleware for Express 5 compatibility
-const sanitizeMongoQuery = (obj) => {
+// Enhanced mongo sanitize middleware for Express 5 compatibility
+const { sanitizeMongoQuery } = require('./utils/sanitize');
+
+const mongoSanitizeMiddleware = (obj) => {
   if (obj === null || typeof obj !== 'object') return obj;
   
   const sanitized = Array.isArray(obj) ? [] : {};
-  const dangerousKeys = ['$where', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin', '$exists', '$regex'];
+  
+  // Comprehensive list of dangerous MongoDB operators
+  const dangerousOperators = [
+    '$where', '$regex', '$ne', '$gt', '$lt', '$gte', '$lte',
+    '$in', '$nin', '$exists', '$type', '$mod', '$all',
+    '$elemMatch', '$size', '$or', '$and', '$not', '$nor',
+    '$text', '$search', '$language', '$caseSensitive', '$diacriticSensitive',
+    '$expr', '$jsonSchema', '$geoIntersects', '$geoWithin', '$near', '$nearSphere'
+  ];
   
   for (const [key, value] of Object.entries(obj)) {
-    // Check if key contains dangerous operators
-    const isDangerous = dangerousKeys.some(dangerous => 
-      key.includes(dangerous) || key.startsWith('$')
-    );
+    // Block dangerous operators entirely
+    if (dangerousOperators.includes(key) || key.startsWith('$')) {
+      logger.warn(`MongoDB injection attempt blocked: key "${key}"`, {
+        originalValue: value,
+        timestamp: new Date().toISOString(),
+        blocked: true
+      });
+      // Skip dangerous keys entirely instead of prefixing
+      continue;
+    }
     
-    if (isDangerous) {
-      logger.warn(`Mongo sanitize: Dangerous key "${key}" was sanitized`);
-      sanitized[`_${key}`] = value;
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeMongoQuery(value);
+    // Recursively sanitize nested objects and arrays
+    if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        sanitized[key] = value.map(item => 
+          typeof item === 'object' ? mongoSanitizeMiddleware(item) : item
+        );
+      } else {
+        sanitized[key] = mongoSanitizeMiddleware(value);
+      }
     } else {
       sanitized[key] = value;
     }
@@ -207,18 +227,23 @@ const sanitizeMongoQuery = (obj) => {
   return sanitized;
 };
 
-// Apply sanitization to query, body, and params
+// Apply enhanced sanitization to query, body, and params
 app.use((req, res, next) => {
-  if (req.query) {
-    req.query = sanitizeMongoQuery(req.query);
+  try {
+    if (req.query && Object.keys(req.query).length > 0) {
+      req.query = mongoSanitizeMiddleware(req.query);
+    }
+    if (req.body && typeof req.body === 'object' && req.body !== null) {
+      req.body = mongoSanitizeMiddleware(req.body);
+    }
+    if (req.params && Object.keys(req.params).length > 0) {
+      req.params = mongoSanitizeMiddleware(req.params);
+    }
+    next();
+  } catch (error) {
+    logger.error('Error in MongoDB sanitization middleware:', error);
+    next(error);
   }
-  if (req.body) {
-    req.body = sanitizeMongoQuery(req.body);
-  }
-  if (req.params) {
-    req.params = sanitizeMongoQuery(req.params);
-  }
-  next();
 });
 
 // Security monitoring and request sanitization
@@ -303,14 +328,23 @@ app.get('/health', async (req, res) => {
   }
   
   // Check Redis connection if enabled
-  if (process.env.ENABLE_CACHING === 'true') {
-    try {
-      // This would check Redis connection
-      health.checks.redis = 'healthy';
-    } catch (error) {
-      health.checks.redis = 'unhealthy';
-      health.status = 'unhealthy';
+  try {
+    const cacheService = require('./src/services/CacheService');
+    const cacheHealth = await cacheService.healthCheck();
+    health.checks.redis = cacheHealth.status;
+    health.cache = {
+      type: cacheHealth.type,
+      connection: cacheHealth.connection || 'unknown',
+      stats: cacheService.getStats()
+    };
+    
+    if (cacheHealth.status === 'unhealthy' && process.env.ENABLE_CACHING === 'true') {
+      health.status = 'degraded'; // Don't mark as unhealthy since memory fallback works
     }
+  } catch (error) {
+    health.checks.redis = 'unknown';
+    health.cache = { error: error.message };
+    logger.warn('Cache health check failed:', error.message);
   }
 
   res.json(health);

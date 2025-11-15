@@ -227,13 +227,14 @@ const TwoFactorSetup = () => {
                 </div>
               </CardContent>
             </Card>
-          </Card>
 
           <div className="text-center">
             <p className="text-sm text-text-secondary">
               Need help setting up 2FA?{" "}
               <a
-                href="#"
+                href="https://support.google.com/accounts/answer/185833?hl=en"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="font-medium text-primary hover:text-primary/80"
               >
                 View setup guide

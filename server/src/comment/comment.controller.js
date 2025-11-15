@@ -1,11 +1,33 @@
 const { StatusCodes } = require('http-status-codes');
 const Comment = require('../models/comment.model');
 const Blog = require('../models/blog.model');
+const Series = require('../models/series.model');
 const User = require('../models/user.model');
 const Notification = require('../models/notification.model');
+const cacheService = require('../services/CacheService');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const logger = require('../utils/logger');
 const XPService = require('../services/XPService');
+
+const ensureNonNegative = async (Model, id, field) => {
+  if (!id || !field) return;
+  await Model.updateOne({ _id: id, [field]: { $lt: 0 } }, { $set: { [field]: 0 } });
+};
+
+const updateSeriesAnalytics = async (seriesId, increments = {}) => {
+  if (!seriesId) return;
+
+  const inc = {};
+  if (typeof increments.comments === 'number' && increments.comments !== 0) {
+    inc['analytics.comments'] = increments.comments;
+  }
+
+  if (Object.keys(inc).length === 0) return;
+
+  await Series.findByIdAndUpdate(seriesId, { $inc: inc });
+  await ensureNonNegative(Series, seriesId, 'analytics.comments');
+  await cacheService.delete(cacheService.generateKey('series', seriesId.toString()));
+};
 
 // Get all comments for a blog
 exports.getComments = async (req, res) => {
@@ -116,37 +138,33 @@ exports.addComment = async (req, res) => {
       $inc: { totalComments: 1 },
     });
 
+    await Blog.findByIdAndUpdate(blogId, { $inc: { commentCount: 1 } });
+    await ensureNonNegative(Blog, blogId, 'commentCount');
+    await updateSeriesAnalytics(blog.seriesId, { comments: 1 });
+    await cacheService.delete(cacheService.generateKey('blog', blogId.toString()));
+
     // Create notification for blog author (if not the same user)
+    const NotificationTriggers = require('../utils/notificationTriggers');
     if (blog.author.toString() !== userId) {
-      await Notification.create({
-        userId: blog.author,
-        type: 'comment',
-        title: 'New Comment',
-        content: `Someone commented on your blog "${blog.title}"`,
-        data: {
-          blogId,
-          commentId: comment._id,
-          fromUserId: userId,
-        },
-      });
+      await NotificationTriggers.createCommentNotification(
+        blogId, 
+        comment._id, 
+        userId, 
+        content.trim()
+      ).catch(err => logger.error('Failed to create comment notification', err));
     }
 
     // Create notification for parent comment author (if replying)
     if (parentId) {
       const parentComment = await Comment.findById(parentId).populate('userId');
       if (parentComment && parentComment.userId._id.toString() !== userId) {
-        await Notification.create({
-          userId: parentComment.userId._id,
-          type: 'reply',
-          title: 'New Reply',
-          content: `Someone replied to your comment`,
-          data: {
-            blogId,
-            commentId: comment._id,
-            parentCommentId: parentId,
-            fromUserId: userId,
-          },
-        });
+        NotificationTriggers.createCommentReplyNotification(
+          parentComment.userId._id,
+          userId,
+          blogId,
+          comment._id,
+          content.trim()
+        ).catch(err => logger.error('Failed to create reply notification', err));
       }
     }
 
@@ -429,6 +447,14 @@ exports.deleteComment = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       $inc: { totalComments: -1 },
     });
+
+    await Blog.findByIdAndUpdate(comment.blogId, { $inc: { commentCount: -1 } });
+    await ensureNonNegative(Blog, comment.blogId, 'commentCount');
+    const blog = await Blog.findById(comment.blogId).select('seriesId');
+    if (blog?.seriesId) {
+      await updateSeriesAnalytics(blog.seriesId, { comments: -1 });
+    }
+    await cacheService.delete(cacheService.generateKey('blog', comment.blogId.toString()));
 
     logger.info('Comment deleted', { userId, commentId });
 

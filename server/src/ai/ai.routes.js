@@ -22,12 +22,21 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Accept audio files
-    if (file.mimetype.startsWith('audio/') || 
-        file.mimetype === 'application/octet-stream') {
+    // Security fix: Only accept specific audio MIME types, remove overly permissive octet-stream
+    const allowedMimeTypes = [
+      'audio/mpeg',
+      'audio/mp3', 
+      'audio/wav',
+      'audio/ogg',
+      'audio/m4a',
+      'audio/aac',
+      'audio/flac'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
-      cb(new Error('Only audio files are allowed'), false);
+      cb(new Error('Only specific audio formats are allowed (MP3, WAV, OGG, M4A, AAC, FLAC)'), false);
     }
   }
 });

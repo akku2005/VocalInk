@@ -6,6 +6,7 @@ import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
 import DropDown from "../components/ui/DropDown";
 import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
+import blogService from "../services/blogService";
 import {
   Search,
   Filter,
@@ -25,14 +26,17 @@ const BlogPage = () => {
   const params = new URLSearchParams(location.search);
 
   const [searchQuery, setSearchQuery] = useState(params.get("q") || "");
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
     params.get("cat") || "all"
   );
   const [viewMode, setViewMode] = useState(params.get("view") || "grid");
   const [sortBy, setSortBy] = useState(params.get("sort") || "recent");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
+  const [blogs, setBlogs] = useState([]);
+  const [error, setError] = useState(null);
 
   // Force grid view on mobile
   useEffect(() => {
@@ -48,108 +52,72 @@ const BlogPage = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Sample blog data
-  const sampleBlogs = [
-    {
-      id: "1",
-      title: "The Future of AI in Content Creation",
-      excerpt:
-        "Discover how artificial intelligence is revolutionizing the way we create, edit, and distribute content across various platforms.",
-      author: "Sarah Johnson",
-      publishedAt: "2024-01-15",
-      readTime: 8,
-      tags: ["AI", "Technology", "Content Creation"],
-      likes: 124,
-      comments: 23,
-      isLiked: false,
-      isBookmarked: false,
-      bookmarks: 15,
-    },
-    {
-      id: "2",
-      title: "Building a Successful Blog Series: A Complete Guide",
-      excerpt:
-        "Learn the strategies and techniques needed to create engaging blog series that keep readers coming back for more.",
-      author: "Michael Chen",
-      publishedAt: "2024-01-12",
-      readTime: 12,
-      tags: ["Blogging", "Content Strategy", "Writing"],
-      likes: 89,
-      comments: 15,
-      isLiked: true,
-      isBookmarked: true,
-      bookmarks: 23,
-    },
-    {
-      id: "3",
-      title: "Voice-to-Text: The Next Big Thing in Writing",
-      excerpt:
-        "Explore how speech recognition technology is changing the landscape of content creation and making writing more accessible.",
-      author: "Emily Rodriguez",
-      publishedAt: "2024-01-10",
-      readTime: 6,
-      tags: ["Voice Technology", "Accessibility", "Innovation"],
-      likes: 156,
-      comments: 31,
-      isLiked: false,
-      isBookmarked: false,
-      bookmarks: 18,
-    },
-    {
-      id: "4",
-      title: "Gamification in Learning: Making Education Fun",
-      excerpt:
-        "How game mechanics and rewards systems are transforming the way we learn and retain information.",
-      author: "David Kim",
-      publishedAt: "2024-01-08",
-      readTime: 10,
-      tags: ["Education", "Gamification", "Learning"],
-      likes: 203,
-      comments: 42,
-      isLiked: false,
-      isBookmarked: false,
-      bookmarks: 31,
-    },
-    {
-      id: "5",
-      title: "The Psychology of Social Media Engagement",
-      excerpt:
-        "Understanding what makes content go viral and how to create posts that truly resonate with your audience.",
-      author: "Lisa Thompson",
-      publishedAt: "2024-01-05",
-      readTime: 9,
-      tags: ["Psychology", "Social Media", "Marketing"],
-      likes: 178,
-      comments: 28,
-      isLiked: false,
-      isBookmarked: true,
-      bookmarks: 27,
-    },
-    {
-      id: "6",
-      title: "Sustainable Living: Small Changes, Big Impact",
-      excerpt:
-        "Practical tips and strategies for reducing your environmental footprint through everyday choices and habits.",
-      author: "Alex Green",
-      publishedAt: "2024-01-03",
-      readTime: 7,
-      tags: ["Sustainability", "Lifestyle", "Environment"],
-      likes: 145,
-      comments: 19,
-      isLiked: false,
-      isBookmarked: false,
-      bookmarks: 12,
-    },
-  ];
+  // Fetch blogs from API
+  useEffect(() => {
+    const fetchBlogs = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await blogService.getBlogs({ status: 'published' });
+        setBlogs(data || []);
+      } catch (err) {
+        console.error('Error fetching blogs:', err);
+        setError('Failed to load blogs. Please try again later.');
+        setBlogs([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const categories = [
-    { id: "all", name: "All Posts", count: sampleBlogs.length },
-    { id: "technology", name: "Technology", count: 2 },
-    { id: "lifestyle", name: "Lifestyle", count: 1 },
-    { id: "education", name: "Education", count: 1 },
-    { id: "marketing", name: "Marketing", count: 1 },
-    { id: "sustainability", name: "Sustainability", count: 1 },
-  ];
+    fetchBlogs();
+  }, []);
+
+  // Generate categories dynamically from blogs with search-aware counts
+  const categories = useMemo(() => {
+    // Filter blogs based on search query for accurate counts
+    const searchText = debouncedQuery.toLowerCase();
+    const searchFilteredBlogs = blogs.filter(blog => {
+      if (!searchText) return true;
+      return (
+        blog.title?.toLowerCase().includes(searchText) ||
+        blog.summary?.toLowerCase().includes(searchText) ||
+        blog.content?.toLowerCase().includes(searchText) ||
+        (blog.tags && Array.isArray(blog.tags) && blog.tags.some((tag) =>
+          tag.toLowerCase().includes(searchText)
+        ))
+      );
+    });
+
+    const tagCounts = {};
+    searchFilteredBlogs.forEach(blog => {
+      if (blog.tags && Array.isArray(blog.tags)) {
+        blog.tags.forEach(tag => {
+          const tagLower = tag.toLowerCase();
+          tagCounts[tagLower] = (tagCounts[tagLower] || 0) + 1;
+        });
+      }
+    });
+
+    const categoryList = [
+      { id: "all", name: "All Posts", count: searchFilteredBlogs.length }
+    ];
+
+    // Add top categories (only show categories with at least 1 blog)
+    Object.entries(tagCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .forEach(([tag, count]) => {
+        if (count > 0) {
+          categoryList.push({
+            id: tag,
+            name: tag.charAt(0).toUpperCase() + tag.slice(1),
+            count
+          });
+        }
+      });
+
+    return categoryList;
+  }, [blogs, debouncedQuery]);
 
   const sortOptions = [
     { id: "recent", name: "Most Recent" },
@@ -174,55 +142,50 @@ const BlogPage = () => {
   }, [searchQuery, selectedCategory, viewMode, sortBy, navigate]);
 
   // Debounced search
-  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(searchQuery), 300);
     return () => clearTimeout(id);
   }, [searchQuery]);
 
-  // Simulated loading when filters/search change
-  useEffect(() => {
-    setIsLoading(true);
-    const id = setTimeout(() => setIsLoading(false), 350);
-    return () => clearTimeout(id);
-  }, [debouncedQuery, selectedCategory, sortBy, viewMode]);
-
   const filteredAndSortedBlogs = useMemo(() => {
-    const filtered = sampleBlogs.filter((blog) => {
-      const matchesSearch =
-        blog.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-        blog.excerpt.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-        blog.tags.some((tag) =>
-          tag.toLowerCase().includes(debouncedQuery.toLowerCase())
-        );
+    const filtered = blogs.filter((blog) => {
+      // Handle search query
+      const searchText = debouncedQuery.toLowerCase();
+      const matchesSearch = !searchText || 
+        blog.title?.toLowerCase().includes(searchText) ||
+        blog.summary?.toLowerCase().includes(searchText) ||
+        blog.content?.toLowerCase().includes(searchText) ||
+        (blog.tags && Array.isArray(blog.tags) && blog.tags.some((tag) =>
+          tag.toLowerCase().includes(searchText)
+        ));
 
+      // Handle category filter
       const matchesCategory =
         selectedCategory === "all" ||
-        blog.tags.some((tag) => tag.toLowerCase() === selectedCategory);
+        (blog.tags && Array.isArray(blog.tags) && blog.tags.some((tag) => tag.toLowerCase() === selectedCategory));
 
       return matchesSearch && matchesCategory;
     });
 
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === "recent") {
-        return new Date(b.publishedAt) - new Date(a.publishedAt);
+        return new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt);
       }
       if (sortBy === "popular") {
         return (
-          b.likes +
-          b.comments +
+          (b.likes || 0) +
           (b.bookmarks || 0) -
-          (a.likes + a.comments + (a.bookmarks || 0))
+          ((a.likes || 0) + (a.bookmarks || 0))
         );
       }
       if (sortBy === "readtime") {
-        return a.readTime - b.readTime;
+        return (a.readingTime || 0) - (b.readingTime || 0);
       }
       return 0;
     });
 
     return sorted;
-  }, [sampleBlogs, debouncedQuery, selectedCategory, sortBy]);
+  }, [blogs, debouncedQuery, selectedCategory, sortBy]);
 
   const clearAllFilters = () => {
     setSearchQuery("");
@@ -521,7 +484,7 @@ const BlogPage = () => {
           </span>{" "}
           of{" "}
           <span className="font-semibold text-text-primary">
-            {sampleBlogs.length}
+            {blogs.length}
           </span>{" "}
           posts
         </div>
@@ -529,6 +492,28 @@ const BlogPage = () => {
           Updated {new Date().toLocaleDateString()}
         </div>
       </div>
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="text-center py-12 sm:py-16">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
+            <X className="w-8 h-8 sm:w-10 sm:h-10 text-red-600" />
+          </div>
+          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary mb-2">
+            Error Loading Blogs
+          </h3>
+          <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto px-4">
+            {error}
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -546,7 +531,7 @@ const BlogPage = () => {
       )}
 
       {/* Blog Grid */}
-      {!isLoading && filteredAndSortedBlogs.length > 0 && (
+      {!isLoading && !error && filteredAndSortedBlogs.length > 0 && (
         <div
           id="blog-grid"
           className={`grid gap-4 sm:gap-6 ${
@@ -556,13 +541,13 @@ const BlogPage = () => {
           }`}
         >
           {filteredAndSortedBlogs.map((blog, index) => (
-            <BlogCard key={blog.id} blog={blog} viewMode={viewMode} />
+            <BlogCard key={blog._id || blog.id || index} blog={blog} viewMode={viewMode} />
           ))}
         </div>
       )}
 
       {/* Empty State */}
-      {!isLoading && filteredAndSortedBlogs.length === 0 && (
+      {!isLoading && !error && filteredAndSortedBlogs.length === 0 && (
         <div className="text-center py-12 sm:py-16">
           <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
             <Search className="w-8 h-8 sm:w-10 sm:h-10 text-primary-600" />

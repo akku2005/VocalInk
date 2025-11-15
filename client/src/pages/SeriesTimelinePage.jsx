@@ -30,149 +30,42 @@ import {
   Bookmark,
   MoreHorizontal,
 } from "lucide-react";
+import seriesService from "../services/seriesService";
+
+const stripHtml = (value) => {
+  if (typeof value !== "string") return value;
+  const text = value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return text;
+};
 
 const SeriesTimelinePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activePost, setActivePost] = useState(null);
+  const [error, setError] = useState(null);
+  const [menuEpisodeId, setMenuEpisodeId] = useState(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setSeries({
-        id: id,
-        title: "AI in Content Creation",
-        description:
-          "A comprehensive series exploring how artificial intelligence is transforming the content creation landscape, from writing assistants to automated optimization tools.",
-        author: {
-          name: "Sarah Johnson",
-          avatar:
-            "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=80&h=80&fit=crop&crop=face",
-          username: "sarahjohnson",
-        },
-        coverImage:
-          "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=400&fit=crop",
-        status: "ongoing", // ongoing, completed, paused
-        totalPosts: 8,
-        publishedPosts: 6,
-        totalViews: 45600,
-        totalLikes: 3450,
-        totalComments: 890,
-        startedAt: "2023-11-01",
-        lastUpdated: "2024-01-15",
-        tags: ["AI", "Content Creation", "Technology", "Writing"],
-        progress: 75,
-        posts: [
-          {
-            id: 1,
-            title: "Introduction to AI Writing Tools",
-            excerpt:
-              "An overview of the current landscape of AI writing assistants and their capabilities.",
-            status: "published",
-            publishedAt: "2023-11-01",
-            readTime: 5,
-            views: 12340,
-            likes: 890,
-            comments: 67,
-            featured: true,
-          },
-          {
-            id: 2,
-            title: "GPT-4 and Advanced Language Models",
-            excerpt:
-              "Deep dive into GPT-4 and other advanced language models for content creation.",
-            status: "published",
-            publishedAt: "2023-11-08",
-            readTime: 8,
-            views: 9876,
-            likes: 756,
-            comments: 45,
-            featured: false,
-          },
-          {
-            id: 3,
-            title: "AI-Powered Content Optimization",
-            excerpt:
-              "How AI tools can optimize your content for better engagement and SEO performance.",
-            status: "published",
-            publishedAt: "2023-11-15",
-            readTime: 7,
-            views: 8765,
-            likes: 634,
-            comments: 38,
-            featured: false,
-          },
-          {
-            id: 4,
-            title: "Automated Content Distribution",
-            excerpt:
-              "Strategies for using AI to automate content distribution across multiple platforms.",
-            status: "published",
-            publishedAt: "2023-11-22",
-            readTime: 6,
-            views: 7654,
-            likes: 523,
-            comments: 29,
-            featured: false,
-          },
-          {
-            id: 5,
-            title: "AI Ethics in Content Creation",
-            excerpt:
-              "Important considerations about ethics and responsible use of AI in content creation.",
-            status: "published",
-            publishedAt: "2023-11-29",
-            readTime: 9,
-            views: 6543,
-            likes: 445,
-            comments: 31,
-            featured: false,
-          },
-          {
-            id: 6,
-            title: "Building Your AI Content Workflow",
-            excerpt:
-              "Practical guide to integrating AI tools into your existing content creation workflow.",
-            status: "published",
-            publishedAt: "2023-12-06",
-            readTime: 10,
-            views: 5432,
-            likes: 387,
-            comments: 25,
-            featured: false,
-          },
-          {
-            id: 7,
-            title: "The Future of AI in Content Creation",
-            excerpt:
-              "Predictions and insights about the future of AI-powered content creation.",
-            status: "draft",
-            publishedAt: null,
-            readTime: 8,
-            views: 0,
-            likes: 0,
-            comments: 0,
-            featured: false,
-          },
-          {
-            id: 8,
-            title: "Case Studies and Success Stories",
-            excerpt:
-              "Real-world examples of successful AI-powered content creation strategies.",
-            status: "planned",
-            publishedAt: null,
-            readTime: 12,
-            views: 0,
-            likes: 0,
-            comments: 0,
-            featured: false,
-          },
-        ],
-      });
-      setLoading(false);
-    }, 1000);
+    const fetchSeries = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await seriesService.getSeriesById(id);
+        setSeries(data);
+      } catch (err) {
+        console.error('Error fetching series:', err);
+        setError(err.message || 'Failed to load series');
+        setSeries(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchSeries();
+    }
   }, [id]);
 
   if (loading) {
@@ -187,6 +80,54 @@ const SeriesTimelinePage = () => {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  const authorName =
+    series.authorId?.displayName ||
+    [series.authorId?.firstName, series.authorId?.lastName].filter(Boolean).join(" ") ||
+    series.authorId?.username ||
+    series.authorId?.name ||
+    series.author?.name ||
+    "Unknown Author";
+
+  const authorUsername =
+    series.authorId?.username || series.author?.username || "unknown";
+
+  const authorAvatar =
+    series.authorId?.profilePicture || series.author?.avatar || series.authorId?.avatar;
+
+  const episodes = series.episodes || [];
+
+  const getEpisodeField = (episode, field) => {
+    if (episode[field] !== undefined && episode[field] !== null) return episode[field];
+    if (episode.episodeId && episode.episodeId[field] !== undefined) {
+      return episode.episodeId[field];
+    }
+    return undefined;
+  };
+
+  const publishedEpisodesCount = episodes.filter((episode) => {
+    const status = getEpisodeField(episode, "status") || "draft";
+    return status === "published" || status === "active";
+  }).length;
+
+  const totalEpisodesCount = episodes.length || 1;
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 text-center">
+        <h2 className="text-2xl font-bold text-text-primary mb-2">
+          Error loading series
+        </h2>
+        <p className="text-text-secondary mb-4">
+          {error}
+        </p>
+        <Button onClick={() => navigate("/series")}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Series
+        </Button>
       </div>
     );
   }
@@ -226,11 +167,37 @@ const SeriesTimelinePage = () => {
       case "published":
         return CheckCircle;
       case "draft":
-        return Edit;
       case "planned":
         return Clock;
       default:
         return Clock;
+    }
+  };
+
+  const toggleEpisodeMenu = (episodeId) => {
+    setMenuEpisodeId((prev) => (prev === episodeId ? null : episodeId));
+  };
+
+  const handleRemoveEpisode = async (episodeId) => {
+    if (!episodeId || !series?._id) return;
+    if (!window.confirm("Remove this post from the series?")) return;
+
+    try {
+      setIsRemoving(true);
+      await seriesService.removeEpisode(series._id, episodeId);
+      setSeries((prev) => ({
+        ...prev,
+        episodes: prev.episodes.filter((episode) => {
+          const currentId = episode.episodeId?._id || episode.episodeId || episode._id || episode.id;
+          return currentId?.toString() !== episodeId.toString();
+        })
+      }));
+      setMenuEpisodeId(null);
+    } catch (err) {
+      console.error("Failed to remove episode", err);
+      alert(err.message || "Failed to remove episode. Please try again.");
+    } finally {
+      setIsRemoving(false);
     }
   };
 
@@ -249,16 +216,18 @@ const SeriesTimelinePage = () => {
 
         <div className="absolute bottom-6 left-6 right-6">
           <div className="flex items-center gap-4 mb-4">
-            <img
-              src={series.author.avatar}
-              alt={series.author.name}
-              className="w-12 h-12 rounded-full border-2 border-white"
-            />
+            {authorAvatar && (
+              <img
+                src={authorAvatar}
+                alt={authorName}
+                className="w-12 h-12 rounded-full border-2 border-white"
+              />
+            )}
             <div>
               <h1 className="text-3xl font-bold text-white mb-1">
                 {series.title}
               </h1>
-              <p className="text-white/90">by {series.author.name}</p>
+              <p className="text-white/90">by {authorName}</p>
             </div>
           </div>
 
@@ -266,22 +235,22 @@ const SeriesTimelinePage = () => {
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" />
               <span>
-                {series.publishedPosts} of {series.totalPosts} posts
+                {series.episodes?.length || 0} posts
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
-              <span>{series.totalViews.toLocaleString()} views</span>
+              <span>{(series.analytics?.totalViews || 0).toLocaleString()} views</span>
             </div>
             <div className="flex items-center gap-2">
               <Heart className="w-4 h-4" />
-              <span>{series.totalLikes.toLocaleString()} likes</span>
+              <span>{(series.analytics?.likes || 0).toLocaleString()} likes</span>
             </div>
             <Badge
               variant="outline"
               className="bg-white/20 text-white border-white/30"
             >
-              {series.status}
+              {series.status || 'ongoing'}
             </Badge>
           </div>
         </div>
@@ -308,7 +277,7 @@ const SeriesTimelinePage = () => {
               </p>
 
               <div className="flex flex-wrap gap-2 mb-6">
-                {series.tags.map((tag) => (
+                {series.tags?.map((tag) => (
                   <Badge key={tag} variant="outline">
                     {tag}
                   </Badge>
@@ -319,25 +288,25 @@ const SeriesTimelinePage = () => {
                 <div>
                   <div className="text-text-secondary">Started</div>
                   <div className="font-medium text-text-primary">
-                    {new Date(series.startedAt).toLocaleDateString()}
+                    {series.createdAt ? new Date(series.createdAt).toLocaleDateString() : 'N/A'}
                   </div>
                 </div>
                 <div>
                   <div className="text-text-secondary">Last Updated</div>
                   <div className="font-medium text-text-primary">
-                    {new Date(series.lastUpdated).toLocaleDateString()}
+                    {series.updatedAt ? new Date(series.updatedAt).toLocaleDateString() : 'N/A'}
                   </div>
                 </div>
                 <div>
                   <div className="text-text-secondary">Progress</div>
                   <div className="font-medium text-text-primary">
-                    {series.progress}%
+                    {Math.round((publishedEpisodesCount / totalEpisodesCount) * 100)}%
                   </div>
                 </div>
                 <div>
                   <div className="text-text-secondary">Comments</div>
                   <div className="font-medium text-text-primary">
-                    {series.totalComments}
+                    {series.analytics?.comments || 0}
                   </div>
                 </div>
               </div>
@@ -356,37 +325,45 @@ const SeriesTimelinePage = () => {
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary-500 mb-2">
-                    {series.progress}%
-                  </div>
-                  <div className="text-sm text-text-secondary">
-                    {series.publishedPosts} of {series.totalPosts} posts
-                    published
-                  </div>
-                </div>
+                {(() => {
+                  const publishedCount = series.episodes?.filter(e => e.episodeId?.status === 'published').length || 0;
+                  const totalCount = series.episodes?.length || 1;
+                  const progress = Math.round((publishedCount / totalCount) * 100);
+                  return (
+                    <>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-primary-500 mb-2">
+                          {progress}%
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {publishedCount} of {totalCount} posts published
+                        </div>
+                      </div>
 
-                <div className="w-full bg-secondary-100 rounded-full h-3">
-                  <div
-                    className="bg-primary-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${series.progress}%` }}
-                  ></div>
-                </div>
+                      <div className="w-full bg-secondary-100 rounded-full h-3">
+                        <div
+                          className="bg-primary-500 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="text-center p-3 bg-success/10 rounded-lg">
-                    <div className="text-success font-bold">
-                      {series.publishedPosts}
-                    </div>
-                    <div className="text-text-secondary">Published</div>
-                  </div>
-                  <div className="text-center p-3 bg-warning/10 rounded-lg">
-                    <div className="text-warning font-bold">
-                      {series.totalPosts - series.publishedPosts}
-                    </div>
-                    <div className="text-text-secondary">Remaining</div>
-                  </div>
-                </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="text-center p-3 bg-success/10 rounded-lg">
+                          <div className="text-success font-bold">
+                            {publishedCount}
+                          </div>
+                          <div className="text-text-secondary">Published</div>
+                        </div>
+                        <div className="text-center p-3 bg-warning/10 rounded-lg">
+                          <div className="text-warning font-bold">
+                            {totalCount - publishedCount}
+                          </div>
+                          <div className="text-text-secondary">Remaining</div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -403,13 +380,13 @@ const SeriesTimelinePage = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">Total Views</span>
                 <span className="font-medium text-text-primary">
-                  {series.totalViews.toLocaleString()}
+                  {(series.analytics?.totalViews || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">Total Likes</span>
                 <span className="font-medium text-text-primary">
-                  {series.totalLikes.toLocaleString()}
+                  {(series.analytics?.likes || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -417,7 +394,7 @@ const SeriesTimelinePage = () => {
                   Total Comments
                 </span>
                 <span className="font-medium text-text-primary">
-                  {series.totalComments}
+                  {series.analytics?.comments || 0}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -439,27 +416,31 @@ const SeriesTimelinePage = () => {
             </CardHeader>
             <CardContent className="p-6">
               <div className="flex items-center gap-3 mb-4">
-                <img
-                  src={series.author.avatar}
-                  alt={series.author.name}
-                  className="w-12 h-12 rounded-full"
-                />
+                {authorAvatar && (
+                  <img
+                    src={authorAvatar}
+                    alt={authorName}
+                    className="w-12 h-12 rounded-full"
+                  />
+                )}
                 <div>
                   <div className="font-medium text-text-primary">
-                    {series.author.name}
+                    {authorName}
                   </div>
                   <div className="text-sm text-text-secondary">
-                    @{series.author.username}
+                    @{authorUsername}
                   </div>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate(`/profile/${series.author.username}`)}
-              >
-                View Profile
-              </Button>
+              {authorUsername && authorUsername !== "unknown" && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate(`/profile/${authorUsername}`)}
+                >
+                  View Profile
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -476,11 +457,21 @@ const SeriesTimelinePage = () => {
         </div>
 
         <div className="space-y-6">
-          {series.posts.map((post, index) => {
-            const StatusIcon = getStatusIcon(post.status);
+          {(series.episodes || []).map((episode, index) => {
+            const episodeStatus = getEpisodeField(episode, "status") || episode.status || "draft";
+            const StatusIcon = getStatusIcon(episodeStatus);
+            const episodeTitle = getEpisodeField(episode, "title") || `Episode ${index + 1}`;
+            const rawEpisodeSummary = getEpisodeField(episode, "summary") || getEpisodeField(episode, "excerpt") || getEpisodeField(episode, "content");
+            const episodeSummary = stripHtml(rawEpisodeSummary);
+            const episodePublishedAt = getEpisodeField(episode, "publishedAt");
+            const episodeReadingTime = getEpisodeField(episode, "readingTime");
+            const episodeLikes = getEpisodeField(episode, "likes") || 0;
+            const episodeBookmarks = getEpisodeField(episode, "bookmarks");
+            const episodeId = episode.episodeId?._id || episode.episodeId || episode._id || episode.id;
+            const isMenuOpen = menuEpisodeId === episodeId;
             return (
               <Card
-                key={post.id}
+                key={episodeId || index}
                 className="hover:shadow-lg transition-all duration-300"
               >
                 <CardContent className="p-6">
@@ -489,16 +480,16 @@ const SeriesTimelinePage = () => {
                     <div className="flex flex-col items-center">
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          post.status === "published"
+                          episodeStatus === "published"
                             ? "bg-success text-white"
-                            : post.status === "draft"
+                            : episodeStatus === "draft"
                               ? "bg-warning text-white"
                               : "bg-secondary-200 text-text-secondary"
                         }`}
                       >
                         <StatusIcon className="w-4 h-4" />
                       </div>
-                      {index < series.posts.length - 1 && (
+                      {index < (episodes.length || 0) - 1 && (
                         <div className="w-0.5 h-16 bg-border mt-2"></div>
                       )}
                     </div>
@@ -509,9 +500,9 @@ const SeriesTimelinePage = () => {
                         <div>
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-semibold text-text-primary">
-                              {post.title}
+                              {episodeTitle}
                             </h3>
-                            {post.featured && (
+                            {getEpisodeField(episode, "featured") && (
                               <Badge
                                 variant="default"
                                 className="bg-warning text-white"
@@ -522,51 +513,53 @@ const SeriesTimelinePage = () => {
                             )}
                             <Badge
                               variant="outline"
-                              className={getStatusColor(post.status)}
+                              className={getStatusColor(episodeStatus)}
                             >
-                              {post.status}
+                              {episodeStatus}
                             </Badge>
                           </div>
-                          <p className="text-text-secondary leading-relaxed">
-                            {post.excerpt}
-                          </p>
+                          {episodeSummary && (
+                            <p className="text-text-secondary leading-relaxed">
+                              {episodeSummary}
+                            </p>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 text-sm text-text-secondary">
-                          {post.status === "published" && (
+                          {episodeStatus === "published" && (
                             <>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {new Date(
-                                  post.publishedAt
-                                ).toLocaleDateString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {post.readTime} min read
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Eye className="w-4 h-4" />
-                                {post.views.toLocaleString()}
-                              </span>
+                              {episodePublishedAt && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  {new Date(episodePublishedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {episodeReadingTime && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4" />
+                                  {episodeReadingTime} min read
+                                </span>
+                              )}
                               <span className="flex items-center gap-1">
                                 <Heart className="w-4 h-4" />
-                                {post.likes}
+                                {episodeLikes.toLocaleString()}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <MessageCircle className="w-4 h-4" />
-                                {post.comments}
-                              </span>
+                              {episodeBookmarks !== undefined && (
+                                <span className="flex items-center gap-1">
+                                  <Bookmark className="w-4 h-4" />
+                                  {(episodeBookmarks || 0).toLocaleString()}
+                                </span>
+                              )}
                             </>
                           )}
-                          {post.status === "draft" && (
+                          {episodeStatus === "draft" && (
                             <span className="text-warning">
                               Draft - Not published
                             </span>
                           )}
-                          {post.status === "planned" && (
+                          {episodeStatus === "planned" && (
                             <span className="text-text-secondary">
                               Planned for future
                             </span>
@@ -574,29 +567,70 @@ const SeriesTimelinePage = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {post.status === "published" && (
+                          {episodeStatus === "published" && episodeId && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => navigate(`/article/${post.id}`)}
+                              onClick={() => navigate(`/article/${episodeId}`)}
                             >
                               <ArrowRight className="w-4 h-4 mr-1" />
                               Read
                             </Button>
                           )}
-                          {post.status === "draft" && (
+                          {episodeStatus === "draft" && episodeId && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => navigate(`/edit-blog/${post.id}`)}
+                              onClick={() => navigate(`/edit-blog/${episodeId}`)}
                             >
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
                             </Button>
                           )}
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
+                          <div className="relative">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleEpisodeMenu(episodeId)}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                            {isMenuOpen && (
+                              <div className="absolute right-0 mt-2 w-44 rounded-md border border-border bg-surface shadow-lg z-10">
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-surface/80"
+                                  onClick={() => {
+                                    setMenuEpisodeId(null);
+                                    if (episodeStatus === "published" && episodeId) {
+                                      navigate(`/article/${episodeId}`);
+                                    }
+                                  }}
+                                  disabled={!episodeId}
+                                >
+                                  View post
+                                </button>
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-surface/80"
+                                  onClick={() => {
+                                    setMenuEpisodeId(null);
+                                    if (episodeId) {
+                                      navigate(`/edit-blog/${episodeId}`);
+                                    }
+                                  }}
+                                  disabled={!episodeId}
+                                >
+                                  Edit post
+                                </button>
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm text-error hover:bg-error/10 disabled:opacity-60"
+                                  onClick={() => handleRemoveEpisode(episodeId)}
+                                  disabled={isRemoving}
+                                >
+                                  Remove from series
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

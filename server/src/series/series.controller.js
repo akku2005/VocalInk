@@ -138,8 +138,8 @@ exports.getSeriesById = async (req, res, next) => {
     const { includeProgress } = req.query;
 
     const series = await Series.findById(id)
-      .populate('authorId', 'name email profilePicture bio')
-      .populate('collaborators.userId', 'name email profilePicture')
+      .populate('authorId', 'firstName lastName displayName username email profilePicture bio')
+      .populate('collaborators.userId', 'firstName lastName displayName username email profilePicture')
       .populate({
         path: 'episodes.episodeId',
         select: 'title content summary coverImage status publishedAt likes bookmarks'

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import {
   Card,
@@ -9,15 +9,70 @@ import {
 } from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { TrendingUp, Users, BookOpen, Zap, ArrowRight } from "lucide-react";
+import blogService from "../services/blogService";
+import statsService from "../services/statsService";
+import { getCleanExcerpt } from "../utils/textUtils";
 
 const Home = () => {
   const { isAuthenticated } = useAuth();
-  const [stats] = useState({
-    totalBlogs: 1250,
-    totalUsers: 850,
-    totalSeries: 120,
-    aiGenerations: 3400,
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalBlogs: 0,
+    totalUsers: 0,
+    totalSeries: 0,
+    aiGenerations: 0,
+    growth: {
+      blogs: 0,
+      users: 0,
+      series: 0,
+      ai: 0
+    }
   });
+  const [featuredBlogs, setFeaturedBlogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch all data at once
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch both stats and blogs in parallel
+        const [statsData, blogsData] = await Promise.all([
+          statsService.getPlatformStats().catch(err => {
+            console.error('Error fetching stats:', err);
+            return {
+              totalBlogs: 0,
+              totalUsers: 0,
+              totalSeries: 0,
+              aiGenerations: 0,
+              growth: { blogs: 0, users: 0, series: 0, ai: 0 }
+            };
+          }),
+          blogService.getBlogs({ 
+            status: 'published',
+            limit: 6,
+            sort: 'createdAt',
+            order: 'desc'
+          }).catch(err => {
+            console.error('Error fetching blogs:', err);
+            return [];
+          })
+        ]);
+
+        // Update state with fetched data
+        setStats(statsData);
+        setFeaturedBlogs(blogsData || []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        // Only show content after everything is loaded
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -90,12 +145,21 @@ const Home = () => {
             <BookOpen className="h-4 w-4 text-text-secondary group-hover:text-primary-500 transition-colors" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {stats.totalBlogs.toLocaleString()}
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              +12% from last month
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-8 bg-gray-300 rounded w-20 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-primary-500">
+                  {stats.totalBlogs.toLocaleString()}
+                </div>
+                <p className="text-xs text-text-secondary mt-1">
+                  {stats.growth?.blogs > 0 ? '+' : ''}{stats.growth?.blogs}% from last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -107,12 +171,21 @@ const Home = () => {
             <Users className="h-4 w-4 text-text-secondary group-hover:text-primary-500 transition-colors" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {stats.totalUsers.toLocaleString()}
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              +8% from last month
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-8 bg-gray-300 rounded w-20 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-primary-500">
+                  {stats.totalUsers.toLocaleString()}
+                </div>
+                <p className="text-xs text-text-secondary mt-1">
+                  {stats.growth?.users > 0 ? '+' : ''}{stats.growth?.users}% from last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -124,12 +197,21 @@ const Home = () => {
             <TrendingUp className="h-4 w-4 text-text-secondary group-hover:text-primary-500 transition-colors" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {stats.totalSeries.toLocaleString()}
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              +15% from last month
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-8 bg-gray-300 rounded w-20 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-primary-500">
+                  {stats.totalSeries.toLocaleString()}
+                </div>
+                <p className="text-xs text-text-secondary mt-1">
+                  {stats.growth?.series > 0 ? '+' : ''}{stats.growth?.series}% from last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -141,12 +223,21 @@ const Home = () => {
             <Zap className="h-4 w-4 text-text-secondary group-hover:text-primary-500 transition-colors" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {stats.aiGenerations.toLocaleString()}
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              +25% from last month
-            </p>
+            {isLoading ? (
+              <div className="animate-pulse">
+                <div className="h-8 bg-gray-300 rounded w-20 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-primary-500">
+                  {stats.aiGenerations.toLocaleString()}
+                </div>
+                <p className="text-xs text-text-secondary mt-1">
+                  {stats.growth?.ai > 0 ? '+' : ''}{stats.growth?.ai}% from last month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -173,38 +264,108 @@ const Home = () => {
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <Link key={item} to={`/article/${item}`}>
-              <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md ">
-                <div className="h-48 bg-gradient-to-br from-indigo-500 to-gray-500 rounded-t-lg mb-4"></div>
+          {isLoading ? (
+            // Loading skeletons
+            Array.from({ length: 6 }).map((_, index) => (
+              <Card key={index} className="border-0 shadow-md animate-pulse">
+                <div className="h-48 bg-gray-300 rounded-t-lg mb-4"></div>
                 <CardHeader className="pb-2">
-                  <CardTitle className="group-hover:text-primary-500 transition-colors font-medium text-lg">
-                    Sample Blog Post {item}
-                  </CardTitle>
-                  <p className="text-sm text-text-secondary leading-relaxed text-[var(text-color)]">
-                    Discover the future of content creation with AI-powered
-                    features and innovative storytelling techniques...
-                  </p>
+                  <div className="h-6 bg-gray-300 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-1"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between text-sm text-text-secondary">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium text-primary-600">
-                          JD
-                        </span>
-                      </div>
-                      <span>John Doe</span>
+                      <div className="w-6 h-6 bg-gray-300 rounded-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <span>5 min read</span>
-                      <span>2 days ago</span>
-                    </div>
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
                   </div>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
+            ))
+          ) : featuredBlogs.length > 0 ? (
+            // Real blogs
+            featuredBlogs.map((blog) => (
+              <Link key={blog._id} to={`/article/${blog._id}`}>
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md h-full flex flex-col">
+                  {blog.coverImage ? (
+                    <img 
+                      src={blog.coverImage} 
+                      alt={blog.title}
+                      className="h-48 w-full object-cover rounded-t-lg mb-4"
+                    />
+                  ) : (
+                    <div className="h-48 bg-gradient-to-br from-indigo-500 to-gray-500 rounded-t-lg mb-4"></div>
+                  )}
+                  <CardHeader className="pb-2 flex-grow">
+                    <CardTitle className="group-hover:text-primary-500 transition-colors font-medium text-lg line-clamp-2">
+                      {blog.title}
+                    </CardTitle>
+                    <p className="text-sm text-text-secondary leading-relaxed text-[var(text-color)] line-clamp-2">
+                      {getCleanExcerpt(blog, 150)}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="mt-auto">
+                    <div className="flex items-center justify-between text-sm text-text-secondary">
+                      <div 
+                        className={`flex items-center space-x-2 ${blog.author?._id ? 'cursor-pointer hover:opacity-80' : ''}`}
+                        onClick={(e) => {
+                          if (blog.author?._id) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/profile/${blog.author._id}`);
+                          }
+                        }}
+                      >
+                        {blog.author?.avatar ? (
+                          <img 
+                            src={blog.author.avatar} 
+                            alt={blog.author?.displayName || 'Author'}
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-primary-600">
+                              {blog.author ? (blog.author.displayName || blog.author.firstName || blog.author.username || 'A').charAt(0) : 'A'}
+                            </span>
+                          </div>
+                        )}
+                        <span className={`truncate max-w-[100px] ${blog.author?._id ? 'hover:underline' : ''}`}>
+                          {blog.author ? (
+                            blog.author.displayName || 
+                            (blog.author.firstName || blog.author.lastName ? 
+                              `${blog.author.firstName || ''} ${blog.author.lastName || ''}`.trim() : 
+                              blog.author.username || 
+                              blog.author.email?.split('@')[0] || 
+                              'Anonymous')
+                          ) : 'Anonymous'}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        {blog.readingTime && <span>{blog.readingTime} min read</span>}
+                        <span>{new Date(blog.publishedAt || blog.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))
+          ) : (
+            // No blogs found
+            <div className="col-span-full text-center py-12">
+              <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <p className="text-text-secondary">No featured blogs available yet.</p>
+              {isAuthenticated && (
+                <Link to="/create-blog">
+                  <Button className="mt-4 bg-indigo-500 hover:bg-indigo-600">
+                    Create the First Blog
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
         </div>
         <div className="text-center lg:hidden">
           <Link to="/blogs">

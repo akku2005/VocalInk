@@ -31,6 +31,7 @@ import {
   Camera,
   Upload
 } from "lucide-react";
+import { getCleanExcerpt } from "../utils/textUtils";
 
 const ProfilePage = () => {
   const { username, id } = useParams();
@@ -43,6 +44,8 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("posts");
   const [userBlogs, setUserBlogs] = useState([]);
   const [blogsLoading, setBlogsLoading] = useState(false);
+  const [userSeries, setUserSeries] = useState([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   
@@ -63,12 +66,7 @@ const ProfilePage = () => {
         let profileData;
         if (isOwnProfile) {
           // Get current user's profile
-          console.log('🔍 Fetching current user profile...');
           profileData = await userService.getMyProfile();
-          console.log('📊 Profile data received:', profileData);
-          console.log('🖼️ Avatar:', profileData.avatar);
-          console.log('🖼️ Profile Picture:', profileData.profilePicture);
-          console.log('🖼️ Cover Image:', profileData.coverImage);
         } else if (id) {
           // Get user profile by ID
           profileData = await userService.getUserProfile(id);
@@ -78,13 +76,6 @@ const ProfilePage = () => {
         }
         
         setProfile(profileData);
-        console.log('🔍 Profile loaded successfully:', {
-          name: profileData.name,
-          avatar: profileData.avatar,
-          profilePicture: profileData.profilePicture,
-          coverImage: profileData.coverImage,
-          hasAvatar: !!(profileData.avatar || profileData.profilePicture)
-        });
       } catch (err) {
         console.error('Error fetching profile:', err);
         setError(err.message || 'Failed to load profile');
@@ -113,6 +104,25 @@ const ProfilePage = () => {
     };
 
     fetchUserBlogs();
+  }, [targetUserId, activeTab]);
+
+  useEffect(() => {
+    const fetchUserSeries = async () => {
+      if (!targetUserId || activeTab !== 'series') return;
+      
+      try {
+        setSeriesLoading(true);
+        const series = await userService.getUserSeries(targetUserId);
+        setUserSeries(series || []);
+      } catch (err) {
+        console.error('Error fetching user series:', err);
+        setUserSeries([]);
+      } finally {
+        setSeriesLoading(false);
+      }
+    };
+
+    fetchUserSeries();
   }, [targetUserId, activeTab]);
 
   const handleFollow = async () => {
@@ -187,23 +197,17 @@ const ProfilePage = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('🔄 Starting avatar upload...', { fileName: file.name, fileSize: file.size });
-
     try {
       setUploadingAvatar(true);
       setError(null);
       
-      console.log('📸 Converting image to base64...');
       // Convert image to base64 with compression (same as settings page)
       const base64Image = await imageService.convertImageToBase64WithCompression(file);
-      console.log('✅ Image converted successfully, size:', base64Image.length);
       
-      console.log('🌐 Updating profile via API...');
       // Update profile with new avatar (direct API call)
       const updatedProfile = await settingsService.updateProfileSettings({
         avatar: base64Image
       });
-      console.log('✅ Profile updated via API:', updatedProfile);
 
       // Update local state
       setProfile(prev => ({
@@ -211,8 +215,6 @@ const ProfilePage = () => {
         avatar: base64Image,
         profilePicture: base64Image
       }));
-
-      console.log('✅ Avatar uploaded successfully');
     } catch (error) {
       console.error('❌ Error uploading avatar:', error);
       console.error('❌ Error details:', {
@@ -235,31 +237,23 @@ const ProfilePage = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('🔄 Starting cover image upload...', { fileName: file.name, fileSize: file.size });
-
     try {
       setUploadingCover(true);
       setError(null);
       
-      console.log('📸 Converting cover image to base64...');
       // Convert image to base64 with compression (same as settings page)
       const base64Image = await imageService.convertImageToBase64WithCompression(file);
-      console.log('✅ Cover image converted successfully, size:', base64Image.length);
       
-      console.log('🌐 Updating profile with cover image via API...');
       // Update profile with new cover image (direct API call)
       const updatedProfile = await settingsService.updateProfileSettings({
         coverImage: base64Image
       });
-      console.log('✅ Profile updated with cover image via API:', updatedProfile);
 
       // Update local state
       setProfile(prev => ({
         ...prev,
         coverImage: base64Image
       }));
-
-      console.log('✅ Cover image uploaded successfully');
     } catch (error) {
       console.error('❌ Error uploading cover image:', error);
       console.error('❌ Cover image error details:', {
@@ -432,12 +426,6 @@ const ProfilePage = () => {
             {(() => {
               const shouldShowFallback = (!profile.avatar && !profile.profilePicture) || 
                                         (profile.avatar === '' && profile.profilePicture === '');
-              console.log('🔍 Fallback check:', {
-                avatar: profile.avatar,
-                profilePicture: profile.profilePicture,
-                shouldShowFallback,
-                name: profile.name
-              });
               return shouldShowFallback ? (
                 <div className={`w-full h-full flex items-center justify-center text-white font-bold text-5xl profile-fallback border-2 shadow-lg ${getAvatarBgColor(profile.firstName || profile.lastName || profile.displayName || profile.name || 'U')}`}>
                   {getInitials(profile.firstName, profile.lastName, profile.displayName, profile.name)}
@@ -676,7 +664,7 @@ const ProfilePage = () => {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="text-lg font-semibold text-text-primary mb-2">{post.title}</h3>
-                          <p className="text-text-secondary mb-3">{post.excerpt || post.content?.substring(0, 150) + '...'}</p>
+                          <p className="text-text-secondary mb-3">{getCleanExcerpt(post, 150)}</p>
                         </div>
                         <div className="text-sm text-text-secondary">
                           {formatDate(post.publishedAt || post.createdAt)}
@@ -717,26 +705,112 @@ const ProfilePage = () => {
         )}
 
         {activeTab === "series" && (
-          <div className="text-center py-12">
-            <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-text-primary mb-2">
-              No series yet
-            </h3>
-            <p className="text-text-secondary">
-              Start creating your first blog series!
-            </p>
+          <div className="space-y-6">
+            {seriesLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-text-secondary">Loading series...</p>
+              </div>
+            ) : userSeries.length > 0 ? (
+              <div className="grid gap-6">
+                {userSeries.map((series) => (
+                  <Card key={series._id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary mb-2">{series.title}</h3>
+                          <p className="text-text-secondary mb-3">{series.description?.substring(0, 150)}...</p>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {series.episodes?.length || 0} episodes
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-text-secondary">
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-4 h-4" />
+                            {series.analytics?.totalViews?.toLocaleString() || 0} views
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-4 h-4" />
+                            {series.analytics?.likes?.toLocaleString() || 0}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(series.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  No series yet
+                </h3>
+                <p className="text-text-secondary">
+                  Start creating your first blog series!
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === "likes" && (
-          <div className="text-center py-12">
-            <Heart className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-text-primary mb-2">
-              No liked posts
-            </h3>
-            <p className="text-text-secondary">
-              Posts you like will appear here.
-            </p>
+          <div className="space-y-6">
+            {blogsLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-text-secondary">Loading liked posts...</p>
+              </div>
+            ) : userBlogs.length > 0 ? (
+              <div className="grid gap-6">
+                {userBlogs.filter(blog => blog.isLiked).map((post) => (
+                  <Card key={post._id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary mb-2">{post.title}</h3>
+                          <p className="text-text-secondary mb-3">{post.summary?.substring(0, 150)}...</p>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {formatDate(post.publishedAt || post.createdAt)}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-text-secondary">
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="w-4 h-4" />
+                            {post.readTime || Math.ceil((post.content?.length || 0) / 200)} min read
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-4 h-4" />
+                            {post.likes?.length || 0}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1">
+                          <User className="w-4 h-4" />
+                          {post.views?.toLocaleString() || 0} views
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Heart className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  No liked posts
+                </h3>
+                <p className="text-text-secondary">
+                  Posts you like will appear here.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

@@ -21,7 +21,7 @@ const blogSchema = new mongoose.Schema(
     },
     mood: { 
       type: String, 
-      enum: ['Motivational', 'Thoughtful', 'Educational', 'Other'],
+      enum: ['Motivational', 'Thoughtful', 'Educational', 'Humorous', 'Inspirational', 'Technical', 'Other'],
       default: 'Other'
     },
     language: { type: String, default: 'en' },
@@ -54,6 +54,7 @@ const blogSchema = new mongoose.Schema(
     bookmarks: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     bookmarkedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    commentCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

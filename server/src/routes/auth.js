@@ -387,12 +387,8 @@ router.post(
   authController.resetPassword
 );
 
-router.post(
-  '/change-password', 
-  protect, 
-  validateJoi(changePasswordSchema),
-  authController.changePassword
-);
+// Note: Password change moved to /settings/change-password for consistency
+// Use settings endpoint instead: PATCH /settings/change-password
 
 router.post('/logout', protect, authController.logout);
 router.post('/logout-all', protect, authController.logoutAll);

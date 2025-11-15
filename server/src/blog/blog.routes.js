@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, optionalAuth } = require('../middleware/auth');
 const blogController = require('./blog.controller');
 const { apiLimiter } = require('../middleware/rateLimiter');
 const { 
@@ -21,15 +21,18 @@ const {
 
 // Public routes
 router.get('/tag',blogController.getBlogs);
-router.get('/getBlogs',  blogController.getallBlogs);
-router.get('/slug/:slug',  blogController.getBlogBySlug);
-router.get('/:id', blogController.getBlogById);
+router.get('/getBlogs', optionalAuth, blogController.getallBlogs);
+router.get('/slug/:slug', optionalAuth, blogController.getBlogBySlug);
+router.get('/:id', optionalAuth, blogController.getBlogById);
+
+// Admin utility routes
+router.post('/admin/fix-authors', protect, blogController.fixBlogAuthors);
 
 // Protected routes
 router.post(
   '/addBlog',
-   protect,
-  //validateCreateBlog,
+  protect,
+  validateCreateBlog, // FIXED: Uncommented validation middleware
   blogController.createBlog,
   // awardBlogCreationXP
 );
@@ -103,6 +106,21 @@ router.post(
   [param('id').isMongoId(), body('content').notEmpty()],
   validateBlogId[validateBlogId.length - 1],
   blogController.addBlogComment
+);
+
+// Comment like/unlike endpoints
+router.post(
+  '/comments/:id/like',
+  protect,
+  [param('id').isMongoId()],
+  blogController.likeComment
+);
+
+router.delete(
+  '/comments/:id',
+  protect,
+  [param('id').isMongoId()],
+  blogController.deleteComment
 );
 
 module.exports = router;

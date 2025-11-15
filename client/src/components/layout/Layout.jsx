@@ -4,6 +4,8 @@ import Sidebar from './Sidebar';
 import Breadcrumb from './Breadcrumb';
 import SkipLink from '../ui/SkipLink';
 import { useState, useEffect } from 'react';
+import { AudioProvider } from '../../context/AudioContext';
+import GlobalAudioPlayer from '../audio/GlobalAudioPlayer';
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -23,6 +25,7 @@ const Layout = () => {
   };
 
   return (
+    <AudioProvider>
     <div className="layout-container bg-background text-text-primary theme-transition">
       <SkipLink />
       <Header 
@@ -52,8 +55,10 @@ const Layout = () => {
           <Outlet />
         </div>
       </main>
+      <GlobalAudioPlayer />
     </div>
+    </AudioProvider>
   );
 };
 
-export default Layout; 
+export default Layout;
