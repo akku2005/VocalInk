@@ -4,6 +4,7 @@ const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
+  const hasUnread = unreadCount > 0;
 
   // Update unread count
   const updateUnreadCount = useCallback((count) => {
@@ -22,6 +23,7 @@ export const NotificationProvider = ({ children }) => {
 
   const value = {
     unreadCount,
+    hasUnread,
     updateUnreadCount,
     decrementUnreadCount,
     resetUnreadCount,

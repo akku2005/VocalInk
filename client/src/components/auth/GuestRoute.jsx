@@ -1,6 +1,8 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { sessionStorageHelper } from '../../utils/storage';
+import { storage } from '../../utils/storage';
 
 const GuestRoute = ({ children, redirectTo = '/dashboard' }) => {
   const { loading, isAuthenticated } = useAuth();
@@ -17,9 +19,12 @@ const GuestRoute = ({ children, redirectTo = '/dashboard' }) => {
   // If user is authenticated, redirect to intended destination or dashboard
   if (isAuthenticated) {
     // Check if there's a stored intended destination from localStorage
-    const intendedRoute = localStorage.getItem('intendedRoute');
+    if (!sessionStorageHelper.available) {
+      return <Navigate to={redirectTo} replace />;
+    }
+    const intendedRoute = sessionStorageHelper.getItem('intendedRoute');
     if (intendedRoute && intendedRoute !== '/login' && intendedRoute !== '/register') {
-      localStorage.removeItem('intendedRoute');
+      sessionStorageHelper.removeItem('intendedRoute');
       return <Navigate to={intendedRoute} replace />;
     }
     return <Navigate to={redirectTo} replace />;

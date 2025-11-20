@@ -439,7 +439,6 @@ function sanitizeHtml(html) {
     .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '')
     .replace(/\s*javascript\s*:/gi, '')
     .replace(/\s*vbscript\s*:/gi, '')
-    .replace(/\s*data\s*:/gi, '')
     // Remove dangerous tags
     .replace(/<(iframe|object|embed|form|input|textarea|select|button)[^>]*>/gi, '')
     .replace(/<\/(iframe|object|embed|form|input|textarea|select|button)>/gi, '')
@@ -447,7 +446,9 @@ function sanitizeHtml(html) {
     .replace(/<(?!\/?(p|br|strong|em|u|h[1-6]|ul|ol|li|blockquote|code|pre|a|img|table|tr|td|th|thead|tbody|div|span))[^>]*>/gi, '')
     .replace(/<\/(?!p|br|strong|em|u|h[1-6]|ul|ol|li|blockquote|code|pre|a|img|table|tr|td|th|thead|tbody|div|span)[^>]*>/gi, '')
     // Remove dangerous attributes from allowed tags
-    .replace(/\s*(on\w+|javascript|vbscript|data)\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\s*(on\w+|javascript|vbscript)\s*=\s*["'][^"']*["']/gi, '')
+    // Disallow non-image data URIs in src/href
+    .replace(/(src|href)\s*=\s*(['"])\s*data:(?!image\/[a-zA-Z0-9+]+;base64)/gi, '$1=$2')
     .trim();
 }
 

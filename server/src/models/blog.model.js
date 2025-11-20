@@ -51,6 +51,8 @@ const blogSchema = new mongoose.Schema(
     
     // Engagement metrics
     likes: { type: Number, default: 0 },
+    views: { type: Number, default: 0 },
+    shares: { type: Number, default: 0 },
     bookmarks: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     bookmarkedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -67,6 +69,8 @@ blogSchema.index({ seriesId: 1 });
 blogSchema.index({ language: 1 });
 blogSchema.index({ sentiment: 1 });
 blogSchema.index({ likes: -1 });
+blogSchema.index({ views: -1 });
+blogSchema.index({ shares: -1 });
 blogSchema.index({ bookmarks: -1 });
 blogSchema.index({ readingTime: 1 });
 blogSchema.index({ seoScore: -1 });

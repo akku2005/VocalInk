@@ -9,7 +9,6 @@ VocalInk is an open-source voice-to-text and transcription platform...
 
 
 
-
 <img width="1536" height="1024" alt="Vocalink" src="https://github.com/user-attachments/assets/f418f0a4-a3fb-4d92-a62f-ff5974513ad5" />
 
 

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const Modal = ({ isOpen, onClose, title, children, footer }) => {
+const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "lg" }) => {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose?.();
@@ -13,6 +13,17 @@ const Modal = ({ isOpen, onClose, title, children, footer }) => {
 
   if (!isOpen) return null;
 
+  const maxWidthClass = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+  }[maxWidth] || 'max-w-lg';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
@@ -21,7 +32,7 @@ const Modal = ({ isOpen, onClose, title, children, footer }) => {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-lg mx-4 rounded-xl border border-[var(--border-color)] shadow-lg" style={{ backgroundColor: 'rgb(var(--color-background))' }} role="dialog" aria-modal="true">
+      <div className={`relative w-full ${maxWidthClass} mx-4 rounded-xl border border-[var(--border-color)] shadow-lg`} style={{ backgroundColor: 'rgb(var(--color-background))' }} role="dialog" aria-modal="true">
         <div className="p-5 border-b border-[var(--border-color)]">
           <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
         </div>

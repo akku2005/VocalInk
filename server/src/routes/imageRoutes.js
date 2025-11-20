@@ -5,7 +5,8 @@ const {
   uploadAvatar, 
   uploadCoverImage, 
   removeAvatar, 
-  removeCoverImage 
+  removeCoverImage,
+  uploadGenericImage,
 } = require('../controllers/imageController');
 const { protect } = require('../middleware/auth');
 
@@ -19,5 +20,8 @@ router.delete('/avatar', removeAvatar);
 // Cover image routes
 router.post('/cover', upload.single('coverImage'), uploadCoverImage);
 router.delete('/cover', removeCoverImage);
+
+// Generic content image upload (Cloudinary)
+router.post('/upload', upload.single('file'), uploadGenericImage);
 
 module.exports = router;

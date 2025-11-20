@@ -6,18 +6,21 @@ import SkipLink from '../ui/SkipLink';
 import { useState, useEffect } from 'react';
 import { AudioProvider } from '../../context/AudioContext';
 import GlobalAudioPlayer from '../audio/GlobalAudioPlayer';
+import { storage } from '../../utils/storage';
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Initialize from localStorage on first render
-    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (!storage.available) return false;
+    const savedState = storage.getItem('sidebarCollapsed');
     return savedState !== null ? JSON.parse(savedState) : false;
   });
 
   // Save sidebar state to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
+    if (storage.available) {
+      storage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
+    }
   }, [sidebarCollapsed]);
 
   const toggleSidebar = () => {

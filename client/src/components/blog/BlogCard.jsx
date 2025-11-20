@@ -4,10 +4,11 @@ import EngagementButtons from "../engagement/EngagementButtons";
 import { Calendar, Clock, User, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getCleanExcerpt, formatDate as formatDateUtil } from "../../utils/textUtils";
+import { resolveAssetUrl } from "../../constants/apiConfig";
 
 const BlogCard = ({ blog, viewMode = "grid" }) => {
   const navigate = useNavigate();
-  
+
   const {
     title,
     author,
@@ -25,10 +26,10 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
 
   // Get clean excerpt using utility function
   const excerpt = getCleanExcerpt(blog, 150);
-  
+
   const readTime = readingTime || blog.readTime || 5;
   const blogId = _id || id;
-  
+
   // Extract author name properly
   let authorName = 'Anonymous';
   if (typeof author === 'string') {
@@ -44,14 +45,15 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
       authorName = author.email.split('@')[0];
     }
   }
-  
+
   const isBookmarked = blog.isBookmarked || false;
   const isLiked = blog.isLiked || false;
+  const coverSrc = resolveAssetUrl(blog.coverImage || blog.cover?.url || blog.coverImageUrl);
 
   const handleCommentClick = () => {
     // Navigate to the full article page where comments are displayed
     // Add a hash to scroll to comments section
-    navigate(`/article/${blogId}#comments`);
+    navigate(`/article/${blog.slug || blogId}#comments`);
   };
 
   const formatDate = (date) => {
@@ -60,13 +62,29 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
 
   if (viewMode === "list") {
     return (
-      <Card 
-        className="cursor-pointer group"
-        onClick={() => navigate(`/article/${blogId}`)}
+      <Card
+        className="cursor-pointer group overflow-hidden"
+        onClick={() => navigate(`/article/${blog.slug || blogId}`)}
       >
         <div className="flex flex-col lg:flex-row">
-          <div className="lg:w-80 aspect-video lg:aspect-square bg-gradient-to-br from-indigo-500 to-gray-500  flex items-center justify-center rounded-l-2xl">
-            <div className="text-3xl text-primary-500 opacity-30">📝</div>
+          <div className="lg:w-80 aspect-video lg:aspect-square relative flex-shrink-0 overflow-hidden rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none bg-gradient-to-br from-indigo-600/60 to-gray-600/60">
+            {coverSrc ? (
+              <img
+                src={coverSrc}
+                alt={title}
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = "/images/default-cover.png";
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-2xl font-semibold tracking-wide text-white/70">
+                BLOG
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/55 to-transparent" />
           </div>
 
           <div className="flex-1 flex flex-col">
@@ -137,13 +155,29 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
   }
 
   return (
-    <Card 
+    <Card
       className="cursor-pointer group overflow-hidden hover:shadow-lg transition-shadow duration-300 h-full flex flex-col"
-      onClick={() => navigate(`/article/${blogId}`)}
+      onClick={() => navigate(`/article/${blog.slug || blogId}`)}
     >
       {/* Image/Header */}
-      <div className="aspect-video bg-gradient-to-br from-indigo-400 to-gray-400 flex items-center justify-center relative flex-shrink-0">
-        <div className="text-4xl text-primary-500 opacity-30">📝</div>
+      <div className="aspect-video relative flex-shrink-0 overflow-hidden bg-gradient-to-br from-indigo-500/60 to-gray-500/60">
+        {coverSrc ? (
+          <img
+            src={coverSrc}
+            alt={title}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = "/images/default-cover.png";
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-4xl text-white/70 font-semibold tracking-wide">
+            BLOG
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
       </div>
 
       <CardHeader className="space-y-4 sm:space-y-3 flex-1 flex flex-col">

@@ -247,7 +247,7 @@ export default function Navbar() {
             >
               <LucideBell size={24} />
               {unreadCount > 0 && (
-                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full animate-pulse">
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-green-600 rounded-full animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}

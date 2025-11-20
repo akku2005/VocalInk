@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../../hooks/useAuth";
+import { useNotification } from "../context/NotificationContext";
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isAuthenticated } = useAuth();
+  const { hasUnread } = useNotification();
   const [searchQuery, setSearchQuery] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
@@ -180,7 +182,9 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                {hasUnread && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                )}
               </Link>
 
               {/* User Menu */}

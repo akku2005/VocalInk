@@ -12,6 +12,196 @@
         "name": "MIT",
         "url": "https://opensource.org/licenses/MIT"
       }
+},
+    "servers": [
+      {
+        "url": "http://localhost:5000/api",
+        "description": "Development server"
+      },
+      {
+        "url": "https://api.vocalink.com/api",
+        "description": "Production server"
+      }
+    ],
+    "security": [
+      { "bearerAuth": [] }
+    ],
+    "tags": [
+      {"name":"Authentication","description":"User authentication and authorization endpoints"},
+      {"name":"Users","description":"User profile management and social features"},
+      {"name":"Blogs","description":"Blog creation, management, and interaction"},
+      {"name":"Comments","description":"Comment system with inline comments and replies"},
+      {"name":"Series","description":"Blog series management and episodes"},
+      {"name":"Badges","description":"Gamification badge system"},
+      {"name":"Notifications","description":"User notification management"},
+      {"name":"Abuse Reports","description":"Content moderation and abuse reporting"},
+      {"name":"XP System","description":"Experience points and gamification"}
+    ],
+    "paths": {
+      "/notifications": {
+        "get": {
+          "tags": ["Notifications"],
+          "summary": "List notifications",
+          "description": "Returns paginated notifications for current user",
+          "parameters": [
+            { "name": "page", "in": "query", "schema": {"type": "integer", "default": 1} },
+            { "name": "limit", "in": "query", "schema": {"type": "integer", "default": 20} },
+            { "name": "type", "in": "query", "schema": {"type": "string"} },
+            { "name": "unreadOnly", "in": "query", "schema": {"type": "string", "enum": ["true","false"], "default": "false"} }
+          ],
+          "responses": {
+            "200": { "description": "OK" },
+            "401": { "description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "500": { "description": "Server Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/stats": {
+        "get": {
+          "tags": ["Notifications"],
+          "summary": "Notification stats",
+          "responses": {
+            "200": { "description": "OK" },
+            "401": { "description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "500": { "description": "Server Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/unread-count": {
+        "get": {
+          "tags": ["Notifications"],
+          "summary": "Unread count",
+          "responses": {
+            "200": { "description": "OK" },
+            "401": { "description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "500": { "description": "Server Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/push/subscribe": {
+        "post": {
+          "tags": ["Notifications"],
+          "summary": "Subscribe to web push",
+          "requestBody": { "required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["subscription"], "properties": {"subscription": {"type": "object"}}}}}},
+          "responses": {
+            "200": { "description": "Subscribed" },
+            "400": { "description": "Bad Request", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "401": { "description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/read-all": {
+        "patch": {
+          "tags": ["Notifications"],
+          "summary": "Mark all notifications read",
+          "responses": {
+            "200": { "description": "OK" },
+            "401": { "description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "500": { "description": "Server Error", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/{id}": {
+        "get": {
+          "tags": ["Notifications"],
+          "summary": "Get notification by ID",
+          "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}],
+          "responses": {
+            "200": { "description": "OK" },
+            "403": { "description": "Forbidden", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "404": { "description": "Not Found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/{notificationId}/read": {
+        "patch": {
+          "tags": ["Notifications"],
+          "summary": "Mark notification read",
+          "parameters": [{"name": "notificationId", "in": "path", "required": true, "schema": {"type": "string"}}],
+          "responses": {
+            "200": { "description": "OK" },
+            "403": { "description": "Forbidden", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "404": { "description": "Not Found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/{notificationId}/unread": {
+        "patch": {
+          "tags": ["Notifications"],
+          "summary": "Mark notification unread",
+          "parameters": [{"name": "notificationId", "in": "path", "required": true, "schema": {"type": "string"}}],
+          "responses": {
+            "200": { "description": "OK" },
+            "403": { "description": "Forbidden", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "404": { "description": "Not Found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/{notificationId}": {
+        "delete": {
+          "tags": ["Notifications"],
+          "summary": "Delete notification",
+          "parameters": [{"name": "notificationId", "in": "path", "required": true, "schema": {"type": "string"}}],
+          "responses": {
+            "200": { "description": "Deleted" },
+            "403": { "description": "Forbidden", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} },
+            "404": { "description": "Not Found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}} }
+          }
+        }
+      },
+      "/notifications/preferences": {
+        "get": {
+          "tags": ["Notifications"],
+          "summary": "Get notification preferences",
+          "responses": { "200": {"description": "OK"}, "401": {"description": "Unauthorized", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}} }
+        },
+        "put": {
+          "tags": ["Notifications"],
+          "summary": "Update notification preferences",
+          "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}},
+          "responses": { "200": {"description": "OK"}, "400": {"description": "Bad Request", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}} }
+        }
+      },
+
+      "/settings": {
+        "get": { "tags": ["Users"], "summary": "Get user settings", "responses": {"200": {"description": "OK"}} }
+      },
+      "/settings/profile": { "patch": { "tags": ["Users"], "summary": "Update profile", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}} } } },
+      "/settings/account": { "patch": { "tags": ["Users"], "summary": "Update account", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"} } } },
+      "/settings/privacy": { "patch": { "tags": ["Users"], "summary": "Update privacy", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"} } } },
+      "/settings/notifications": { "patch": { "tags": ["Users"], "summary": "Update notification settings", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"} } } },
+      "/settings/ai": { "patch": { "tags": ["Users"], "summary": "Update AI preferences", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"} } } },
+      "/settings/gamification": { "patch": { "tags": ["Users"], "summary": "Update gamification settings", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"} } } },
+      "/settings/appearance": { "patch": { "tags": ["Users"], "summary": "Update theme", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "properties": {"theme": {"type": "string", "enum": ["light","dark","system"]}}}}}}, "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}} } } },
+      "/settings/security": { "patch": { "tags": ["Users"], "summary": "Update security settings", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"} } } },
+      "/settings/sessions/history": { "delete": { "tags": ["Users"], "summary": "Clear login history", "responses": {"200": {"description": "OK"} } } },
+      "/settings/change-password": { "patch": { "tags": ["Users"], "summary": "Change password", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["currentPassword","newPassword"], "properties": {"currentPassword": {"type":"string"}, "newPassword": {"type":"string"}}}}}}, "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"} } } },
+      "/settings/sessions": { "get": { "tags": ["Users"], "summary": "List sessions", "responses": {"200": {"description": "OK"} } }, "delete": { "tags": ["Users"], "summary": "Revoke all sessions (except current)", "responses": {"200": {"description": "OK"} } } },
+      "/settings/sessions/{sessionId}": { "delete": { "tags": ["Users"], "summary": "Revoke session", "parameters": [{"name":"sessionId","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description":"OK"}, "404": {"description": "Not Found"}} } },
+      "/settings/export": { "get": { "tags": ["Users"], "summary": "Export user data", "responses": {"200": {"description": "OK"} } } },
+      "/settings/account": { "delete": { "tags": ["Users"], "summary": "Delete account", "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["password","confirmationText"], "properties": {"password": {"type":"string"}, "confirmationText": {"type":"string"}}}}}}, "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"} } } },
+
+      "/images/avatar": { "post": { "tags": ["Users"], "summary": "Upload avatar (Cloudinary)", "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"avatar": {"type": "string", "format": "binary"}}}}}}, "responses": {"200": {"description": "OK"}, "400": {"description":"Bad File"}} }, "delete": { "tags": ["Users"], "summary": "Remove avatar", "responses": {"200": {"description": "OK"}} } },
+      "/images/cover": { "post": { "tags": ["Users"], "summary": "Upload cover image (Cloudinary)", "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"coverImage": {"type": "string", "format": "binary"}}}}}}, "responses": {"200": {"description": "OK"}} }, "delete": { "tags": ["Users"], "summary": "Remove cover image", "responses": {"200": {"description": "OK"}} } },
+      "/images/upload": { "post": { "tags": ["Users"], "summary": "Generic image upload (Cloudinary)", "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}}}}, "responses": {"200": {"description": "OK"}, "400": {"description": "Bad File"}} } },
+
+      "/uploads/image": { "post": { "deprecated": true, "tags": ["Users"], "summary": "Legacy local image upload", "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}}}}, "responses": {"200": {"description": "OK"}} } },
+
+      "/blogs/{id}/summary": { "post": { "tags": ["Blogs"], "summary": "Regenerate summary", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object", "properties": {"maxLength": {"type":"integer"}, "style": {"type":"string"}}}}}}, "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}, "429": {"description": "Rate Limited"}} } },
+      "/blogs/{id}/publish": { "put": { "tags": ["Blogs"], "summary": "Publish blog", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}, "404": {"description": "Not Found"}} } },
+      "/blogs/{id}/tts": { "post": { "tags": ["Blogs"], "summary": "Generate TTS", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": {"required": false, "content": {"application/json": {"schema": {"type": "object"}}}}, "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}, "429": {"description": "Rate Limited"}} } },
+      "/blogs/{id}/translate": { "post": { "tags": ["Blogs"], "summary": "Translate blog", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["targetLang"], "properties": {"targetLang": {"type":"string"}}}}}}, "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}, "404": {"description": "Not Found"}} } },
+      "/blogs/{id}/like": { "post": { "tags": ["Blogs"], "summary": "Like/Unlike blog", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}} } },
+      "/blogs/{id}/bookmark": { "post": { "tags": ["Blogs"], "summary": "Bookmark/Unbookmark blog", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}} } },
+      "/blogs/{id}/comments": { "get": { "tags": ["Comments"], "summary": "List blog comments", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}} }, "post": { "tags": ["Comments"], "summary": "Add blog comment", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "required": ["content"], "properties": {"content": {"type":"string"}, "parentId": {"type":"string"}}}}}}, "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}} } },
+      "/blogs/comments/{id}/like": { "post": { "tags": ["Comments"], "summary": "Like/Unlike comment", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}} } },
+      "/blogs/comments/{id}": { "delete": { "tags": ["Comments"], "summary": "Delete comment", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}, "404": {"description": "Not Found"}} } },
+
+      "/series/{seriesId}/images/cover": { "post": { "tags": ["Series"], "summary": "Upload series cover", "parameters": [{"name":"seriesId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"coverImage": {"type": "string", "format": "binary"}}}}}}, "responses": {"200": {"description": "OK"}} } },
+      "/series/{seriesId}/images/banner": { "post": { "tags": ["Series"], "summary": "Upload series banner", "parameters": [{"name":"seriesId","in":"path","required":true,"schema":{"type":"string"}}], "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"type": "object", "properties": {"bannerImage": {"type": "string", "format": "binary"}}}}}}, "responses": {"200": {"description": "OK"}} } },
+      "/series/{seriesId}/images/cover": { "delete": { "tags": ["Series"], "summary": "Delete series cover", "parameters": [{"name":"seriesId","in":"path","required":true,"schema":{"type":"string"}}], "responses": {"200": {"description": "OK"}} } },
+      "/series/{id}/analytics": { "get": { "tags": ["Series"], "summary": "Series analytics", "parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}},{"name":"startDate","in":"query","schema":{"type":"string","format":"date-time"}},{"name":"endDate","in":"query","schema":{"type":"string","format":"date-time"}},{"name":"groupBy","in":"query","schema":{"type":"string","enum":["day","week","month"],"default":"day"}}], "responses": {"200": {"description": "OK"}} } }
+
     },
     "servers": [
       {
@@ -64,10 +254,6 @@
       {
         "name": "XP System",
         "description": "Experience points and gamification"
-      },
-      {
-        "name": "Admin",
-        "description": "Administrative functions and moderation"
       }
     ],
     "paths": {
@@ -5827,6 +6013,29 @@
             "statusCode": {
               "type": "integer",
               "description": "HTTP status code"
+            }
+          }
+        },
+        "ErrorResponse": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean", "example": false },
+            "message": { "type": "string", "example": "Validation failed" },
+            "statusCode": { "type": "integer", "example": 400 },
+            "code": { "type": "string", "example": "INVALID_JSON" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "path": { "type": "string" },
+            "method": { "type": "string" },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field": { "type": "string" },
+                  "message": { "type": "string" },
+                  "value": { }
+                }
+              }
             }
           }
         },

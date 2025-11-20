@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 import Button from '../ui/Button';
 import api from '../../services/api';
 import { useContext } from 'react';
@@ -17,6 +18,7 @@ import {
   ChevronDown,
   Mic2
 } from 'lucide-react';
+import { buildQuotaToastPayload } from '../../utils/quotaToast';
 
 const AudioPlayer = ({ 
   blogId, 
@@ -48,6 +50,7 @@ const AudioPlayer = ({
   
   const audioRef = useRef(null);
   const { isAuthenticated } = useAuth();
+  const { showInfo, showError } = useToast();
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -224,6 +227,17 @@ const AudioPlayer = ({
     }
   };
 
+  const handleQuotaToast = (usage, isError = false) => {
+    const payload = buildQuotaToastPayload({ usage, type: 'audio', isError });
+    if (!payload) return;
+    const show = isError ? showError : showInfo;
+    show(payload.message, {
+      title: payload.title,
+      countdownExpiresAt: payload.countdownExpiresAt,
+      duration: isError ? 6000 : 5000,
+    });
+  };
+
   const generateTTS = async () => {
     if (!isAuthenticated) return;
     setIsGenerating(true);
@@ -274,11 +288,17 @@ const AudioPlayer = ({
         
         setAudioUrl(finalUrl);
         if (onAudioGenerated) onAudioGenerated(finalUrl);
+        const usage = response?.data?.usage;
+        handleQuotaToast(usage);
       } else {
         setError(response?.data?.message || 'Failed to generate audio');
       }
     } catch (error) {
       console.error('Error generating TTS:', error);
+      const usage = error?.response?.data?.usage;
+      if (usage) {
+        handleQuotaToast(usage, error?.response?.status === 429);
+      }
       setError(error?.response?.data?.message || 'Failed to generate audio');
     } finally {
       setIsGenerating(false);

@@ -9,7 +9,7 @@ import {
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
-import SeriesCardSkeleton from "../components/skeletons/SeriesCardSkeleton";
+import SeriesPageSkeleton from "../components/skeletons/SeriesPageSkeleton";
 import {
   Search,
   Filter,
@@ -38,6 +38,7 @@ import {
 import DiscoverSeriesDropDown from "../components/ui/DiscoverSeriesDropdown";
 import seriesService from "../services/seriesService";
 import ErrorBoundary from "../components/error/ErrorBoundary.jsx";
+import { resolveAssetUrl } from "../constants/apiConfig";
 
 const SeriesPage = () => {
   const navigate = useNavigate();
@@ -266,15 +267,21 @@ const SeriesPage = () => {
   };
 
   const getDifficultyColor = (difficulty) => {
-    switch (difficulty) {
+    const level = (difficulty || "").toLowerCase();
+    const sharedBase =
+      "text-[var(--text-color)] border border-[var(--border-color)] transition-colors";
+
+    switch (level) {
       case "beginner":
-        return "bg-green-600 hover:bg-green-700 text-white ";
+        return `${sharedBase} bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)]`;
       case "intermediate":
-        return "bg-yellow-600 hover:bg-yellow-700 text-white ";
+        return `${sharedBase} bg-[var(--secondary-btn3)] hover:bg-[var(--secondary-btn-hover3)]`;
       case "advanced":
-        return "bg-red-600 text-white hover:bg-red-700 ";
+        return `${sharedBase} bg-transparent hover:bg-[var(--secondary-btn-hover3)]`;
+      case "expert":
+        return `${sharedBase} bg-[var(--secondary-btn)] hover:bg-[var(--secondary-btn-hover3)]`;
       default:
-        return "bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700";
+        return `${sharedBase} bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)]`;
     }
   };
 
@@ -307,6 +314,46 @@ const SeriesPage = () => {
     return Math.round((published / total) * 100);
   };
 
+  const getAuthorName = (seriesItem) => {
+    if (!seriesItem) return "Unknown";
+
+    const directCandidate =
+      seriesItem.authorName ||
+      seriesItem.authorDisplayName ||
+      seriesItem.authorFullName;
+    if (directCandidate) return directCandidate;
+
+    const author =
+      seriesItem.authorId ||
+      seriesItem.author ||
+      seriesItem.createdBy ||
+      seriesItem.owner;
+    if (!author) return "Unknown";
+
+    if (typeof author === "string") {
+      return directCandidate || "Unknown";
+    }
+
+    const nestedProfileName =
+      author.profile?.displayName ||
+      author.profile?.fullName ||
+      author.profile?.name;
+
+    const fullName = [author.firstName, author.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return (
+      author.displayName ||
+      nestedProfileName ||
+      author.name ||
+      fullName ||
+      author.username ||
+      "Unknown"
+    );
+  };
+
   // SeriesCard component with improved mobile design
   const SeriesCard = ({ series, viewMode }) => {
     const publishedEpisodes = getPublishedEpisodesCount(series.episodes || []);
@@ -327,10 +374,10 @@ const SeriesPage = () => {
         >
           <div className="flex flex-col lg:flex-row">
             {/* Cover Image */}
-            <div className="w-full lg:w-80 aspect-video lg:aspect-square relative overflow-hidden rounded-l-2xl bg-gradient-to-br from-indigo-400 to-gray-400">
+            <div className="w-full lg:w-80 aspect-video lg:aspect-square relative overflow-hidden rounded-l-2xl bg-[var(--secondary-btn2)] border border-[var(--border-color)]">
               {series.coverImage ? (
                 <img
-                  src={series.coverImage}
+                  src={resolveAssetUrl(series.coverImage)}
                   alt={series.title}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -344,7 +391,7 @@ const SeriesPage = () => {
               <div className="absolute top-3 left-3 flex flex-col gap-2">
                 <Badge
                   variant="outline"
-                  className="text-xs px-2 py-1 text-white border border-white backdrop-blur-sm"
+                  className="text-xs px-2 py-1 border border-[var(--border-color)] bg-[var(--secondary-btn)] text-[var(--text-color)] backdrop-blur-sm"
                 >
                   {getTemplateIcon(series.template)}
                   <span className="ml-1 capitalize hidden sm:inline">
@@ -368,7 +415,7 @@ const SeriesPage = () => {
                 <div className="absolute top-3 right-3">
                   <Badge
                     variant="warning"
-                    className="text-xs px-2 py-1 border border-[var(--border-color)] backdrop-blur-sm"
+                    className="text-xs px-2 py-1 border border-[var(--border-color)] bg-[var(--secondary-btn)] text-[var(--text-color)] backdrop-blur-sm"
                   >
                     Premium
                   </Badge>
@@ -448,7 +495,7 @@ const SeriesPage = () => {
                 <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
                   <div className="flex items-center gap-2">
                     <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="font-medium">{series.authorId?.name || 'Unknown'}</span>
+                    <span className="font-medium">{getAuthorName(series)}</span>
                     {series.authorId?.verified && (
                       <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
                     )}
@@ -523,10 +570,10 @@ const SeriesPage = () => {
         onClick={handleCardClick}
       >
         {/* Cover Image */}
-        <div className="aspect-video relative overflow-hidden rounded-t-2xl bg-gradient-to-br from-indigo-400 to-gray-400">
+        <div className="aspect-video relative overflow-hidden rounded-t-2xl bg-[var(--secondary-btn2)] border border-b-0 border-[var(--border-color)]">
           {series.coverImage ? (
             <img
-              src={series.coverImage}
+              src={resolveAssetUrl(series.coverImage)}
               alt={series.title}
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -541,7 +588,7 @@ const SeriesPage = () => {
           <div className="absolute top-4 left-4 flex flex-col gap-2">
             <Badge
               variant="outline"
-              className="flex items-center text-xs px-2 py-1 text-white border border-white backdrop-blur-sm h-6 w-fit"
+              className="flex items-center text-xs px-2 py-1 border border-[var(--border-color)] bg-[var(--secondary-btn)] text-[var(--text-color)] backdrop-blur-sm h-6 w-fit"
             >
               {getTemplateIcon(series.template)}
               <span className="ml-1 capitalize hidden sm:inline">
@@ -565,7 +612,7 @@ const SeriesPage = () => {
             {series.visibility === "premium" && (
               <Badge
                 variant="warning"
-                className="flex items-center text-xs px-2 py-1 backdrop-blur-sm h-6 w-fit"
+                className="flex items-center text-xs px-2 py-1 backdrop-blur-sm h-6 w-fit border border-[var(--border-color)] bg-[var(--secondary-btn)] text-[var(--text-color)]"
               >
                 <span className="hidden sm:inline">Premium</span>
                 <span className="sm:hidden">💎</span>
@@ -639,7 +686,7 @@ const SeriesPage = () => {
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
             <div className="flex items-center gap-2">
               <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="font-medium">{series.authorId?.name || 'Unknown'}</span>
+              <span className="font-medium">{getAuthorName(series)}</span>
               {series.authorId?.verified && (
                 <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
               )}
@@ -696,12 +743,22 @@ const SeriesPage = () => {
     );
   };
 
+  if (isLoading) {
+    return (
+      <ErrorBoundary>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 space-y-6 sm:space-y-8">
+          <SeriesPageSkeleton viewMode={viewMode} />
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
     <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8">
       {/* Header Section */}
       <div className="text-center space-y-3 sm:space-y-4 py-4 sm:py-8">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-text-primary">
           Discover Series
         </h1>
         <p className="text-base sm:text-lg text-text-secondary max-w-2xl mx-auto px-4">
@@ -799,7 +856,7 @@ const SeriesPage = () => {
             </div>
 
             <Link to="/create-series">
-              <Button className="flex items-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-indigo-500 hover:bg-indigo-600 cursor-pointer text-sm sm:text-base">
+              <Button className="flex items-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md cursor-pointer text-sm sm:text-base">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Create Series</span>
                 <span className="sm:hidden">Create</span>
@@ -950,21 +1007,6 @@ const SeriesPage = () => {
           <div className="text-xs sm:text-sm text-text-secondary">
             Updated {new Date().toLocaleDateString()}
           </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <div
-          className={`grid gap-4 sm:gap-6 ${
-            viewMode === "grid"
-              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
-              : "grid-cols-1"
-          }`}
-        >
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <SeriesCardSkeleton key={idx} />
-          ))}
         </div>
       )}
 

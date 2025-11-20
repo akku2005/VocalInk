@@ -36,7 +36,7 @@ const Home = () => {
     const fetchAllData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch both stats and blogs in parallel
         const [statsData, blogsData] = await Promise.all([
           statsService.getPlatformStats().catch(err => {
@@ -49,7 +49,7 @@ const Home = () => {
               growth: { blogs: 0, users: 0, series: 0, ai: 0 }
             };
           }),
-          blogService.getBlogs({ 
+          blogService.getBlogs({
             status: 'published',
             limit: 6,
             sort: 'createdAt',
@@ -288,11 +288,11 @@ const Home = () => {
           ) : featuredBlogs.length > 0 ? (
             // Real blogs
             featuredBlogs.map((blog) => (
-              <Link key={blog._id} to={`/article/${blog._id}`}>
+              <Link key={blog._id} to={`/article/${blog.slug || blog._id}`}>
                 <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md h-full flex flex-col">
                   {blog.coverImage ? (
-                    <img 
-                      src={blog.coverImage} 
+                    <img
+                      src={blog.coverImage}
                       alt={blog.title}
                       className="h-48 w-full object-cover rounded-t-lg mb-4"
                     />
@@ -309,7 +309,7 @@ const Home = () => {
                   </CardHeader>
                   <CardContent className="mt-auto">
                     <div className="flex items-center justify-between text-sm text-text-secondary">
-                      <div 
+                      <div
                         className={`flex items-center space-x-2 ${blog.author?._id ? 'cursor-pointer hover:opacity-80' : ''}`}
                         onClick={(e) => {
                           if (blog.author?._id) {
@@ -320,8 +320,8 @@ const Home = () => {
                         }}
                       >
                         {blog.author?.avatar ? (
-                          <img 
-                            src={blog.author.avatar} 
+                          <img
+                            src={blog.author.avatar}
                             alt={blog.author?.displayName || 'Author'}
                             className="w-6 h-6 rounded-full object-cover"
                           />
@@ -334,11 +334,11 @@ const Home = () => {
                         )}
                         <span className={`truncate max-w-[100px] ${blog.author?._id ? 'hover:underline' : ''}`}>
                           {blog.author ? (
-                            blog.author.displayName || 
-                            (blog.author.firstName || blog.author.lastName ? 
-                              `${blog.author.firstName || ''} ${blog.author.lastName || ''}`.trim() : 
-                              blog.author.username || 
-                              blog.author.email?.split('@')[0] || 
+                            blog.author.displayName ||
+                            (blog.author.firstName || blog.author.lastName ?
+                              `${blog.author.firstName || ''} ${blog.author.lastName || ''}`.trim() :
+                              blog.author.username ||
+                              blog.author.email?.split('@')[0] ||
                               'Anonymous')
                           ) : 'Anonymous'}
                         </span>

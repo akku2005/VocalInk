@@ -40,14 +40,26 @@ const getAllSettings = async (req, res) => {
 
     const settings = {
       profile: {
+        firstName: user.firstName,
+        lastName: user.lastName,
         username: user.username,
         email: user.email,
         displayName: user.displayName,
         bio: user.bio,
         avatar: user.avatar,
+        coverImage: user.coverImage,
         location: user.location,
         website: user.website,
-        socialLinks: user.socialLinks || {}
+        company: user.company,
+        jobTitle: user.jobTitle,
+        gender: user.gender,
+        occupation: user.occupation,
+        nationality: user.nationality,
+        mobile: user.mobile,
+        dob: user.dob,
+        language: user.language || user.aiPreferences?.language || 'en',
+        timezone: user.timezone || 'UTC',
+        socialLinks: user.socialLinks || []
       },
       account: {
         isVerified: user.isVerified,
@@ -102,11 +114,11 @@ const getAllSettings = async (req, res) => {
         language: user.aiPreferences?.language || 'en'
       },
       gamification: {
-        enabled: user.gamificationSettings?.enabled !== undefined ? user.gamificationSettings.enabled : true,
-        showNotifications: user.gamificationSettings?.showNotifications !== undefined ? user.gamificationSettings.showNotifications : true,
-        publicBadges: user.gamificationSettings?.publicBadges !== undefined ? user.gamificationSettings.publicBadges : true,
-        leaderboards: user.gamificationSettings?.leaderboards !== undefined ? user.gamificationSettings.leaderboards : true,
-        challengeDifficulty: user.gamificationSettings?.challengeDifficulty || 'medium'
+        showXP: user.gamificationSettings?.showXP !== undefined ? user.gamificationSettings.showXP : true,
+        showLevel: user.gamificationSettings?.showLevel !== undefined ? user.gamificationSettings.showLevel : true,
+        showBadges: user.gamificationSettings?.showBadges !== undefined ? user.gamificationSettings.showBadges : true,
+        showLeaderboard: user.gamificationSettings?.showLeaderboard !== undefined ? user.gamificationSettings.showLeaderboard : true,
+        notifications: user.gamificationSettings?.notifications !== undefined ? user.gamificationSettings.notifications : true
       },
       security: {
         twoFactorEnabled: user.twoFactorEnabled || false,
@@ -141,7 +153,7 @@ const updateProfile = async (req, res) => {
     const allowedFields = [
       'firstName', 'lastName', 'displayName', 'username', 'email', 'bio',
       'location', 'website', 'company', 'jobTitle', 'gender', 'occupation',
-      'nationality', 'mobile', 'dateOfBirth', 'language', 'timezone',
+      'nationality', 'mobile', 'dob', 'language', 'timezone',
       'socialLinks', 'avatar', 'coverImage'
     ];
 
@@ -379,11 +391,27 @@ const updateAI = async (req, res) => {
 const updateGamification = async (req, res) => {
   try {
     const userId = req.user.id;
-    const gamificationSettings = req.body;
+    const payload = req.body?.gamification ? req.body.gamification : req.body || {};
+
+    const allowedFields = ['showXP', 'showLevel', 'showBadges', 'showLeaderboard', 'notifications'];
+    const updateData = {};
+
+    allowedFields.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(payload, field)) {
+        updateData[`gamificationSettings.${field}`] = payload[field];
+      }
+    });
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'No valid gamification fields provided'
+      });
+    }
 
     const user = await User.findByIdAndUpdate(
       userId,
-      { gamificationSettings },
+      { $set: updateData },
       { new: true, runValidators: true }
     ).select('-password -refreshToken');
 
@@ -747,6 +775,35 @@ const revokeAllSessions = async (req, res) => {
   }
 };
 
+// Delete login history
+const clearLoginHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.loginHistory = [];
+    await user.save();
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Login history cleared successfully'
+    });
+  } catch (error) {
+    console.error('Error clearing login history:', error);
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || 'Failed to clear login history'
+    });
+  }
+};
+
 // Data Export endpoint
 const exportUserData = async (req, res) => {
   try {
@@ -986,6 +1043,7 @@ module.exports = {
   getActiveSessions,
   revokeSession,
   revokeAllSessions,
+  clearLoginHistory,
   exportUserData,
   deleteAccount,
   updateSecurity,

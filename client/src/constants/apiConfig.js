@@ -203,4 +203,26 @@ export const getFullUrl = (endpointKey, params = {}) => {
   return API_CONFIG.getFullUrl(endpointKey, params);
 };
 
+// Resolve asset URLs to work across dev/prod and Cloudinary/local
+export const getAssetBase = () => {
+  const base = API_CONFIG.BASE_URL;
+  try {
+    const url = new URL(base, window.location.origin);
+    return url.origin;
+  } catch {
+    return '';
+  }
+};
+
+export const resolveAssetUrl = (url) => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith('/api/uploads')) return url.replace('/api/uploads', '/uploads');
+  if (url.startsWith('/uploads')) {
+    const origin = getAssetBase();
+    return origin ? `${origin}${url}` : url;
+  }
+  return url;
+};
+
 export default API_CONFIG;

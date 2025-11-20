@@ -182,7 +182,6 @@ const SettingsPage = () => {
             setSettings={setSettings}
             loading={loading}
             setLoading={setLoading}
-            showToast={showToast}
             loadSettings={loadSettings}
           />
         );

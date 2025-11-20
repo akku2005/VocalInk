@@ -9,8 +9,6 @@ const BLOG_VALIDATION = {
     MAX_LENGTH: 200
   },
   CONTENT: {
-    MIN_LENGTH: 10,
-    MAX_LENGTH: 50000
   },
   SUMMARY: {
     MAX_LENGTH: 500
@@ -62,12 +60,7 @@ const validateCreateBlog = [
     .withMessage(`Title must be between ${BLOG_VALIDATION.TITLE.MIN_LENGTH} and ${BLOG_VALIDATION.TITLE.MAX_LENGTH} characters`),
   
   body('content')
-    .trim()
-    .isLength({ 
-      min: BLOG_VALIDATION.CONTENT.MIN_LENGTH, 
-      max: BLOG_VALIDATION.CONTENT.MAX_LENGTH 
-    })
-    .withMessage(`Content must be between ${BLOG_VALIDATION.CONTENT.MIN_LENGTH} and ${BLOG_VALIDATION.CONTENT.MAX_LENGTH} characters`),
+    .trim(),
   
   body('summary')
     .optional()
@@ -131,12 +124,7 @@ const validateUpdateBlog = [
   
   body('content')
     .optional()
-    .trim()
-    .isLength({ 
-      min: BLOG_VALIDATION.CONTENT.MIN_LENGTH, 
-      max: BLOG_VALIDATION.CONTENT.MAX_LENGTH 
-    })
-    .withMessage(`Content must be between ${BLOG_VALIDATION.CONTENT.MIN_LENGTH} and ${BLOG_VALIDATION.CONTENT.MAX_LENGTH} characters`),
+    .trim(),
   
   body('summary')
     .optional()

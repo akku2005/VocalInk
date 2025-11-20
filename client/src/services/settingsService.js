@@ -1,4 +1,5 @@
 import api from './api';
+import { storage, jsonStorage } from '../utils/storage';
 
 class SettingsService {
   constructor() {
@@ -13,38 +14,38 @@ class SettingsService {
 
   // Save cache to localStorage
   saveCacheToStorage() {
-    if (this.cache && this.cacheTimestamp) {
-      try {
-        localStorage.setItem('vocalink_settings_cache', JSON.stringify({
-          data: this.cache,
-          timestamp: this.cacheTimestamp
-        }));
-      } catch (error) {
-        console.warn('Failed to save settings cache to localStorage:', error);
-      }
+    if (!storage.available || !this.cache || !this.cacheTimestamp) return;
+    try {
+      jsonStorage.setItem('vocalink_settings_cache', {
+        data: this.cache,
+        timestamp: this.cacheTimestamp
+      });
+    } catch (error) {
+      console.warn('Failed to save settings cache to localStorage:', error);
     }
   }
 
   // Restore cache from localStorage
   restoreCacheFromStorage() {
     try {
-      const cached = localStorage.getItem('vocalink_settings_cache');
+      if (!storage.available) return;
+      const cached = jsonStorage.getItem('vocalink_settings_cache');
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
+        const { data, timestamp } = cached;
         const now = Date.now();
-        
+
         // Check if cache is still valid
         if (now - timestamp < this.cacheExpiry) {
           this.cache = data;
           this.cacheTimestamp = timestamp;
         } else {
           // Cache expired, remove it
-          localStorage.removeItem('vocalink_settings_cache');
+          storage.removeItem('vocalink_settings_cache');
         }
       }
     } catch (error) {
       console.warn('Failed to restore settings cache from localStorage:', error);
-      localStorage.removeItem('vocalink_settings_cache');
+      storage.removeItem('vocalink_settings_cache');
     }
   }
 
@@ -89,8 +90,9 @@ class SettingsService {
     this.cache = null;
     this.cacheTimestamp = null;
     // Also remove from localStorage
+    if (!storage.available) return;
     try {
-      localStorage.removeItem('vocalink_settings_cache');
+      storage.removeItem('vocalink_settings_cache');
     } catch (error) {
       console.warn('Failed to clear settings cache from localStorage:', error);
     }
@@ -243,15 +245,10 @@ class SettingsService {
 
   // Enable/disable two-factor authentication - DEPRECATED: Use enable2FA() or disable2FA() instead
   async toggleTwoFactor(enabled) {
-    try {
-      if (enabled) {
-        return await this.enable2FA();
-      } else {
-        return await this.disable2FA();
-      }
-    } catch (error) {
-      throw error;
+    if (enabled) {
+      return this.enable2FA();
     }
+    return this.disable2FA();
   }
 
   // Enable two-factor authentication - FIXED: Use correct endpoint
@@ -536,6 +533,25 @@ class SettingsService {
       if (error.response && error.response.data && !error.response.data.success) {
         const errorData = error.response.data;
         throw new Error(errorData.message || 'Failed to get active sessions');
+      }
+      throw error;
+    }
+  }
+
+  async clearLoginHistory() {
+    try {
+      const response = await api.delete('/settings/sessions/history');
+
+      if (response.data.success) {
+        this.clearCache();
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to clear login history');
+      }
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        throw new Error(errorData.message || 'Failed to clear login history');
       }
       throw error;
     }

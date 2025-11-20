@@ -7,6 +7,7 @@ const userController = require('./user.controller');
 
 // Profile routes
 router.get('/me', protect, userController.getMyProfile);
+router.get('/username/availability', userController.checkUsernameAvailability);
 router.get('/:id', userController.getProfile);
 router.put('/:id', protect, userController.updateProfile);
 router.patch('/me', protect, userController.updateProfile);
@@ -20,6 +21,8 @@ router.delete('/:targetUserId/follow', protect, userController.unfollowUser);
 
 // User content
 router.get('/:id/blogs', userController.getUserBlogs);
+router.get('/:id/likes', userController.getUserLikedBlogs);
+router.get('/:id/bookmarks', userController.getUserBookmarkedBlogs);
 router.get('/:id/series', userController.getUserSeries);
 router.get('/:id/badges', userController.getUserBadges);
 

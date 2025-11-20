@@ -2,6 +2,8 @@ import { createContext, useContext, useReducer, useEffect } from 'react';
 import { authService } from '../services/authService';
 import { userService } from '../services/userService';
 import securityService from '../services/securityService';
+import { storage, sessionStorageHelper } from '../utils/storage';
+import locationService from '../services/locationService';
 
 // Cache keys for localStorage
 const CACHE_KEYS = {
@@ -15,8 +17,9 @@ const CACHE_DURATION = 5 * 60 * 1000;
 // Helper functions for caching
 const getCachedUserProfile = () => {
   try {
-    const cached = localStorage.getItem(CACHE_KEYS.USER_PROFILE);
-    const timestamp = localStorage.getItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP);
+    if (!storage.available) return null;
+    const cached = storage.getItem(CACHE_KEYS.USER_PROFILE);
+    const timestamp = storage.getItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP);
     
     if (cached && timestamp) {
       const age = Date.now() - parseInt(timestamp);
@@ -32,8 +35,9 @@ const getCachedUserProfile = () => {
 
 const setCachedUserProfile = (profile) => {
   try {
-    localStorage.setItem(CACHE_KEYS.USER_PROFILE, JSON.stringify(profile));
-    localStorage.setItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP, Date.now().toString());
+    if (!storage.available) return;
+    storage.setItem(CACHE_KEYS.USER_PROFILE, JSON.stringify(profile));
+    storage.setItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP, Date.now().toString());
   } catch (error) {
     console.warn('Failed to cache user profile:', error);
   }
@@ -41,8 +45,9 @@ const setCachedUserProfile = (profile) => {
 
 const clearCachedUserProfile = () => {
   try {
-    localStorage.removeItem(CACHE_KEYS.USER_PROFILE);
-    localStorage.removeItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP);
+    if (!storage.available) return;
+    storage.removeItem(CACHE_KEYS.USER_PROFILE);
+    storage.removeItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP);
   } catch (error) {
     console.warn('Failed to clear cached user profile:', error);
   }
@@ -236,6 +241,10 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  useEffect(() => {
+    locationService.captureLocation();
+  }, []);
+
   // Initialize auth state on app load
   useEffect(() => {
     const initializeAuth = async () => {
@@ -244,8 +253,8 @@ export const AuthProvider = ({ children }) => {
         
         // Store current route before authentication check
         const currentPath = window.location.pathname;
-        if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/') {
-          localStorage.setItem('intendedRoute', currentPath);
+        if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/' && sessionStorageHelper.available) {
+          sessionStorageHelper.setItem('intendedRoute', currentPath);
         }
         
         // Check for cached user profile first

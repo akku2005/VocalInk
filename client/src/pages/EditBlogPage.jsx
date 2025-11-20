@@ -4,6 +4,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
+import blogService from '../services/blogService';
+import { apiService } from '../services/api';
+import { resolveAssetUrl } from '../constants/apiConfig';
+import { useToast } from '../hooks/useToast';
+import AdvancedRichTextEditor from '../components/ui/AdvancedRichTextEditor';
 import { 
   Save, 
   Eye, 
@@ -15,6 +20,7 @@ import {
   BookOpen,
   Sparkles,
   Palette,
+  Image as ImageIcon,
   Languages,
   Target,
   Clock,
@@ -34,9 +40,14 @@ const EditBlogPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [ttsGenerating, setTtsGenerating] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [currentTag, setCurrentTag] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const { addToast } = useToast();
 
   const moods = [
     { id: 'motivational', name: 'Motivational', icon: '🚀', color: 'bg-orange-100 text-orange-800' },
@@ -66,61 +77,48 @@ const EditBlogPage = () => {
     'Science', 'Environment', 'Politics', 'Entertainment', 'Sports'
   ];
 
-  // Mock blog data
   useEffect(() => {
-    setTimeout(() => {
-      setFormData({
-        id: id,
-        title: 'The Future of AI in Content Creation',
-        content: `Artificial intelligence is revolutionizing the way we create, edit, and distribute content across various platforms. From automated writing assistants to intelligent content optimization, AI tools are becoming an integral part of the content creation process.
+    const fetchBlog = async () => {
+      try {
+        setLoading(true);
+        setLoadError(null);
+        const response = await blogService.getBlogById(id);
+        const blog = response?.data || response;
 
-## The Rise of AI Writing Assistants
+        if (!blog) {
+          setLoadError('Blog not found.');
+          setFormData(null);
+          return;
+        }
 
-AI writing assistants like GPT-4 and Claude have transformed how we approach content creation. These tools can help with:
+        setFormData({
+          id: blog._id || id,
+          title: blog.title || '',
+          content: blog.content || '',
+          summary: blog.summary || '',
+          tags: Array.isArray(blog.tags) ? blog.tags : [],
+          mood: blog.mood || '',
+          language: blog.language || blog.languageCode || 'en',
+          series: blog.series?.title || blog.series?.name || '',
+          isPublic: blog.status ? blog.status === 'published' : true,
+          allowComments: blog.allowComments ?? true,
+          generateTTS: Boolean(blog.ttsUrl),
+          publishedAt: blog.publishedAt || blog.createdAt || new Date().toISOString(),
+          lastModified: blog.updatedAt || blog.createdAt || new Date().toISOString(),
+          views: Number(blog.views ?? blog.viewCount ?? 0),
+          likes: Number(blog.likes ?? (Array.isArray(blog.likedBy) ? blog.likedBy.length : 0)),
+          comments: Number(blog.commentCount ?? (Array.isArray(blog.comments) ? blog.comments.length : 0)),
+          coverImage: blog.coverImage || '',
+        });
+      } catch (error) {
+        console.error('Error loading blog:', error);
+        setLoadError(error?.response?.data?.message || 'Failed to load blog details.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-- **Brainstorming ideas**: Generate creative concepts and outlines
-- **Drafting content**: Create initial versions of articles, blog posts, and social media content
-- **Editing and refinement**: Improve grammar, style, and clarity
-- **SEO optimization**: Suggest keywords and optimize content for search engines
-
-## Content Optimization with AI
-
-AI-powered content optimization tools analyze user behavior and engagement patterns to suggest improvements. They can:
-
-- Identify the best posting times
-- Recommend optimal content length
-- Suggest engaging headlines
-- Analyze competitor content strategies
-
-## The Future of AI in Content Creation
-
-As AI technology continues to evolve, we can expect:
-
-1. **More sophisticated writing tools** that understand context and tone
-2. **Personalized content generation** based on audience preferences
-3. **Real-time content optimization** during the writing process
-4. **Enhanced collaboration** between human creators and AI assistants
-
-## Conclusion
-
-While AI tools are powerful, they work best when combined with human creativity and expertise. The future of content creation lies in the collaboration between human writers and AI assistants, leveraging the strengths of both to create compelling, engaging content.`,
-        summary: 'Discover how artificial intelligence is revolutionizing the way we create, edit, and distribute content across various platforms.',
-        tags: ['AI', 'Technology', 'Content Creation'],
-        mood: 'technical',
-        language: 'en',
-        series: 'AI in Content Creation',
-        isPublic: true,
-        allowComments: true,
-        generateTTS: true,
-        publishedAt: '2024-01-15',
-        lastModified: '2024-01-20',
-        views: 1542,
-        likes: 124,
-        comments: 23,
-        readTime: 8
-      });
-      setLoading(false);
-    }, 1000);
+    fetchBlog();
   }, [id]);
 
   const handleInputChange = (field, value) => {
@@ -128,6 +126,7 @@ While AI tools are powerful, they work best when combined with human creativity 
   };
 
   const handleAddTag = () => {
+    if (!formData) return;
     if (currentTag.trim() && !formData.tags.includes(currentTag.trim())) {
       setFormData(prev => ({
         ...prev,
@@ -137,7 +136,42 @@ While AI tools are powerful, they work best when combined with human creativity 
     }
   };
 
+  const handleCoverUpload = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        addToast({ type: 'error', message: 'Cover image must be smaller than 5MB.' });
+        return;
+      }
+
+      setCoverUploading(true);
+      try {
+        const response = await apiService.upload('/images/upload', file);
+        const url = resolveAssetUrl(response.data?.url || response.data?.data?.url);
+        if (url) {
+          setFormData(prev => ({ ...prev, coverImage: url }));
+          addToast({ type: 'success', message: 'Cover image updated.' });
+        } else {
+          throw new Error('Upload response missing URL');
+        }
+      } catch (error) {
+        console.error('Cover upload failed:', error);
+        addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to upload cover image.' });
+      } finally {
+        setCoverUploading(false);
+      }
+    };
+    input.click();
+  };
+
   const handleRemoveTag = (tagToRemove) => {
+    if (!formData) return;
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
@@ -145,69 +179,127 @@ While AI tools are powerful, they work best when combined with human creativity 
   };
 
   const generateAISummary = async () => {
-    if (!formData.content.trim()) return;
+    if (!formData?.content?.trim()) {
+      addToast({ type: 'warning', message: 'Please write some content before generating a summary.' });
+      return;
+    }
     
     setAiGenerating(true);
     try {
-      // Simulate AI API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockSummary = `This article explores ${formData.title.toLowerCase()} and provides insights into the latest trends and developments. Readers will discover practical tips and actionable strategies to implement in their own work.`;
-      
-      setFormData(prev => ({ ...prev, summary: mockSummary }));
+      const response = await blogService.regenerateSummary(id, { maxLength: 220 });
+      const newSummary = response?.summary || response?.data?.summary || response?.message;
+      if (newSummary) {
+        setFormData(prev => ({ ...prev, summary: newSummary }));
+        addToast({ type: 'success', message: 'AI summary updated.' });
+      }
     } catch (error) {
       console.error('Error generating summary:', error);
+      addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate summary.' });
     } finally {
       setAiGenerating(false);
     }
   };
 
   const generateTTS = async () => {
-    if (!formData.content.trim()) return;
+    if (!formData?.content?.trim()) {
+      addToast({ type: 'warning', message: 'Please add some content before generating audio.' });
+      return;
+    }
     
-    setSaving(true);
+    setTtsGenerating(true);
     try {
-      // Simulate TTS API call
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      console.log('TTS generated successfully');
+      await blogService.generateTTS(id, { provider: 'elevenlabs' });
+      addToast({ type: 'success', message: 'Audio regeneration started. Refresh the article to listen once ready.' });
     } catch (error) {
       console.error('Error generating TTS:', error);
+      addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate TTS audio.' });
     } finally {
-      setSaving(false);
+      setTtsGenerating(false);
     }
   };
 
-  const handleSave = async (isDraft = false) => {
+  const handleSave = async (publish = false) => {
+    if (!formData?.title?.trim() || !formData?.content?.trim()) {
+      addToast({ type: 'warning', message: 'Title and content are required.' });
+      return;
+    }
+
     setSaving(true);
     try {
-      // Simulate save API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Blog saved:', { ...formData, isDraft });
-      navigate(`/article/${id}`);
+      const payload = {
+        title: formData.title.trim(),
+        content: formData.content,
+        summary: formData.summary,
+        tags: formData.tags,
+        mood: formData.mood,
+        language: formData.language,
+        series: formData.series,
+        allowComments: formData.allowComments,
+        isPublic: formData.isPublic,
+        status: publish ? 'published' : 'draft',
+        coverImage: formData.coverImage,
+      };
+
+      if (formData.generateTTS) {
+        payload.generateTTS = true;
+      }
+
+      const updated = await blogService.updateBlog(id, payload);
+
+      setFormData(prev => ({
+        ...prev,
+        title: updated?.title ?? prev.title,
+        content: updated?.content ?? prev.content,
+        summary: updated?.summary ?? prev.summary,
+        tags: Array.isArray(updated?.tags) ? updated.tags : prev.tags,
+        mood: updated?.mood ?? prev.mood,
+        language: updated?.language ?? prev.language,
+        series: updated?.series?.title || updated?.series || prev.series,
+        lastModified: updated?.updatedAt || new Date().toISOString(),
+        publishedAt: updated?.publishedAt || prev.publishedAt,
+        likes: Number(updated?.likes ?? prev.likes),
+        comments: Number(updated?.commentCount ?? prev.comments),
+        views: Number(updated?.views ?? prev.views),
+      }));
+
+      addToast({
+        type: 'success',
+        message: publish ? 'Blog updated and published.' : 'Draft saved successfully.',
+      });
+
+      if (publish) {
+        navigate(`/article/${id}`);
+      }
     } catch (error) {
       console.error('Error saving blog:', error);
+      addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to save blog.' });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this blog post? This action cannot be undone.')) {
-      setSaving(true);
-      try {
-        // Simulate delete API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        navigate('/blogs');
-      } catch (error) {
-        console.error('Error deleting blog:', error);
-      } finally {
-        setSaving(false);
-      }
+    if (!window.confirm('Are you sure you want to delete this blog post? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await blogService.deleteBlog(id);
+      addToast({ type: 'success', message: 'Blog deleted.' });
+      navigate('/blogs');
+    } catch (error) {
+      console.error('Error deleting blog:', error);
+      addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to delete blog.' });
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const wordCount = formData?.content.split(/\s+/).filter(word => word.length > 0).length || 0;
-  const readTime = Math.ceil(wordCount / 200); // Average reading speed
+  const wordCount = formData?.content
+    ? formData.content.split(/\s+/).filter(word => word.length > 0).length
+    : 0;
+  const readTime = Math.max(1, Math.ceil(wordCount / 200)); // Average reading speed
 
   if (loading) {
     return (
@@ -224,6 +316,19 @@ While AI tools are powerful, they work best when combined with human creativity 
               <div className="h-48 bg-gray-200 rounded"></div>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-3xl mx-auto p-10 text-center space-y-4">
+        <h2 className="text-2xl font-semibold text-text-primary">Unable to load blog</h2>
+        <p className="text-text-secondary">{loadError}</p>
+        <div className="flex justify-center gap-3">
+          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+          <Button onClick={() => navigate('/blogs')}>Browse Blogs</Button>
         </div>
       </div>
     );
@@ -275,7 +380,7 @@ While AI tools are powerful, they work best when combined with human creativity 
           </Button>
           <Button 
             variant="outline" 
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             loading={saving}
             className="flex items-center gap-2"
           >
@@ -283,7 +388,7 @@ While AI tools are powerful, they work best when combined with human creativity 
             Save Changes
           </Button>
           <Button 
-            onClick={() => handleSave(false)}
+            onClick={() => handleSave(true)}
             loading={saving}
             className="flex items-center gap-2"
           >
@@ -379,7 +484,7 @@ While AI tools are powerful, they work best when combined with human creativity 
                     variant="outline"
                     size="sm"
                     onClick={generateTTS}
-                    loading={saving}
+                    loading={ttsGenerating}
                     className="flex items-center gap-1"
                   >
                     <Volume2 className="w-4 h-4" />
@@ -388,14 +493,27 @@ While AI tools are powerful, they work best when combined with human creativity 
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <textarea
-                placeholder="Start writing your blog post..."
-                value={formData.content}
-                onChange={(e) => handleInputChange('content', e.target.value)}
-                className="w-full h-96 p-4 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                style={{ fontFamily: 'inherit' }}
-              />
+            <CardContent className="p-0">
+              {!previewMode ? (
+                <div className="p-4 sm:p-6">
+                  <AdvancedRichTextEditor
+                    value={formData.content}
+                    onChange={(html) => handleInputChange('content', html)}
+                    className="min-h-[420px]"
+                  />
+                </div>
+              ) : (
+                <div className="p-4 sm:p-6">
+                  <div
+                    className="article-content bg-[var(--secondary-btn3)] rounded-xl p-5"
+                    dangerouslySetInnerHTML={{
+                      __html:
+                        formData.content?.trim() ||
+                        "<p class='text-text-secondary italic'>No content yet. Start writing to preview.</p>"
+                    }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -421,6 +539,43 @@ While AI tools are powerful, they work best when combined with human creativity 
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Cover Image */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-primary-500" />
+                Cover Image
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {formData.coverImage ? (
+                <img
+                  src={resolveAssetUrl(formData.coverImage)}
+                  alt="Cover"
+                  className="w-full rounded-lg border border-border object-cover"
+                />
+              ) : (
+                <p className="text-sm text-text-secondary">
+                  No cover image selected. Upload an image to make your blog stand out.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <Button onClick={handleCoverUpload} loading={coverUploading}>
+                  {formData.coverImage ? 'Replace Image' : 'Upload Image'}
+                </Button>
+                {formData.coverImage && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleInputChange('coverImage', '')}
+                    className="border-error text-error hover:bg-error hover:text-white"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Mood Selection */}
           <Card>
             <CardHeader>
@@ -609,7 +764,7 @@ While AI tools are powerful, they work best when combined with human creativity 
                   <Button 
                     variant="outline" 
                     onClick={handleDelete}
-                    loading={saving}
+                    loading={deleting}
                     className="text-error border-error hover:bg-error hover:text-white"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />

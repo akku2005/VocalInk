@@ -138,20 +138,24 @@ export const getNotificationActionUrl = (notification) => {
     case 'comment':
     case 'blog_published':
     case 'blog_featured':
-      return notification.data?.blogId ? `/article/${notification.data.blogId}` : null;
-    
+      return notification.data?.blogSlug
+        ? `/article/${notification.data.blogSlug}`
+        : notification.data?.blogId
+          ? `/article/${notification.data.blogId}`
+          : null;
+
     case 'follow':
     case 'unfollow':
     case 'mention':
       return notification.data?.fromUserId ? `/profile/${notification.data.fromUserId}` : null;
-    
+
     case 'badge_earned':
       return notification.data?.badgeId ? `/badges/${notification.data.badgeId}` : '/badges';
-    
+
     case 'level_up':
     case 'achievement':
       return '/profile/me';
-    
+
     default:
       return null;
   }

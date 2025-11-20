@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -31,6 +31,11 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Smile,
+  Feather,
+  Cpu,
+  Flame,
+  Compass,
 } from "lucide-react";
 
 const SearchPage = () => {
@@ -76,42 +81,12 @@ const SearchPage = () => {
   }, []);
 
   const moods = [
-    {
-      id: "motivational",
-      name: "Motivational",
-      icon: "🚀",
-      color: "bg-orange-100 text-orange-800",
-    },
-    {
-      id: "thoughtful",
-      name: "Thoughtful",
-      icon: "🤔",
-      color: "bg-blue-100 text-blue-800",
-    },
-    {
-      id: "humorous",
-      name: "Humorous",
-      icon: "😄",
-      color: "bg-yellow-100 text-yellow-800",
-    },
-    {
-      id: "educational",
-      name: "Educational",
-      icon: "📚",
-      color: "bg-green-100 text-green-800",
-    },
-    {
-      id: "inspirational",
-      name: "Inspirational",
-      icon: "✨",
-      color: "bg-purple-100 text-purple-800",
-    },
-    {
-      id: "technical",
-      name: "Technical",
-      icon: "⚙️",
-      color: "bg-gray-100 text-gray-800",
-    },
+    { id: "motivational", name: "Motivational", Icon: Sparkles, accent: "from-amber-500/90 to-orange-500/80" },
+    { id: "thoughtful", name: "Thoughtful", Icon: Feather, accent: "from-sky-500/90 to-blue-500/80" },
+    { id: "humorous", name: "Playful", Icon: Smile, accent: "from-yellow-500/90 to-orange-400/80" },
+    { id: "educational", name: "Educational", Icon: BookOpen, accent: "from-emerald-500/90 to-green-500/80" },
+    { id: "inspirational", name: "Inspirational", Icon: Flame, accent: "from-pink-500/90 to-rose-500/80" },
+    { id: "technical", name: "Technical", Icon: Cpu, accent: "from-purple-500/90 to-indigo-500/80" },
   ];
 
   const sortOptions = [
@@ -129,6 +104,35 @@ const SearchPage = () => {
     { value: "5-10", label: "5-10 minutes" },
     { value: "10-15", label: "10-15 minutes" },
     { value: "15+", label: "15+ minutes" },
+  ];
+
+  const recentSearches = [
+    "AI storytelling",
+    "Voice cloning ethics",
+    "Productivity rituals",
+    "Playwright tutorials",
+  ];
+
+
+  const featuredCollections = [
+    {
+      title: "AI StoryLab",
+      description: "Deep-dives on agents, prompts, and narrative tooling.",
+      count: 18,
+      accent: "from-indigo-500/90 to-blue-500/80",
+    },
+    {
+      title: "Creator Playbooks",
+      description: "Frameworks to grow your audience and craft.",
+      count: 12,
+      accent: "from-rose-500/90 to-orange-500/80",
+    },
+    {
+      title: "Wellness & Focus",
+      description: "Mindful routines for makers and knowledge workers.",
+      count: 9,
+      accent: "from-emerald-500/90 to-teal-500/80",
+    },
   ];
 
   const dateRangeOptions = [
@@ -203,9 +207,9 @@ const SearchPage = () => {
     setLoading(true);
     try {
       // Fetch blogs from API
-      const blogs = await blogService.getBlogs({ 
+      const blogs = await blogService.getBlogs({
         status: 'published',
-        limit: 50 
+        limit: 50
       });
 
       // Filter results based on search query and filters
@@ -291,53 +295,128 @@ const SearchPage = () => {
     Array.isArray(value) ? value.length > 0 : value !== ""
   );
 
+  const activeFilterCount = useMemo(() => {
+    return Object.entries(filters).reduce((count, [key, value]) => {
+      if (key === "sortBy") return count;
+      if (Array.isArray(value)) {
+        return value.length ? count + 1 : count;
+      }
+      return value ? count + 1 : count;
+    }, 0);
+  }, [filters]);
+
+  const moodLookup = useMemo(() => {
+    return moods.reduce((acc, mood) => {
+      acc[mood.id] = mood;
+      return acc;
+    }, {});
+  }, [moods]);
+
+  const quickStats = [
+    { label: "Matches", value: searchResults.length || 0 },
+    { label: "Active Filters", value: activeFilterCount },
+    { label: "Suggestions", value: suggestions.length },
+  ];
+
+  const handleRecentSearch = (value) => {
+    setSearchQuery(value);
+    setSearchParams({ q: value });
+  };
+
+  const handleTagClick = (tag) => {
+    setFilters((prev) => ({
+      ...prev,
+      tags: prev.tags.includes(tag)
+        ? prev.tags.filter((t) => t !== tag)
+        : [...prev.tags, tag],
+    }));
+  };
+
+  const toggleMoodFilter = (moodId) => {
+    setFilters((prev) => ({
+      ...prev,
+      mood: prev.mood === moodId ? "" : moodId,
+    }));
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 lg:space-y-8">
-      {/* Search Header */}
-      <div className="text-center space-y-2 sm:space-y-4 pt-2 sm:pt-0">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text-primary">
-          Search VocalInk
-        </h1>
-        <p className="text-sm sm:text-base lg:text-lg text-text-secondary max-w-2xl mx-auto px-2 sm:px-0">
-          Discover amazing content from our community
-        </p>
-      </div>
+      <section className="relative overflow-hidden rounded-3xl border border-[var(--border-color)] bg-gradient-to-br from-[#0f0f0f] via-[#111827] to-[#050505] text-white shadow-2xl">
+        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_55%)]" />
+        <div className="relative z-10 p-5 sm:p-8 lg:p-12 space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            <div className="flex-1 space-y-3">
+              <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-white/70">
+                <Compass className="w-4 h-4" />
+                Discover faster
+              </span>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold leading-tight">
+                Search the entire VocalInk library
+              </h1>
+              <p className="text-sm sm:text-base text-white/80 max-w-2xl">
+                Find essays, guides, and curated collections from our writers. Apply filters, explore moods, and save your favorite discoveries.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 min-w-[220px]">
+              {quickStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center"
+                >
+                  <div className="text-2xl font-semibold">{stat.value}</div>
+                  <p className="text-xs uppercase tracking-wide text-white/70">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      {/* Search Form */}
-      <Card>
-        <CardContent className="p-3 sm:p-4 lg:p-6">
-          <form onSubmit={handleSearch} className="space-y-3 sm:space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-text-secondary" />
-              <Input
-                type="text"
-                placeholder="Search for posts, authors, or topics..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 sm:pl-11 pr-20 sm:pr-24 h-10 sm:h-12 text-sm sm:text-base lg:text-lg glassmorphism backdrop-blur-sm"
-              />
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="flex flex-col lg:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/70" />
+                <Input
+                  type="text"
+                  placeholder="Search articles, authors, moods..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 pl-12 pr-4 bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:border-white/60"
+                />
+              </div>
               <Button
                 type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 sm:h-9 px-3 sm:px-4 text-sm sm:text-base bg-[var(--secondary-btn2)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
+                className="h-12 px-6 bg-white text-black hover:bg-white/90 shadow-lg"
                 loading={loading}
               >
-                <span className="hidden sm:inline">Search</span>
-                <span className="sm:hidden">Go</span>
+                Start searching
               </Button>
             </div>
 
-            {/* Search Suggestions */}
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-white/80">
+              <span className="uppercase tracking-wide text-[10px] text-white/60">
+                Recent
+              </span>
+              {recentSearches.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => handleRecentSearch(item)}
+                  className="px-3 py-1 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition-colors cursor-pointer"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
             {suggestions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 text-xs text-white/80">
                 {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
                     type="button"
-                    onClick={() => {
-                      setSearchQuery(suggestion);
-                      setSearchParams({ q: suggestion });
-                    }}
-                    className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-secondary-100 text-text-secondary rounded-full hover:bg-secondary-200 transition-colors cursor-pointer"
+                    onClick={() => handleRecentSearch(suggestion)}
+                    className="px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
                   >
                     {suggestion}
                   </button>
@@ -345,8 +424,98 @@ const SearchPage = () => {
               </div>
             )}
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[3fr,2fr]">
+        <Card>
+          <CardHeader className="flex flex-col gap-2">
+            <Badge variant="outline" className="w-fit uppercase text-[10px] tracking-[0.4em]">
+              Mood filters
+            </Badge>
+            <CardTitle className="text-lg sm:text-xl">
+              Refine by tone & emotion
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {moods.map((mood) => {
+                const MoodIcon = mood.Icon;
+                const isActive = filters.mood === mood.id;
+                return (
+                  <button
+                    key={mood.id}
+                    type="button"
+                    onClick={() => toggleMoodFilter(mood.id)}
+                    className={`p-3 rounded-2xl border transition-all duration-200 text-left bg-gradient-to-br ${mood.accent} ${isActive ? "opacity-95 shadow-lg" : "opacity-70 hover:opacity-95"
+                      }`}
+                  >
+                    <MoodIcon className="w-5 h-5 mb-2" />
+                    <div className="text-sm font-medium">{mood.name}</div>
+                    <p className="text-xs text-white/80">
+                      {isActive ? "Active" : "Tap to filter"}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm font-medium text-text-primary">
+                <span>Popular tags</span>
+                <span className="text-text-secondary">Live</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {popularTags.map((tag) => (
+                  <button
+                    key={tag.label}
+                    type="button"
+                    onClick={() => handleTagClick(tag.label)}
+                    className={`px-3 py-1 rounded-full border text-xs sm:text-sm transition-all cursor-pointer ${filters.tags.includes(tag.label)
+                        ? "bg-primary-500 text-white border-primary-500"
+                        : "bg-[var(--secondary-btn)] border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]"
+                      }`}
+                  >
+                    {tag.label} <span className="opacity-70">{tag.change}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg sm:text-xl">
+              Featured collections
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6 space-y-4">
+            {featuredCollections.map((collection) => (
+              <div
+                key={collection.title}
+                className={`rounded-2xl border border-[var(--border-color)] bg-gradient-to-r ${collection.accent} text-white p-4 shadow-lg`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-semibold">{collection.title}</h3>
+                  <span className="text-sm">{collection.count} posts</span>
+                </div>
+                <p className="text-sm text-white/80">
+                  {collection.description}
+                </p>
+              </div>
+            ))}
+
+            {suggestions.length === 0 && (
+              <div className="rounded-2xl border border-[var(--border-color)] bg-surface/70 p-4">
+                <p className="text-sm text-text-secondary">
+                  Start typing above to get live AI-powered suggestions tailored to your search.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Filters and Results Header */}
       <div className="flex flex-col gap-3 sm:gap-4">
@@ -428,21 +597,19 @@ const SearchPage = () => {
             <div className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
-                  viewMode === "grid"
+                className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "grid"
                     ? "bg-primary-500 text-white shadow-sm"
                     : "text-text-secondary hover:text-text-primary hover:bg-surface"
-                }`}
+                  }`}
               >
                 <Grid3X3 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
-                  viewMode === "list"
+                className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "list"
                     ? "bg-primary-500 text-white shadow-sm"
                     : "text-text-secondary hover:text-text-primary hover:bg-surface"
-                }`}
+                  }`}
               >
                 <List className="w-4 h-4" />
               </button>
@@ -459,21 +626,19 @@ const SearchPage = () => {
           <div className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
-                viewMode === "grid"
+              className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "grid"
                   ? "bg-primary-500 text-white shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface"
-              }`}
+                }`}
             >
               <Grid3X3 className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
-                viewMode === "list"
+              className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "list"
                   ? "bg-primary-500 text-white shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface"
-              }`}
+                }`}
             >
               <List className="w-4 h-4" />
             </button>
@@ -502,36 +667,6 @@ const SearchPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-              {/* Mood Filter */}
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  Mood
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {moods.map((mood) => (
-                    <button
-                      key={mood.id}
-                      onClick={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          mood: prev.mood === mood.id ? "" : mood.id,
-                        }))
-                      }
-                      className={`p-2 rounded-lg border-2 transition-all duration-200 text-left cursor-pointer ${
-                        filters.mood === mood.id
-                          ? "border-primary-500 bg-primary-50"
-                          : "border-border hover:border-primary-200"
-                      }`}
-                    >
-                      <div className="text-sm mb-1">{mood.icon}</div>
-                      <div className="text-xs font-medium text-text-primary">
-                        {mood.name}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Sort By */}
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">
@@ -616,11 +751,10 @@ const SearchPage = () => {
                           : [...filters.tags, tag];
                         setFilters((prev) => ({ ...prev, tags: newTags }));
                       }}
-                      className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${
-                        filters.tags.includes(tag)
+                      className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${filters.tags.includes(tag)
                           ? "bg-primary-500 text-white"
                           : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
-                      }`}
+                        }`}
                     >
                       {tag}
                     </button>
@@ -643,36 +777,6 @@ const SearchPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              {/* Mood Filter */}
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-3">
-                  Mood
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {moods.map((mood) => (
-                    <button
-                      key={mood.id}
-                      onClick={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          mood: prev.mood === mood.id ? "" : mood.id,
-                        }))
-                      }
-                      className={`p-2 rounded-lg border-2 transition-all duration-200 text-left cursor-pointer ${
-                        filters.mood === mood.id
-                          ? "border-primary-500 bg-primary-50"
-                          : "border-border hover:border-primary-200"
-                      }`}
-                    >
-                      <div className="text-sm mb-1">{mood.icon}</div>
-                      <div className="text-xs font-medium text-text-primary">
-                        {mood.name}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Sort By */}
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-2">
@@ -757,11 +861,10 @@ const SearchPage = () => {
                           : [...filters.tags, tag];
                         setFilters((prev) => ({ ...prev, tags: newTags }));
                       }}
-                      className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${
-                        filters.tags.includes(tag)
+                      className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${filters.tags.includes(tag)
                           ? "bg-primary-500 text-white"
                           : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
-                      }`}
+                        }`}
                     >
                       {tag}
                     </button>
@@ -777,17 +880,16 @@ const SearchPage = () => {
       <div className={`${showFilters ? "hidden lg:block lg:col-span-3" : ""}`}>
         {searchResults.length > 0 ? (
           <div
-            className={`grid gap-4 sm:gap-6 ${
-              viewMode === "grid"
+            className={`grid gap-4 sm:gap-6 ${viewMode === "grid"
                 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
                 : "grid-cols-1 max-w-4xl mx-auto"
-            }`}
+              }`}
           >
             {searchResults.map((result) => (
               <Card
                 key={result._id || result.id}
                 className="hover:shadow-lg transition-all duration-300 cursor-pointer"
-                onClick={() => navigate(`/article/${result._id || result.id}`)}
+                onClick={() => navigate(`/article/${result.slug || result._id || result.id}`)}
               >
                 <CardContent className="p-4 sm:p-6">
                   <div className="space-y-3 sm:space-y-4">
@@ -808,16 +910,19 @@ const SearchPage = () => {
                           </div>
                         </div>
                       </div>
-                      <Badge
-                        className={`text-xs sm:text-sm ${
-                          moods.find((m) => m.id === result.mood)?.color
-                        }`}
-                      >
-                        <span className="hidden sm:inline">
-                          {moods.find((m) => m.id === result.mood)?.icon}{" "}
-                        </span>
-                        {moods.find((m) => m.id === result.mood)?.name}
-                      </Badge>
+                      {moodLookup[result.mood] && (
+                        <Badge className="text-xs sm:text-sm bg-[var(--secondary-btn)] text-[var(--text-color)] border border-[var(--border-color)]">
+                          <span className="hidden sm:inline-flex items-center gap-1">
+                            {(() => {
+                              const MoodIcon = moodLookup[result.mood].Icon;
+                              return (
+                                <MoodIcon className="w-3.5 h-3.5 text-primary-200" />
+                              );
+                            })()}
+                          </span>
+                          {moodLookup[result.mood].name}
+                        </Badge>
+                      )}
                     </div>
 
                     {/* Content */}
@@ -928,3 +1033,5 @@ const SearchPage = () => {
 };
 
 export default SearchPage;
+
+

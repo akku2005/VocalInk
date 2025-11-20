@@ -1,5 +1,122 @@
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
+const { secureJSONParse } = require('../utils/secureParser');
+
 dotenv.config();
+
+const ENV_FILE_PATH = path.resolve(__dirname, '../../.env');
+const GOOGLE_CREDENTIALS_PARSE_OPTIONS = {
+  maxLength: 5000,
+  validateSchema: (data) => typeof data === 'object' && data !== null && data.type === 'service_account'
+};
+
+const stripInlineComment = (value = '') => {
+  if (!value || typeof value !== 'string') return null;
+  const hashIndex = value.indexOf('#');
+  const sanitized = (hashIndex >= 0 ? value.slice(0, hashIndex) : value).trim();
+  return sanitized || null;
+};
+
+const readMultilineEnvBlock = (key) => {
+  try {
+    if (!fs.existsSync(ENV_FILE_PATH)) return null;
+    const lines = fs.readFileSync(ENV_FILE_PATH, 'utf8').split(/\r?\n/);
+    const block = [];
+    let capturing = false;
+    let depth = 0;
+
+    for (const line of lines) {
+      if (!capturing) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith(`${key}=`)) {
+          const payload = line.slice(line.indexOf('=') + 1);
+          if (!payload.trim().startsWith('{')) {
+            continue;
+          }
+          capturing = true;
+          block.push(payload);
+          depth += (payload.match(/{/g) || []).length;
+          depth -= (payload.match(/}/g) || []).length;
+          if (depth <= 0) {
+            break;
+          }
+        }
+      } else {
+        block.push(line);
+        depth += (line.match(/{/g) || []).length;
+        depth -= (line.match(/}/g) || []).length;
+        if (depth <= 0) {
+          break;
+        }
+      }
+    }
+
+    if (!block.length) {
+      return null;
+    }
+
+    const reconstructed = block.join('\n').trim();
+    return reconstructed.startsWith('{') ? reconstructed : null;
+  } catch (error) {
+    console.warn(`Failed to rebuild multi-line ${key} from .env:`, error.message);
+    return null;
+  }
+};
+
+const loadCredentialsFromFile = (filePath) => {
+  if (!filePath) return null;
+  try {
+    const resolvedPath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(process.cwd(), filePath);
+    if (!fs.existsSync(resolvedPath)) {
+      console.warn('Google Cloud credentials file not found at', resolvedPath);
+      return null;
+    }
+
+    const content = fs.readFileSync(resolvedPath, 'utf8');
+    return secureJSONParse(content, GOOGLE_CREDENTIALS_PARSE_OPTIONS);
+  } catch (error) {
+    console.warn('Failed to load Google Cloud credentials file:', error.message);
+    return null;
+  }
+};
+
+const getGoogleCloudCredentials = () => {
+  const fileOverride = process.env.GOOGLE_CLOUD_CREDENTIALS_PATH || process.env.GOOGLE_CLOUD_CREDENTIALS_FILE;
+  if (fileOverride) {
+    const parsed = loadCredentialsFromFile(fileOverride);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const raw = process.env.GOOGLE_CLOUD_CREDENTIALS;
+  if (!raw) return null;
+
+  let candidate = raw.trim();
+  if (!candidate.startsWith('{') || !candidate.endsWith('}')) {
+    const reconstructed = readMultilineEnvBlock('GOOGLE_CLOUD_CREDENTIALS');
+    if (reconstructed) {
+      candidate = reconstructed;
+    }
+  }
+
+  if (!candidate.trim().startsWith('{')) {
+    return null;
+  }
+
+  const parsed = secureJSONParse(candidate, GOOGLE_CREDENTIALS_PARSE_OPTIONS);
+  if (parsed) {
+    return parsed;
+  }
+
+  console.warn('Google Cloud credentials appear to be invalid JSON.');
+  return null;
+};
+
+const googleCredentials = getGoogleCloudCredentials();
 
 module.exports = {
   email: {
@@ -21,23 +138,8 @@ module.exports = {
     }
   },
   googleCloud: {
-    projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-    credentials: (() => {
-      try {
-        if (process.env.GOOGLE_CLOUD_CREDENTIALS && process.env.GOOGLE_CLOUD_CREDENTIALS.trim().startsWith('{')) {
-          const { secureJSONParse } = require('../utils/secureParser');
-    return secureJSONParse(process.env.GOOGLE_CLOUD_CREDENTIALS, {
-      maxLength: 5000,
-      validateSchema: (data) => typeof data === 'object' && data !== null && data.type === 'service_account'
-    }) || null;
-        }
-        return null;
-      } catch (error) {
-        console.warn('⚠️  Google Cloud credentials not properly configured. Google Cloud TTS will be disabled.');
-        console.warn('   To enable Google Cloud TTS, set GOOGLE_CLOUD_CREDENTIALS with valid service account JSON.');
-        return null;
-      }
-    })(),
+    projectId: stripInlineComment(process.env.GOOGLE_CLOUD_PROJECT_ID),
+    credentials: googleCredentials,
     defaultVoice: {
       languageCode: 'en-US',
       name: 'en-US-Standard-A',

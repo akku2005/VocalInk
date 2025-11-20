@@ -5,7 +5,9 @@ import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import { apiService } from '../services/api';
+import { resolveAssetUrl } from '../constants/apiConfig';
 import { Save, BookOpen, Image as ImageIcon, Plus, Trash2, GripVertical, Sparkles } from 'lucide-react';
+import { storage } from '../utils/storage';
 
 const debounce = (fn, delay) => {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
@@ -52,8 +54,8 @@ const CreateSeriesPage = () => {
       const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
       input.onchange = async () => {
         const file = input.files?.[0]; if (!file) return;
-        const resp = await apiService.upload('/uploads/image', file);
-        const url = resp.data.url.startsWith('http') ? resp.data.url : `/api${resp.data.url}`;
+        const resp = await apiService.upload('/images/upload', file);
+        const url = resolveAssetUrl(resp.data.url || resp.data.data?.url);
         handleChange('coverImage', url);
       };
       input.click();
@@ -61,11 +63,25 @@ const CreateSeriesPage = () => {
   };
 
   const debouncedPersist = debounce((data) => {
-    try { localStorage.setItem('createSeriesDraft', JSON.stringify(data)); setLastSavedAt(new Date()); } catch (e) { console.warn('Persist draft failed', e); }
+    if (!storage.available) return;
+    try {
+      storage.setItem('createSeriesDraft', JSON.stringify(data));
+      setLastSavedAt(new Date());
+    } catch (e) {
+      console.warn('Persist draft failed', e);
+    }
   }, 800);
 
   useEffect(() => {
-    try { const saved = localStorage.getItem('createSeriesDraft'); if (saved) { const parsed = JSON.parse(saved); setForm(prev => ({ ...prev, ...parsed.form })); setEpisodes(parsed.episodes || [defaultEpisode(1)]); } } catch {}
+    if (!storage.available) return;
+    try {
+      const saved = storage.getItem('createSeriesDraft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setForm(prev => ({ ...prev, ...parsed.form }));
+        setEpisodes(parsed.episodes || [defaultEpisode(1)]);
+      }
+    } catch {""}
   }, []);
 
   useEffect(() => { debouncedPersist({ form, episodes }); }, [form, episodes]);
@@ -88,7 +104,9 @@ const CreateSeriesPage = () => {
     try {
       const payload = { ...form, episodes };
       await apiService.post('/series', payload);
-      localStorage.removeItem('createSeriesDraft');
+      if (storage.available) {
+        storage.removeItem('createSeriesDraft');
+      }
     } catch (e) {
       console.error('Publish failed', e);
     } finally { setLoading(false); setShowPublish(false); }
@@ -243,4 +261,4 @@ const CreateSeriesPage = () => {
   );
 };
 
-export default CreateSeriesPage; 
+export default CreateSeriesPage;

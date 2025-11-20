@@ -37,7 +37,7 @@ import { getCleanExcerpt } from "../utils/textUtils";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  
+
   // State management
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -165,7 +165,7 @@ const Dashboard = () => {
   // Format time ago
   const timeAgo = (date) => {
     const seconds = Math.floor((new Date() - new Date(date)) / 1000);
-    
+
     const intervals = {
       year: 31536000,
       month: 2592000,
@@ -419,7 +419,7 @@ const Dashboard = () => {
                 recentBlogs.map((blog) => (
                   <Link
                     key={blog._id}
-                    to={`/article/${blog._id}`}
+                    to={`/article/${blog.slug || blog._id}`}
                     className="block p-3 rounded-lg border border-border-color hover:border-primary-500 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between">
@@ -478,7 +478,7 @@ const Dashboard = () => {
                 topBlogs.map((blog, index) => (
                   <Link
                     key={blog._id}
-                    to={`/article/${blog._id}`}
+                    to={`/article/${blog.slug || blog._id}`}
                     className="block p-3 rounded-lg border border-border-color hover:border-green-500 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start gap-3">

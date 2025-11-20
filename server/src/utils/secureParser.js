@@ -317,7 +317,7 @@ function validateLocation(locationString) {
         // Validate location schema
         if (typeof data !== 'object' || data === null) return false;
         
-        const allowedKeys = ['latitude', 'longitude', 'city', 'country', 'region'];
+        const allowedKeys = ['latitude', 'longitude', 'city', 'country', 'region', 'countryCode'];
         const hasValidKeys = Object.keys(data).every(key => allowedKeys.includes(key));
         
         if (!hasValidKeys) return false;

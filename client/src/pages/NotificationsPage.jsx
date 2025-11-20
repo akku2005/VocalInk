@@ -282,7 +282,10 @@ const NotificationsPage = () => {
       const unreadSelected = notifications.filter(
         n => selectedNotifications.has(n._id) && n.read === false
       ).length;
-      setUnreadCount(prev => Math.max(0, prev - unreadSelected));
+      const newCount = Math.max(0, unreadCount - unreadSelected);
+      setUnreadCount(newCount);
+      // Sync navbar unread count immediately
+      updateUnreadCount(newCount);
       
       setSelectedNotifications(new Set());
       

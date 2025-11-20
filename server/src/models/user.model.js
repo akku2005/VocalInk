@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true, select: false },
-    username: { type: String, unique: true, sparse: true, trim: true }, // Unique username
+    username: { type: String, unique: true, sparse: true, trim: true, lowercase: true }, // Unique username
     displayName: { type: String, trim: true }, // Display name for profile
     role: {
       type: String,
@@ -568,6 +568,7 @@ userSchema.index({ 'following': 1 });
 
 // Additional performance indexes
 userSchema.index({ email: 1, isVerified: 1 }); // Email verification queries
+userSchema.index({ username: 1 }, { unique: true, sparse: true }); // Username uniqueness queries
 userSchema.index({ 'aiPreferences.language': 1 }); // Language preference filtering
 userSchema.index({ 'aiPreferences.preferredVoice': 1 }); // Voice preference filtering
 userSchema.index({ 'privacySettings.profileVisibility': 1 }); // Privacy-based queries

@@ -239,5 +239,53 @@ module.exports = {
   uploadAvatar,
   uploadCoverImage,
   removeAvatar,
-  removeCoverImage
+  removeCoverImage,
+  /**
+   * Generic content image upload (Cloudinary)
+   * Returns secure URL without modifying user records
+   */
+  uploadGenericImage: async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: 'No image file provided'
+        });
+      }
+
+      if (!imageStorageService.isConfigured()) {
+        return res.status(StatusCodes.SERVICE_UNAVAILABLE).json({
+          success: false,
+          message: 'Image storage service not configured'
+        });
+      }
+
+      const userId = req.user?.id || 'anonymous';
+
+      // Upload without enforced cropping; let Cloudinary keep original aspect
+      const uploadResult = await imageStorageService.uploadImage(
+        userId,
+        req.file.buffer,
+        'content',
+        { transformation: undefined, quality: 'auto' }
+      );
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: 'Image uploaded successfully',
+        url: uploadResult.url,
+        data: {
+          url: uploadResult.url,
+          publicId: uploadResult.publicId,
+          size: uploadResult.size,
+        }
+      });
+    } catch (error) {
+      console.error('Generic image upload error:', error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Failed to upload image',
+      });
+    }
+  }
 };

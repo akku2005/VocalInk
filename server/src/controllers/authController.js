@@ -35,6 +35,11 @@ const {
   getOperatingSystem,
   getLocationFromIP,
 } = require('../utils/sanitize');
+const {
+  sanitizeUsername,
+  ensureUniqueUsername,
+  generateUsernameBase,
+} = require('../utils/username');
 const SessionManager = require('../utils/sessionManager');
 
 // Utility: base64 encode a string
@@ -165,7 +170,15 @@ class AuthController {
         });
       }
       
-      const { email, password, firstName, lastName, role, skipVerification } = req.body;
+      const {
+        email,
+        password,
+        firstName,
+        lastName,
+        role,
+        skipVerification,
+        username: requestedUsername,
+      } = req.body;
 
       // Enhanced input sanitization
       const sanitizedEmail = email.toLowerCase().trim();
@@ -196,6 +209,23 @@ class AuthController {
         });
       }
 
+      // Checks for uniqueness of user-picked username
+      let finalUsername;
+      const sanitizedRequestedUsername = sanitizeUsername(requestedUsername);
+      if (sanitizedRequestedUsername) {
+        const existingUsername = await User.findOne({ username: sanitizedRequestedUsername });
+        if (existingUsername) {
+          throw new ConflictError('Username already taken');
+        }
+        finalUsername = sanitizedRequestedUsername;
+      } else if (requestedUsername) {
+        throw new BadRequestError('Username must be 3-30 characters and contain only letters, numbers, dots, or underscores');
+      } else {
+        finalUsername = await ensureUniqueUsername(
+          generateUsernameBase(sanitizedFirstName, sanitizedLastName)
+        );
+      }
+
       // For admin role creation, check if it's allowed
       if (role === 'admin') {
         const existingAdmin = await User.findOne({ role: 'admin' });
@@ -218,6 +248,7 @@ class AuthController {
       const user = await User.create({
         email: sanitizedEmail,
         password,
+        username: finalUsername,
         firstName: sanitizedFirstName,
         lastName: sanitizedLastName,
         role: role || 'reader',

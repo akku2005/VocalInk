@@ -10,6 +10,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
 import { apiService } from "../services/api";
+import { resolveAssetUrl } from "../constants/apiConfig";
 import {
   Save,
   Eye,
@@ -29,6 +30,7 @@ import Modal from "../components/ui/Modal";
 import CustomDropdown from "../components/ui/CustomDropdown";
 import { useToast } from '../hooks/useToast';
 import AdvancedRichTextEditor from '../components/ui/AdvancedRichTextEditor';
+import { storage } from '../utils/storage';
 
 // Debounce function to limit how often an expensive function is called
 const debounce = (fn, delay) => {
@@ -42,7 +44,7 @@ const debounce = (fn, delay) => {
 const CreateBlogPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  
+
   const [formData, setFormData] = useState({
     title: "",
     content: "",
@@ -130,8 +132,8 @@ const CreateBlogPage = () => {
         const file = input.files?.[0];
         if (!file) return;
         try {
-          const resp = await apiService.upload('/uploads/image', file);
-          const url = resp.data.url.startsWith('http') ? resp.data.url : `/api${resp.data.url}`;
+          const resp = await apiService.upload('/images/upload', file);
+          const url = resolveAssetUrl(resp.data.url || resp.data.data?.url);
           handleInputChange('coverImage', url);
           addToast({ type: 'success', message: 'Cover image uploaded.' });
         } catch (uploadError) {
@@ -203,21 +205,23 @@ const CreateBlogPage = () => {
         status: isDraft ? "draft" : "published",
         coverImage: formData.coverImage || undefined,
       };
-      
+
       // Debug: Log the payload
       console.log('Publishing blog with payload:', payload);
-      
+
       const res = await apiService.post("/blogs/addBlog", payload);
-      
+
       if (!isDraft) {
-        localStorage.removeItem('createBlogDraft');
+        if (storage.available) {
+          storage.removeItem('createBlogDraft');
+        }
         addToast({ type: 'success', message: 'Blog published successfully!' });
-        
+
         // Navigate to the article page after successful publish
-        if (res.data && res.data.data && res.data.data._id) {
-          navigate(`/article/${res.data.data._id}`);
-        } else if (res.data && res.data._id) {
-          navigate(`/article/${res.data._id}`);
+        if (res.data && res.data.data && (res.data.data.slug || res.data.data._id)) {
+          navigate(`/article/${res.data.data.slug || res.data.data._id}`);
+        } else if (res.data && (res.data.slug || res.data._id)) {
+          navigate(`/article/${res.data.slug || res.data._id}`);
         } else {
           // Fallback to blogs page if no ID returned
           navigate('/blogs');
@@ -228,7 +232,7 @@ const CreateBlogPage = () => {
     } catch (error) {
       console.error('Error saving blog:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.errors 
+      const errorMessage = error.response?.data?.errors
         ? error.response.data.errors.map(e => `${e.field}: ${e.message}`).join(', ')
         : error.response?.data?.message || 'Failed to save blog.';
       addToast({ type: 'error', message: errorMessage });
@@ -276,8 +280,9 @@ const CreateBlogPage = () => {
 
   // Debounced function to save draft to local storage
   const debouncedPersist = debounce((data) => {
+    if (!storage.available) return;
     try {
-      localStorage.setItem("createBlogDraft", JSON.stringify(data));
+      storage.setItem("createBlogDraft", JSON.stringify(data));
       setLastSavedAt(new Date());
     } catch (e) {
       console.warn("Persist draft failed", e);
@@ -286,8 +291,9 @@ const CreateBlogPage = () => {
 
   // Effect to load draft from local storage on component mount
   useEffect(() => {
+    if (!storage.available) return;
     try {
-      const saved = localStorage.getItem("createBlogDraft");
+      const saved = storage.getItem("createBlogDraft");
       if (saved) {
         const parsed = JSON.parse(saved);
         setFormData((prev) => ({ ...prev, ...parsed }));
@@ -361,222 +367,319 @@ const CreateBlogPage = () => {
 
   return (
     <>
-    <div className="min-h-screen bg-background">
-      {/* Header - Sticky */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">
-                Create New Blog Post
-              </h1>
-              <p className="text-sm text-text-secondary mt-1">
-                Share your thoughts with the VocalInk community
-              </p>
+      <div className="min-h-screen bg-background">
+        {/* Header - Sticky */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">
+                  Create New Blog Post
+                </h1>
+                <p className="text-sm text-text-secondary mt-1">
+                  Share your thoughts with the VocalInk community
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setPreviewMode(!previewMode)}
+                  className="flex items-center gap-2 text-sm"
+                  size="sm"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span className="hidden sm:inline">{previewMode ? "Edit" : "Preview"}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSave(true)}
+                  loading={loading}
+                  className="flex items-center gap-2 text-sm"
+                  size="sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span className="hidden sm:inline">Save Draft</span>
+                </Button>
+                <Button
+                  onClick={openPublish}
+                  loading={loading}
+                  className="flex items-center gap-2 text-sm"
+                  size="sm"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Publish
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setPreviewMode(!previewMode)}
-                className="flex items-center gap-2 text-sm"
-                size="sm"
-              >
-                <Eye className="w-4 h-4" />
-                <span className="hidden sm:inline">{previewMode ? "Edit" : "Preview"}</span>
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleSave(true)}
-                loading={loading}
-                className="flex items-center gap-2 text-sm"
-                size="sm"
-              >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Save Draft</span>
-              </Button>
-              <Button
-                onClick={openPublish}
-                loading={loading}
-                className="flex items-center gap-2 text-sm"
-                size="sm"
-              >
-                <BookOpen className="w-4 h-4" />
-                Publish
-              </Button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="space-y-6">
+            {/* Main Editor Column */}
+            <div className="space-y-6">
+              {/* Title Card */}
+              <Card>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Title *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter your blog title..."
+                        value={formData.title}
+                        onChange={(e) => handleInputChange("title", e.target.value)}
+                        className="w-full bg-transparent outline-none text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight placeholder:text-text-secondary/40 border-b border-transparent focus:border-primary pb-2 transition-colors"
+                      />
+                    </div>
+
+                    {/* Stats Bar */}
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-text-secondary pt-2">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                        {readTime} min
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Target className="w-3 h-3 sm:w-4 sm:h-4" />
+                        {wordCount} words
+                      </span>
+                      {lastSavedAt && (
+                        <span className="text-xs text-success flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Saved {lastSavedAt.toLocaleTimeString()}
+                        </span>
+                      )}
+                      <span className="ml-auto hidden lg:flex items-center gap-2">
+                        <span className="text-xs">Theme:</span>
+                        <CustomDropdown
+                          value={canvasTheme}
+                          onChange={setCanvasTheme}
+                          options={[
+                            { id: "white", name: "Light" },
+                            { id: "sepia", name: "Sepia" },
+                            { id: "dark", name: "Dark" },
+                          ]}
+                        />
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Content Editor Card */}
+              <Card>
+                <CardHeader className="border-b border-border">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <CardTitle className="text-lg font-semibold">Content *</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateAISummary}
+                        loading={aiGenerating}
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span className="hidden sm:inline">AI Summary</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateTTS}
+                        loading={loading}
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                        <span className="hidden sm:inline">TTS</span>
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {!previewMode ? (
+                    <div className="p-4 sm:p-6">
+                      <AdvancedRichTextEditor
+                        value={formData.content}
+                        onChange={(html) => handleInputChange("content", html)}
+                        className={`${canvasTheme === "white" ? "" : canvasTheme === "sepia" ? "sepia" : "dark"} min-h-[400px] sm:min-h-[500px]`}
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-4 sm:p-6">
+                      <div
+                        className="prose prose-sm sm:prose lg:prose-lg max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            formData.content || "<p class='text-text-secondary italic'>No content yet. Start writing to see preview.</p>",
+                        }}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              {/* AI Summary Card */}
+              {formData.summary && (
+                <Card className="bg-primary-50/50 border-primary-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      AI-Generated Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-6">
+                    <p className="text-text-primary leading-relaxed text-sm sm:text-base">
+                      {formData.summary}
+                    </p>
+                    <div className="mt-4 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-success" />
+                      <span className="text-xs sm:text-sm text-success">
+                        Summary generated successfully
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
+
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          {/* Main Editor Column */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Title Card */}
-            <Card>
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Enter your blog title..."
-                      value={formData.title}
-                      onChange={(e) => handleInputChange("title", e.target.value)}
-                      className="w-full bg-transparent outline-none text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight placeholder:text-text-secondary/40 border-b border-transparent focus:border-primary pb-2 transition-colors"
+
+      {/* Publish Modal */}
+      <Modal
+        isOpen={showPublish}
+        onClose={() => setShowPublish(false)}
+        title="Story Preview"
+        maxWidth="4xl"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column: Preview */}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-secondary">Preview</label>
+              <div className="bg-surface rounded-xl overflow-hidden border border-border shadow-sm">
+                <div className="aspect-[16/9] bg-surface-hover relative group cursor-pointer" onClick={handleCoverUpload}>
+                  {formData.coverImage ? (
+                    <img
+                      src={formData.coverImage}
+                      alt="Cover"
+                      className="w-full h-full object-cover"
                     />
-                  </div>
-                  
-                  {/* Stats Bar */}
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-text-secondary pt-2">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                      {readTime} min
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                      {wordCount} words
-                    </span>
-                    {lastSavedAt && (
-                      <span className="text-xs text-success flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Saved {lastSavedAt.toLocaleTimeString()}
-                      </span>
-                    )}
-                    <span className="ml-auto hidden lg:flex items-center gap-2">
-                      <span className="text-xs">Theme:</span>
-                      <CustomDropdown
-                        value={canvasTheme}
-                        onChange={setCanvasTheme}
-                        options={[
-                          { id: "white", name: "Light" },
-                          { id: "sepia", name: "Sepia" },
-                          { id: "dark", name: "Dark" },
-                        ]}
-                      />
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            {/* Content Editor Card */}
-            <Card>
-              <CardHeader className="border-b border-border">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <CardTitle className="text-lg font-semibold">Content *</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={generateAISummary}
-                      loading={aiGenerating}
-                      className="flex items-center gap-1 text-xs"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span className="hidden sm:inline">AI Summary</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={generateTTS}
-                      loading={loading}
-                      className="flex items-center gap-1 text-xs"
-                    >
-                      <Volume2 className="w-3 h-3" />
-                      <span className="hidden sm:inline">TTS</span>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-text-secondary gap-2">
+                      <Palette className="w-8 h-8 opacity-50" />
+                      <span className="text-sm">Add a cover image</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Button variant="secondary" size="sm" className="pointer-events-none">
+                      Change Image
                     </Button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {!previewMode ? (
-                  <div className="p-4 sm:p-6">
-                    <AdvancedRichTextEditor
-                      value={formData.content}
-                      onChange={(html) => handleInputChange("content", html)}
-                      className={`${canvasTheme === "white" ? "" : canvasTheme === "sepia" ? "sepia" : "dark"} min-h-[400px] sm:min-h-[500px]`}
-                    />
-                  </div>
-                ) : (
-                  <div className="p-4 sm:p-6">
-                    <div
-                      className="prose prose-sm sm:prose lg:prose-lg max-w-none"
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          formData.content || "<p class='text-text-secondary italic'>No content yet. Start writing to see preview.</p>",
-                      }}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            {/* AI Summary Card */}
-            {formData.summary && (
-              <Card className="bg-primary-50/50 border-primary-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    AI-Generated Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  <p className="text-text-primary leading-relaxed text-sm sm:text-base">
-                    {formData.summary}
+                <div className="p-4 space-y-2">
+                  <h3 className="font-bold text-lg text-text-primary line-clamp-2">
+                    {formData.title || "Untitled Story"}
+                  </h3>
+                  <p className="text-sm text-text-secondary line-clamp-2">
+                    {formData.summary || plainText.slice(0, 150) || "Write your story to see a summary here..."}
                   </p>
-                  <div className="mt-4 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    <span className="text-xs sm:text-sm text-success">
-                      Summary generated successfully
-                    </span>
+                  <div className="pt-2 text-xs text-text-secondary border-t border-border mt-2">
+                    Note: This is how your story will appear in feeds.
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile-only settings moved here for better flow on small screens */}
+            <div className="md:hidden space-y-4">
+              {/* ... mobile settings if needed ... */}
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Mood Card */}
-            <Card>
-              <CardHeader className="border-b border-border">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Palette className="w-5 h-5 text-primary" />
-                  Mood
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 gap-2">
-                  {moods.map((mood) => (
-                    <button
-                      key={mood.id}
-                      onClick={() => handleInputChange("mood", mood.id)}
-                      className={`p-3 rounded-lg border-2 transition-all duration-200 text-left hover:scale-105 ${
-                        formData.mood === mood.id
-                          ? "border-primary bg-primary-50 shadow-sm"
-                          : "border-border hover:border-primary-300"
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{mood.icon}</div>
-                      <div className="text-xs font-medium text-text-primary">
-                        {mood.name}
-                      </div>
-                    </button>
-                  ))}
+          {/* Right Column: Metadata */}
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <h3 className="font-medium text-text-primary">Publishing Details</h3>
+              <p className="text-sm text-text-secondary">
+                Add tags and settings so readers can find your story.
+              </p>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-secondary">
+                Topics (Tags) <span className="text-xs font-normal opacity-70">Add up to 5</span>
+              </label>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={tagQuery}
+                    onChange={(e) => setTagQuery(e.target.value)}
+                    placeholder="e.g. Technology, Life, Coding"
+                    className="flex-1"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const tag = tagQuery.trim();
+                        if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
+                          setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                          setTagQuery('');
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => {
+                      const tag = tagQuery.trim();
+                      if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
+                        setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                        setTagQuery('');
+                      }
+                    }}
+                    disabled={!tagQuery.trim() || formData.tags.length >= 5}
+                  >
+                    Add
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-            {/* Language Card */}
-            <Card>
-              <CardHeader className="border-b border-border">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Globe className="w-5 h-5 text-primary" />
-                  Language
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-2 min-h-[2rem]">
+                  {formData.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="pl-2 pr-1 py-1">
+                      {tag}
+                      <button
+                        onClick={() => handleRemoveTag(tag)}
+                        className="ml-1 p-0.5 hover:bg-error/10 hover:text-error rounded-full transition-colors"
+                      >
+                        <span className="sr-only">Remove</span>
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
+                  {formData.tags.length === 0 && (
+                    <span className="text-sm text-text-secondary italic">No tags added yet</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mood & Language */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-secondary">Mood</label>
+                <CustomDropdown
+                  value={formData.mood}
+                  onChange={(val) => handleInputChange("mood", val)}
+                  options={moods}
+                  optionLabelKey="name"
+                  optionValueKey="id"
+                  placeholder="Select mood"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-secondary">Language</label>
                 <CustomDropdown
                   value={formData.language}
                   onChange={(val) => handleInputChange("language", val)}
@@ -584,330 +687,68 @@ const CreateBlogPage = () => {
                   optionLabelKey="name"
                   optionValueKey="code"
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Tags Card */}
-            <Card>
-              <CardHeader className="border-b border-border">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Tag className="w-5 h-5 text-primary" />
-                  Tags
-                  <span className="ml-auto text-xs font-normal text-text-secondary">
-                    {formData.tags.length}/5
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Type and press Enter..."
-                      value={tagQuery}
-                      onChange={(e) => setTagQuery(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          const tag = tagQuery.trim();
-                          if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
-                            setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
-                            setTagQuery('');
-                            addToast({ type: 'success', message: `Tag added` });
-                          } else if (formData.tags.length >= 5) {
-                            addToast({ type: 'warning', message: 'Max 5 tags' });
-                          }
-                        }
-                      }}
-                      className="flex-1 text-sm"
-                      disabled={formData.tags.length >= 5}
-                    />
-                    <Button
-                      onClick={() => {
-                        const tag = tagQuery.trim();
-                        if (tag && !formData.tags.includes(tag) && formData.tags.length < 5) {
-                          setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
-                          setTagQuery('');
-                          addToast({ type: 'success', message: `Tag added` });
-                        } else if (formData.tags.length >= 5) {
-                          addToast({ type: 'warning', message: 'Max 5 tags' });
-                        }
-                      }}
-                      size="sm"
-                      disabled={formData.tags.length >= 5 || !tagQuery.trim()}
-                  >
-                    Add
-                  </Button>
-                </div>
+            {/* Series */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text-secondary">Series (Optional)</label>
+              <Input
+                value={formData.series}
+                onChange={(e) => handleInputChange("series", e.target.value)}
+                placeholder="Add to a series..."
+              />
+            </div>
 
-                  {/* Selected Tags */}
-                  {formData.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {formData.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="default"
-                          className="flex items-center gap-1 text-xs"
-                        >
-                          {tag}
-                          <button
-                            onClick={() => handleRemoveTag(tag)}
-                            className="ml-1 hover:text-error"
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Suggested Tags */}
-                  {formData.tags.length < 5 && (
-                    <div>
-                      <p className="text-xs text-text-secondary mb-2">Suggested:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {suggestedTags.slice(0, 6).filter(t => !formData.tags.includes(t)).map((tag) => (
-                          <button
-                            key={tag}
-                            onClick={() => {
-                              if (formData.tags.length < 5) {
-                                setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
-                                addToast({ type: 'success', message: `Tag added` });
-                              }
-                            }}
-                            className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded-full hover:bg-primary-100 hover:text-primary transition-colors"
-                          >
-                            + {tag}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Series Card */}
-            <Card>
-              <CardHeader className="border-b border-border">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                  Series
-                  <span className="ml-auto text-xs font-normal text-text-secondary">Optional</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <Input
-                  type="text"
-                  placeholder="Add to a series..."
-                  value={formData.series}
-                  onChange={(e) => handleInputChange("series", e.target.value)}
-                  className="text-sm"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Settings Card */}
-            <Card>
-              <CardHeader className="border-b border-border">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Globe className="w-5 h-5 text-primary" />
-                  Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            {/* Settings */}
+            <div className="space-y-3 pt-2 border-t border-border">
               <label className="flex items-center gap-3 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={formData.isPublic}
-                  onChange={(e) =>
-                    handleInputChange("isPublic", e.target.checked)
-                  }
+                  onChange={(e) => handleInputChange("isPublic", e.target.checked)}
                   className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                 />
-                <span className="text-sm text-text-primary group-hover:text-primary transition-colors">
-                  Make this post public
-                </span>
+                <span className="text-sm text-text-primary">Make this story public</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={formData.allowComments}
-                  onChange={(e) =>
-                    handleInputChange("allowComments", e.target.checked)
-                  }
+                  onChange={(e) => handleInputChange("allowComments", e.target.checked)}
                   className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                 />
-                <span className="text-sm text-text-primary group-hover:text-primary transition-colors">
-                  Allow comments
-                </span>
+                <span className="text-sm text-text-primary">Allow comments</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={formData.generateTTS}
-                  onChange={(e) =>
-                    handleInputChange("generateTTS", e.target.checked)
-                  }
+                  onChange={(e) => handleInputChange("generateTTS", e.target.checked)}
                   className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                 />
-                <span className="text-sm text-text-primary group-hover:text-primary transition-colors">
-                  Generate audio version
-                </span>
+                <span className="text-sm text-text-primary">Generate audio version</span>
               </label>
-            </CardContent>
-          </Card>
-
-            {/* Tips Card */}
-            <Card className="bg-gradient-to-br from-primary-50 to-accent-50 border-primary-200">
-              <CardHeader className="border-b border-primary-200">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <AlertCircle className="w-5 h-5 text-primary" />
-                  Publishing Tips
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <ul className="space-y-2 text-xs sm:text-sm text-text-primary">
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">✓</span>
-                    <span>Use a compelling title</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">✓</span>
-                    <span>Add relevant tags</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">✓</span>
-                    <span>Choose the right mood</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary mt-0.5">✓</span>
-                    <span>Enable TTS for accessibility</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
-
-      {/* Publish Modal */}
-      <Modal
-        isOpen={showPublish}
-        onClose={() => setShowPublish(false)}
-        title="Publish story"
-      >
-        <div className="space-y-4">
-          {errors.length > 0 && (
-            <div className="p-3 rounded border border-error/40 text-error text-sm">
-              <ul className="list-disc pl-5">
-                {errors.map((er) => (
-                  <li key={er}>{er}</li>
-                ))}
-              </ul>
             </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">Title</label>
-            <Input
-              value={formData.title}
-              onChange={(e) => handleInputChange("title", e.target.value)}
-              placeholder="Add a title"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">
-              Tags (up to 5)
-            </label>
-            <div className="flex gap-2">
-              <Input
-                value={currentTag}
-                className="border border-[var(--border-color)] text-[var(--text-color)] "
-                onChange={(e) => setCurrentTag(e.target.value)}
-                placeholder="Add a tag"
-                onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
-              />
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-6">
               <Button
-                size="sm"
-                onClick={handleAddTag}
-                className="border-none text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] bg-[var(--secondary-btn2)]"
+                variant="ghost"
+                onClick={() => setShowPublish(false)}
               >
-                Add
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmPublish}
+                disabled={loading}
+                loading={loading}
+                className="bg-primary-600 hover:bg-primary-700 text-white px-8"
+              >
+                Publish Now
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {formData.tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="default"
-                  className="flex items-center gap-1"
-                >
-                  {tag}
-                  <button
-                    onClick={() => handleRemoveTag(tag)}
-                    className="ml-1 hover:text-error cursor-pointer"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              ))}
-            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">Cover image</label>
-            <div className="flex gap-2">
-              <Input
-                value={formData.coverImage}
-                onChange={(e) =>
-                  handleInputChange("coverImage", e.target.value)
-                }
-                className="text-[var(--text-color)] border border-[var(--border-color)] "
-                placeholder="Paste image URL"
-              />
-              <Button
-                variant="outline"
-                className=" border-none text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] bg-[var(--secondary-btn2)] py-1"
-                onClick={handleCoverUpload}
-              >
-                Upload
-              </Button>
-            </div>
-            {formData.coverImage && (
-              <img
-                src={formData.coverImage}
-                alt="Cover"
-                className="mt-2 w-full rounded border border-border"
-              />
-            )}
-          </div>
-          <div className="space-y-2">
-            <CustomDropdown
-              label="Visibility"
-              value={formData.isPublic ? "public" : "private"}
-              onChange={(val) =>
-                handleInputChange("isPublic", val === "public")
-              }
-              options={visibilityOptions}
-            />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button
-            variant="outline"
-            onClick={() => setShowPublish(false)}
-            className="hover:bg-[var(--secondary-btn-hover2)] bg-[var(--secondary-btn2)] border-none"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={confirmPublish}
-            disabled={loading}
-            loading={loading}
-            className="bg-indigo-500 hover:bg-indigo-600"
-          >
-            Publish
-          </Button>
         </div>
       </Modal>
 

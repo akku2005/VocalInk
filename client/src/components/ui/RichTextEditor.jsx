@@ -9,6 +9,7 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { useEffect, useMemo, useState } from "react";
 import CustomDropdown from "./CustomDropdown";
 import { apiService } from "../../services/api";
+import { resolveAssetUrl } from "../../constants/apiConfig";
 import {
   Undo2,
   Redo2,
@@ -88,10 +89,8 @@ const RichTextEditor = ({ value, onChange, className = "" }) => {
             const file = item.getAsFile();
             if (file) {
               try {
-                const resp = await apiService.upload("/uploads/image", file);
-                const url = resp.data.url.startsWith("http")
-                  ? resp.data.url
-                  : `/api${resp.data.url}`;
+                const resp = await apiService.upload("/images/upload", file);
+                const url = resolveAssetUrl(resp.data.url || resp.data.data?.url);
                 editor?.chain().focus().setImage({ src: url }).run();
                 return true;
               } catch (e) {
@@ -107,10 +106,8 @@ const RichTextEditor = ({ value, onChange, className = "" }) => {
         const image = files.find((f) => f.type.startsWith("image/"));
         if (image) {
           try {
-            const resp = await apiService.upload("/uploads/image", image);
-            const url = resp.data.url.startsWith("http")
-              ? resp.data.url
-              : `/api${resp.data.url}`;
+            const resp = await apiService.upload("/images/upload", image);
+            const url = resolveAssetUrl(resp.data.url || resp.data.data?.url);
             editor?.chain().focus().setImage({ src: url }).run();
             return true;
           } catch (e) {
@@ -166,10 +163,8 @@ const RichTextEditor = ({ value, onChange, className = "" }) => {
       input.onchange = async () => {
         const file = input.files?.[0];
         if (!file) return;
-        const resp = await apiService.upload("/uploads/image", file);
-        const url = resp.data.url.startsWith("http")
-          ? resp.data.url
-          : `/api${resp.data.url}`;
+        const resp = await apiService.upload("/images/upload", file);
+        const url = resolveAssetUrl(resp.data.url || resp.data.data?.url);
         editor.chain().focus().setImage({ src: url }).run();
       };
       input.click();

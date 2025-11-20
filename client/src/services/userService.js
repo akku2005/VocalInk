@@ -207,6 +207,70 @@ class UserService {
     }
   }
 
+  // Get liked blogs for user
+  async getUserLikedBlogs(userId, options = {}) {
+    try {
+      const response = await api.get(`${this.baseURL}/${userId}/likes`, {
+        params: options,
+      });
+
+      if (response.data.success) {
+        return response.data;
+      }
+
+      throw new Error(response.data.message || 'Failed to get liked posts');
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const customError = new Error(error.response.data.message || 'Failed to get liked posts');
+        throw customError;
+      }
+      throw error;
+    }
+  }
+
+  // Get bookmarked blogs for user
+  async getUserBookmarkedBlogs(userId, options = {}) {
+    try {
+      const response = await api.get(`${this.baseURL}/${userId}/bookmarks`, {
+        params: options,
+      });
+
+      if (response.data.success) {
+        return response.data;
+      }
+
+      throw new Error(response.data.message || 'Failed to get bookmarked posts');
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const customError = new Error(error.response.data.message || 'Failed to get bookmarked posts');
+        throw customError;
+      }
+      throw error;
+    }
+  }
+
+  async checkUsernameAvailability(username) {
+    try {
+      const response = await api.get(`${this.baseURL}/username/availability`, {
+        params: { username }
+      });
+
+      if (response.data.success) {
+        return response.data;
+      }
+
+      throw new Error(response.data.message || 'Failed to check username availability');
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        const customError = new Error(errorData.message || 'Failed to check username availability');
+        throw customError;
+      }
+
+      throw error;
+    }
+  }
+
   // Get leaderboard
   async getLeaderboard() {
     try {

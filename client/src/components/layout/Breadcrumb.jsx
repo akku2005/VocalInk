@@ -50,8 +50,8 @@ export default function Breadcrumb() {
           return (
             <React.Fragment key={name}>
               <ChevronRight className="w-4 h-4 text-text-secondary" />
-              {isLast ? (
-                <span className="text-text-primary font-medium">
+              {isLast || name === 'article' || name === 'blog' ? (
+                <span className={`font-medium ${isLast ? 'text-text-primary' : 'text-text-secondary'}`}>
                   {getBreadcrumbName(name)}
                 </span>
               ) : (

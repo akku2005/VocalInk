@@ -72,7 +72,7 @@ const PrivacyTab = ({
     try {
       console.log('Saving Privacy settings:', settings.privacy);
       
-      await settingsService.updatePrivacySection(settings.privacy);
+      await settingsService.updatePrivacySettings(settings.privacy);
       
       // Force refresh to get updated data
       await loadSettings(true);
@@ -221,6 +221,51 @@ const PrivacyTab = ({
     { id: "friends", name: "Friends Only" },
   ];
 
+  const privacyFields = [
+    {
+      key: 'profileVisibility',
+      label: 'Profile Visibility',
+      description: 'Control who can see your profile',
+      type: 'select',
+    },
+    {
+      key: 'postVisibility',
+      label: 'Post Visibility',
+      description: 'Control who can see your posts',
+      type: 'select',
+    },
+    {
+      key: 'allowSearch',
+      label: 'Allow Search',
+      description: 'Allow others to find you in search',
+      type: 'toggle',
+    },
+    {
+      key: 'showOnlineStatus',
+      label: 'Show Online Status',
+      description: 'Show when you are online',
+      type: 'toggle',
+    },
+    {
+      key: 'allowDirectMessages',
+      label: 'Allow Direct Messages',
+      description: 'Allow others to send you messages',
+      type: 'toggle',
+    },
+    {
+      key: 'dataSharing',
+      label: 'Data Sharing',
+      description: 'Share data for research purposes',
+      type: 'toggle',
+    },
+    {
+      key: 'analyticsSharing',
+      label: 'Analytics Sharing',
+      description: 'Share analytics data',
+      type: 'toggle',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Privacy Controls */}
@@ -232,34 +277,22 @@ const PrivacyTab = ({
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           <div className="space-y-4">
-            {Object.entries(privacy).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between">
+            {privacyFields.map((field) => (
+              <div key={field.key} className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium text-text-primary capitalize">
-                    {key === "profileVisibility" && "Profile Visibility"}
-                    {key === "postVisibility" && "Post Visibility"}
-                    {key === "allowSearch" && "Allow Search"}
-                    {key === "showOnlineStatus" && "Show Online Status"}
-                    {key === "allowDirectMessages" && "Allow Direct Messages"}
-                    {key === "dataSharing" && "Data Sharing"}
-                    {key === "analyticsSharing" && "Analytics Sharing"}
+                    {field.label}
                   </h3>
                   <p className="text-sm text-text-secondary">
-                    {key === "profileVisibility" && "Control who can see your profile"}
-                    {key === "postVisibility" && "Control who can see your posts"}
-                    {key === "allowSearch" && "Allow others to find you in search"}
-                    {key === "showOnlineStatus" && "Show when you are online"}
-                    {key === "allowDirectMessages" && "Allow others to send you messages"}
-                    {key === "dataSharing" && "Share data for research purposes"}
-                    {key === "analyticsSharing" && "Share analytics data"}
+                    {field.description}
                   </p>
                 </div>
-                {typeof value === "boolean" ? (
+                {field.type === 'toggle' ? (
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={value}
-                      onChange={() => handleToggle("privacy", key)}
+                      checked={privacy[field.key]}
+                      onChange={() => handleToggle('privacy', field.key)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-[var(--secondary-btn2)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
@@ -267,16 +300,16 @@ const PrivacyTab = ({
                 ) : (
                   <select
                     value={
-                      (key === "profileVisibility" || key === "postVisibility") 
-                        ? (account?.accountVisibility || value || 'public')
-                        : value
+                      (field.key === 'profileVisibility' || field.key === 'postVisibility')
+                        ? (account?.accountVisibility || privacy[field.key] || 'public')
+                        : privacy[field.key]
                     }
                     onChange={(e) => {
-                      if (key === "profileVisibility" || key === "postVisibility") {
-                        handleInputChange("privacy", key, e.target.value);
-                        handleInputChange("account", "accountVisibility", e.target.value);
+                      if (field.key === 'profileVisibility' || field.key === 'postVisibility') {
+                        handleInputChange('privacy', field.key, e.target.value);
+                        handleInputChange('account', 'accountVisibility', e.target.value);
                       } else {
-                        handleInputChange("privacy", key, e.target.value);
+                        handleInputChange('privacy', field.key, e.target.value);
                       }
                     }}
                     className="w-36 p-2 border border-border rounded-lg bg-background text-text-primary"
