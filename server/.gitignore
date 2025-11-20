@@ -35,3 +35,6 @@ swagger.json
 # Environment files
 .env     # Actual env - keep private
 # example.env will be tracked
+
+# Google Cloud credentials
+src/config/google-credentials.json

@@ -56,10 +56,10 @@ export default function Navbar() {
         fetchUnreadCount();
       }
     }, 2000);
-    
+
     // Poll for updates every 90 seconds (reduced frequency to avoid rate limits)
     const interval = setInterval(fetchUnreadCount, 90000);
-    
+
     return () => {
       isMounted = false;
       clearTimeout(initialTimer);
@@ -90,6 +90,15 @@ export default function Navbar() {
       <div className=" mx-auto    flex items-center justify-between  px-4 py-2 rounded-full">
         {/* Left: Logo */}
         <div className="text-[1.2rem] font-bold flex flex-row items-center  gap-8">
+          {/* Show VocalInk logo only when sidebar is collapsed */}
+          {sidebarCollapsed && (
+            <Link to="/" className="flex items-center gap-2 mr-6">
+              <h1 className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                VocalInk
+              </h1>
+            </Link>
+          )}
+
           <Link to="/" className="cursor-pointer ">
             <h3 className="text-[var(--nav-logo-text-color)] font-semibold tracking-tight ">
               {" "}

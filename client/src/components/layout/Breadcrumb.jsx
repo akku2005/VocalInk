@@ -26,7 +26,14 @@ export default function Breadcrumb() {
       badges: "Badges",
       timeline: "Timeline",
     };
-    return breadcrumbMap[path] || path.charAt(0).toUpperCase() + path.slice(1);
+
+    if (breadcrumbMap[path]) return breadcrumbMap[path];
+
+    // Format slug: replace hyphens with spaces and capitalize words
+    return path
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   return (

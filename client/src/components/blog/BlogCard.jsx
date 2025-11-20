@@ -155,77 +155,70 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
   }
 
   return (
-    <Card
-      className="cursor-pointer group overflow-hidden hover:shadow-lg transition-shadow duration-300 h-full flex flex-col"
+    <div
+      className="group relative flex flex-col h-full bg-surface border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1 cursor-pointer"
       onClick={() => navigate(`/article/${blog.slug || blogId}`)}
     >
-      {/* Image/Header */}
-      <div className="aspect-video relative flex-shrink-0 overflow-hidden bg-gradient-to-br from-indigo-500/60 to-gray-500/60">
+      {/* Image Container */}
+      <div className="aspect-[16/10] relative overflow-hidden bg-gradient-to-br from-sky-500/10 to-pink-500/10">
         {coverSrc ? (
           <img
             src={coverSrc}
             alt={title}
             loading="lazy"
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             onError={(event) => {
               event.currentTarget.onerror = null;
               event.currentTarget.src = "/images/default-cover.png";
             }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-4xl text-white/70 font-semibold tracking-wide">
-            BLOG
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-4xl font-bold text-sky-500/20 tracking-widest">BLOG</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+
+        {/* Overlay Gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-300" />
+
+        {/* Floating Tags */}
+        <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-10">
+          {tags.slice(0, 2).map((tag, index) => (
+            <span
+              key={index}
+              className="px-2.5 py-1 text-xs font-medium bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
 
-      <CardHeader className="space-y-4 sm:space-y-3 flex-1 flex flex-col">
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2">
-          {tags.slice(0, 2).map((tag, index) => (
-            <Badge key={index} variant="outline" className="text-xs px-2 py-1">
-              {tag}
-            </Badge>
-          ))}
-          {tags.length > 2 && (
-            <Badge variant="outline" className="text-xs px-2 py-1">
-              +{tags.length - 2}
-            </Badge>
-          )}
+      {/* Content */}
+      <div className="flex flex-col flex-1 p-5 space-y-4">
+        <div className="space-y-2 flex-1">
+          <h3 className="text-xl font-bold text-text-primary line-clamp-2 group-hover:text-sky-500 transition-colors leading-tight">
+            {title}
+          </h3>
+          <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed">
+            {excerpt}
+          </p>
         </div>
 
-        {/* Title */}
-        <CardTitle className="text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight font-medium">
-          {title}
-        </CardTitle>
-
-        {/* Excerpt */}
-        <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed flex-1">
-          {excerpt}
-        </p>
-      </CardHeader>
-
-      <CardContent className="pt-0 mt-auto flex-shrink-0">
-        {/* Author and Date */}
-        <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
-          <div className="flex items-center gap-1">
-            <User className="w-3 h-3" />
-            <span className="font-medium">{authorName}</span>
+        {/* Footer */}
+        <div className="pt-4 border-t border-border/50 flex items-center justify-between text-xs text-text-secondary">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" />
+              <span className="font-medium max-w-[100px] truncate">{authorName}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              <span>{readTime}m</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            <span>{formatDate(publishedAt || createdAt)}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            <span>{readTime}m</span>
-          </div>
-        </div>
 
-        {/* Engagement */}
-        <div className="pt-4 border-t border-border flex justify-center items-center">
-          <div className="flex gap-4 justify-center items-center">
+          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
             <EngagementButtons
               blogId={blogId}
               initialLikes={likes}
@@ -234,11 +227,12 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
               isLiked={isLiked}
               isBookmarked={isBookmarked}
               onCommentClick={handleCommentClick}
+              compact={true}
             />
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

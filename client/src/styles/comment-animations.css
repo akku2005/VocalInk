@@ -1,0 +1,172 @@
+/* Comment System Animations */
+
+/* Fade and slide in animation for comments */
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Heart bounce animation for likes */
+@keyframes heartBounce {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    25% {
+        transform: scale(1.3);
+    }
+
+    50% {
+        transform: scale(0.9);
+    }
+
+    75% {
+        transform: scale(1.1);
+    }
+}
+
+/* Pulse glow animation */
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--color-primary), 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(var(--color-primary), 0);
+    }
+}
+
+/* Shimmer effect for skeleton loaders */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* Stagger animation for multiple comments */
+@keyframes staggerIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Comment card classes */
+.comment-card {
+    animation: fadeSlideIn 0.4s ease-out;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.comment-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Like button animation */
+.like-button-clicked {
+    animation: heartBounce 0.5s ease-out;
+}
+
+/* Reply expand/collapse */
+.replies-enter {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+}
+
+.replies-enter-active {
+    max-height: 1000px;
+    opacity: 1;
+}
+
+.replies-exit {
+    max-height: 1000px;
+    opacity: 1;
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+}
+
+.replies-exit-active {
+    max-height: 0;
+    opacity: 0;
+}
+
+/* Skeleton loader */
+.skeleton {
+    background: linear-gradient(90deg,
+            var(--surface) 0%,
+            var(--surface-alt) 50%,
+            var(--surface) 100%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+    border-radius: 8px;
+}
+
+/* Avatar glow on hover */
+.avatar-wrapper {
+    transition: all 0.3s ease;
+}
+
+.avatar-wrapper:hover {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 8px rgba(var(--color-primary), 0.5));
+}
+
+/* Auto-growing textarea */
+.comment-textarea {
+    transition: all 0.2s ease;
+    min-height: 80px;
+    max-height: 300px;
+    resize: none;
+    overflow-y: auto;
+}
+
+.comment-textarea:focus {
+    min-height: 120px;
+}
+
+/* Send button glow */
+.send-button-active {
+    animation: pulseGlow 2s infinite;
+}
+
+/* Stagger animation for list */
+.comment-list>*:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.comment-list>*:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.comment-list>*:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.comment-list>*:nth-child(4) {
+    animation-delay: 0.4s;
+}
+
+.comment-list>*:nth-child(5) {
+    animation-delay: 0.5s;
+}

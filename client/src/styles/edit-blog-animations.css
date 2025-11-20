@@ -1,0 +1,108 @@
+/* Edit Blog Page Custom Animations */
+
+/* Gradient hover effect for buttons */
+.gradient-hover:hover {
+    background: linear-gradient(135deg, rgba(var(--color-primary), 0.1), rgba(var(--color-primary), 0.05));
+    transition: all 0.3s ease;
+}
+
+/* Stat card animation */
+.stat-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(var(--color-primary), 0.15);
+}
+
+/* Scale animation for mood button badges */
+@keyframes scaleIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.mood-selected-badge {
+    animation: scaleIn 0.3s ease-out;
+}
+
+/* Gradient text for numbers */
+.gradient-text {
+    background: linear-gradient(135deg, rgb(var(--color-primary)), rgba(var(--color-primary), 0.7));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Icon gradient background */
+.icon-gradient {
+    background: linear-gradient(135deg, rgb(var(--color-primary)), rgba(var(--color-primary), 0.8));
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover .icon-gradient {
+    transform: scale(1.1);
+}
+
+/* Tag badge animations */
+@keyframes tagFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.tag-badge {
+    animation: tagFadeIn 0.3s ease-out;
+}
+
+/* Cover image overlay */
+.cover-overlay {
+    transition: opacity 0.3s ease;
+}
+
+/* Auto-save indicator pulse */
+@keyframes savePulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.saving-indicator {
+    animation: savePulse 1.5s ease-in-out infinite;
+}
+
+/* Page load fade in */
+@keyframes pageLoad {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-load-animation {
+    animation: pageLoad 0.5s ease-out;
+}

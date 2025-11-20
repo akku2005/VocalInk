@@ -21,7 +21,7 @@ class SeriesService {
   async getSeries(params = {}) {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.page) queryParams.append('page', params.page);
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.category) queryParams.append('category', params.category);
@@ -36,7 +36,7 @@ class SeriesService {
       if (params.search) queryParams.append('search', params.search);
 
       const response = await api.get(`/series?${queryParams.toString()}`);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to fetch series');
       }
@@ -55,7 +55,7 @@ class SeriesService {
   async getTrendingSeries() {
     try {
       const response = await api.get('/series/trending');
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to fetch trending series');
       }
@@ -75,13 +75,13 @@ class SeriesService {
   async getRecommendations(params = {}) {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.category) queryParams.append('category', params.category);
       if (params.difficulty) queryParams.append('difficulty', params.difficulty);
 
       const response = await api.get(`/series/recommendations?${queryParams.toString()}`);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to fetch recommendations');
       }
@@ -101,7 +101,7 @@ class SeriesService {
   async getSeriesById(id) {
     try {
       const response = await api.get(`/series/${id}`);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to fetch series');
       }
@@ -123,7 +123,7 @@ class SeriesService {
   async createSeries(seriesData) {
     try {
       const response = await api.post('/series', seriesData);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to create series');
       }
@@ -144,7 +144,7 @@ class SeriesService {
   async updateSeries(id, updateData) {
     try {
       const response = await api.put(`/series/${id}`, updateData);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to update series');
       }
@@ -164,7 +164,7 @@ class SeriesService {
   async deleteSeries(id) {
     try {
       const response = await api.delete(`/series/${id}`);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to delete series');
       }
@@ -185,7 +185,7 @@ class SeriesService {
   async addEpisode(seriesId, episodeData) {
     try {
       const response = await api.post(`/series/${seriesId}/episodes`, episodeData);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to add episode');
       }
@@ -210,7 +210,7 @@ class SeriesService {
         `/series/${seriesId}/episodes/${episodeId}`,
         updateData
       );
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to update episode');
       }
@@ -231,7 +231,7 @@ class SeriesService {
   async removeEpisode(seriesId, episodeId) {
     try {
       const response = await api.delete(`/series/${seriesId}/episodes/${episodeId}`);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to remove episode');
       }
@@ -251,7 +251,7 @@ class SeriesService {
   async getUserProgress(seriesId) {
     try {
       const response = await api.get(`/series/${seriesId}/progress`);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to fetch progress');
       }
@@ -272,7 +272,7 @@ class SeriesService {
   async updateProgress(seriesId, progressData) {
     try {
       const response = await api.post(`/series/${seriesId}/progress`, progressData);
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to update progress');
       }
@@ -293,7 +293,7 @@ class SeriesService {
   async getSeriesAnalytics(seriesId, params = {}) {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.startDate) queryParams.append('startDate', params.startDate);
       if (params.endDate) queryParams.append('endDate', params.endDate);
       if (params.metric) queryParams.append('metric', params.metric);
@@ -301,7 +301,7 @@ class SeriesService {
       const response = await api.get(
         `/series/${seriesId}/analytics?${queryParams.toString()}`
       );
-      
+
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to fetch analytics');
       }
@@ -405,6 +405,47 @@ class SeriesService {
     } catch (error) {
       console.error('❌ Series cover image deletion failed:', error);
       throw new Error(error.response?.data?.message || 'Failed to delete cover image');
+    }
+  }
+  /**
+   * Add a collaborator to a series
+   * @param {string} seriesId - Series ID
+   * @param {Object} collaboratorData - Collaborator data (userId, role, permissions)
+   * @returns {Promise<Object>} Updated series
+   */
+  async addCollaborator(seriesId, collaboratorData) {
+    try {
+      const response = await api.post(`/series/${seriesId}/collaborators`, collaboratorData);
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to add collaborator');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('Error adding collaborator:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a collaborator from a series
+   * @param {string} seriesId - Series ID
+   * @param {string} userId - User ID to remove
+   * @returns {Promise<Object>} Response data
+   */
+  async removeCollaborator(seriesId, userId) {
+    try {
+      const response = await api.delete(`/series/${seriesId}/collaborators/${userId}`);
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to remove collaborator');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      console.error('Error removing collaborator:', error);
+      throw error;
     }
   }
 }

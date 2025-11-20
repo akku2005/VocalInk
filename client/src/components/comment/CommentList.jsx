@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import Comment from './Comment';
 import CommentForm from './CommentForm';
-import { MessageCircle, Loader2, AlertCircle } from 'lucide-react';
+import { MessageCircle, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { apiService } from '../../services/api';
+import '../../styles/comment-animations.css';
 
 const CommentList = ({ blogId, blogTitle }) => {
   const [comments, setComments] = useState([]);
@@ -18,20 +19,20 @@ const CommentList = ({ blogId, blogTitle }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch comments from API
       const response = await apiService.get(`/blogs/${blogId}/comments`);
-      
+
       // Handle different response structures
       const commentsData = response.data?.data || response.data || [];
-      
+
       // Organize comments with replies
       const rootComments = commentsData.filter(comment => !comment.parentId);
       const commentMap = rootComments.map(comment => ({
         ...comment,
         replies: commentsData.filter(reply => reply.parentId === comment._id)
       }));
-      
+
       setComments(commentMap);
     } catch (error) {
       console.error('Error fetching comments:', error);
@@ -49,7 +50,7 @@ const CommentList = ({ blogId, blogTitle }) => {
   const handleCommentAdded = (newComment) => {
     if (newComment.parentId) {
       // Add reply to existing comment
-      setComments(prevComments => 
+      setComments(prevComments =>
         prevComments.map(comment => {
           if (comment._id === newComment.parentId) {
             return {
@@ -63,11 +64,12 @@ const CommentList = ({ blogId, blogTitle }) => {
     } else {
       // Add new root comment
       setComments(prevComments => [newComment, ...prevComments]);
+      setShowCommentForm(false); // Close form after adding
     }
   };
 
   const handleCommentUpdated = (commentId, updates) => {
-    setComments(prevComments => 
+    setComments(prevComments =>
       prevComments.map(comment => {
         if (comment._id === commentId) {
           return { ...comment, ...updates };
@@ -87,7 +89,7 @@ const CommentList = ({ blogId, blogTitle }) => {
   };
 
   const handleCommentDeleted = (commentId) => {
-    setComments(prevComments => 
+    setComments(prevComments =>
       prevComments.filter(comment => {
         if (comment._id === commentId) {
           return false;
@@ -102,7 +104,7 @@ const CommentList = ({ blogId, blogTitle }) => {
   };
 
   const handleReplyAdded = (parentId, newReply) => {
-    setComments(prevComments => 
+    setComments(prevComments =>
       prevComments.map(comment => {
         if (comment._id === parentId) {
           return {
@@ -115,23 +117,49 @@ const CommentList = ({ blogId, blogTitle }) => {
     );
   };
 
+  // Skeleton Loader Component
+  const SkeletonLoader = () => (
+    <div className="space-y-6">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex gap-3 animate-fadeSlideIn" style={{ animationDelay: `${i * 0.1}s` }}>
+          <div className="w-10 h-10 rounded-full skeleton" />
+          <div className="flex-1 space-y-2">
+            <div className="h-24 rounded-xl skeleton" />
+            <div className="flex gap-4">
+              <div className="h-6 w-16 rounded skeleton" />
+              <div className="h-6 w-16 rounded skeleton" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-        <span className="ml-2 text-text-secondary">Loading comments...</span>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary-500 animate-pulse" />
+            <h3 className="text-lg font-semibold text-text-primary">
+              Loading comments...
+            </h3>
+          </div>
+        </div>
+        <SkeletonLoader />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center py-8 text-center">
-        <AlertCircle className="w-8 h-8 text-warning mx-auto mb-2" />
-        <p className="text-text-secondary">{error}</p>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <AlertCircle className="w-12 h-12 text-warning mx-auto mb-3" />
+        <h4 className="text-lg font-medium text-text-primary mb-2">Oops! Something went wrong</h4>
+        <p className="text-text-secondary mb-4">{error}</p>
         <button
           onClick={fetchComments}
-          className="mt-2 text-primary-500 hover:text-primary-600 underline"
+          className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
         >
           Try again
         </button>
@@ -144,23 +172,25 @@ const CommentList = ({ blogId, blogTitle }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-primary-500" />
-          <h3 className="text-lg font-semibold text-text-primary">
+          <div className="p-2 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg shadow-md">
+            <MessageCircle className="w-5 h-5 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-text-primary">
             Comments ({comments.length})
           </h3>
         </div>
-        
+
         <button
           onClick={() => setShowCommentForm(!showCommentForm)}
-          className="text-sm text-primary-500 hover:text-primary-600 font-medium"
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 shadow-md hover:shadow-lg hover:scale-105"
         >
-          {showCommentForm ? 'Cancel' : 'Add Comment'}
+          {showCommentForm ? 'Cancel' : '+ Add Comment'}
         </button>
       </div>
 
       {/* Comment Form */}
       {showCommentForm && (
-        <div className="mb-6">
+        <div className="mb-6 animate-fadeSlideIn">
           <CommentForm
             blogId={blogId}
             onCommentAdded={handleCommentAdded}
@@ -171,29 +201,32 @@ const CommentList = ({ blogId, blogTitle }) => {
 
       {/* Comments List */}
       {comments.length === 0 ? (
-        <div className="text-center py-8">
-          <MessageCircle className="w-12 h-12 text-text-secondary mx-auto mb-3" />
-          <h4 className="text-lg font-medium text-text-primary mb-2">No comments yet</h4>
-          <p className="text-text-secondary mb-4">
+        <div className="text-center py-16 px-4">
+          <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center animate-pulse">
+            <MessageCircle className="w-10 h-10 text-primary-600" />
+          </div>
+          <h4 className="text-xl font-bold text-text-primary mb-2">No comments yet</h4>
+          <p className="text-text-secondary mb-6 max-w-md mx-auto">
             Be the first to share your thoughts on this post!
           </p>
           <button
             onClick={() => setShowCommentForm(true)}
-            className="text-primary-500 hover:text-primary-600 font-medium"
+            className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
           >
             Write a comment
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
-          {comments.map((comment) => (
-            <Comment
-              key={comment._id}
-              comment={comment}
-              onCommentUpdated={handleCommentUpdated}
-              onCommentDeleted={handleCommentDeleted}
-              onReplyAdded={handleReplyAdded}
-            />
+        <div className="space-y-6 comment-list">
+          {comments.map((comment, index) => (
+            <div key={comment._id} style={{ animationDelay: `${index * 0.1}s` }}>
+              <Comment
+                comment={comment}
+                onCommentUpdated={handleCommentUpdated}
+                onCommentDeleted={handleCommentDeleted}
+                onReplyAdded={handleReplyAdded}
+              />
+            </div>
           ))}
         </div>
       )}

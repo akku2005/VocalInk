@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -29,8 +29,13 @@ import {
   Star,
   Bookmark,
   MoreHorizontal,
+  Shield,
+  Layers
 } from "lucide-react";
 import seriesService from "../services/seriesService";
+
+import CollaboratorModal from "../components/series/CollaboratorModal";
+import { useAuth } from "../context/AuthContext";
 
 const stripHtml = (value) => {
   if (typeof value !== "string") return value;
@@ -41,23 +46,40 @@ const stripHtml = (value) => {
 const SeriesTimelinePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [series, setSeries] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [menuEpisodeId, setMenuEpisodeId] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [isCollaboratorModalOpen, setIsCollaboratorModalOpen] = useState(false);
+
+  // Use ref to track if we've already fetched for this ID to prevent double-fetching
+  const hasFetchedRef = useRef(false);
+  const currentIdRef = useRef(id);
 
   useEffect(() => {
+    // Reset the fetch flag when ID changes
+    if (currentIdRef.current !== id) {
+      hasFetchedRef.current = false;
+      currentIdRef.current = id;
+    }
+
     const fetchSeries = async () => {
+      // Skip if already fetched for this ID
+      if (hasFetchedRef.current) return;
+
       try {
         setLoading(true);
         setError(null);
+        hasFetchedRef.current = true; // Mark as fetched before the call
         const data = await seriesService.getSeriesById(id);
         setSeries(data);
       } catch (err) {
         console.error('Error fetching series:', err);
         setError(err.message || 'Failed to load series');
         setSeries(null);
+        hasFetchedRef.current = false; // Reset on error so it can retry
       } finally {
         setLoading(false);
       }
@@ -68,17 +90,66 @@ const SeriesTimelinePage = () => {
     }
   }, [id]);
 
+  // Redirect to slug if available and we're currently using ID
+  useEffect(() => {
+    if (series?.slug && id !== series.slug && series.slug !== id) {
+      navigate(`/series/${series.slug}`, { replace: true });
+    }
+  }, [series, id, navigate]);
+
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-64 bg-gray-200 rounded-lg"></div>
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
+      <div className="max-w-[1600px] mx-auto p-6">
+        <div className="animate-pulse space-y-8">
+          <div className="h-80 bg-surface/50 rounded-3xl border border-white/10"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="h-40 bg-surface/50 rounded-2xl"></div>
+              <div className="h-96 bg-surface/50 rounded-2xl"></div>
+            </div>
+            <div className="space-y-6">
+              <div className="h-60 bg-surface/50 rounded-2xl"></div>
+              <div className="h-60 bg-surface/50 rounded-2xl"></div>
+            </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-[1600px] mx-auto p-6 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="bg-surface/50 p-8 rounded-3xl border border-white/10 backdrop-blur-md max-w-md w-full">
+          <h2 className="text-2xl font-bold text-text-primary mb-2">
+            Error loading series
+          </h2>
+          <p className="text-text-secondary mb-6">
+            {error}
+          </p>
+          <Button onClick={() => navigate("/series")} className="w-full">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Series
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!series) {
+    return (
+      <div className="max-w-[1600px] mx-auto p-6 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="bg-surface/50 p-8 rounded-3xl border border-white/10 backdrop-blur-md max-w-md w-full">
+          <h2 className="text-2xl font-bold text-text-primary mb-2">
+            Series not found
+          </h2>
+          <p className="text-text-secondary mb-6">
+            The series you're looking for doesn't exist.
+          </p>
+          <Button onClick={() => navigate("/series")} className="w-full">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Series
+          </Button>
         </div>
       </div>
     );
@@ -115,50 +186,16 @@ const SeriesTimelinePage = () => {
 
   const totalEpisodesCount = episodes.length || 1;
 
-  if (error) {
-    return (
-      <div className="max-w-6xl mx-auto p-6 text-center">
-        <h2 className="text-2xl font-bold text-text-primary mb-2">
-          Error loading series
-        </h2>
-        <p className="text-text-secondary mb-4">
-          {error}
-        </p>
-        <Button onClick={() => navigate("/series")}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Series
-        </Button>
-      </div>
-    );
-  }
-
-  if (!series) {
-    return (
-      <div className="max-w-6xl mx-auto p-6 text-center">
-        <h2 className="text-2xl font-bold text-text-primary mb-2">
-          Series not found
-        </h2>
-        <p className="text-text-secondary mb-4">
-          The series you're looking for doesn't exist.
-        </p>
-        <Button onClick={() => navigate("/series")}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Series
-        </Button>
-      </div>
-    );
-  }
-
   const getStatusColor = (status) => {
     switch (status) {
       case "published":
-        return "text-success";
+        return "bg-green-500/10 text-green-500 border-green-500/20";
       case "draft":
-        return "text-warning";
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
       case "planned":
-        return "text-text-secondary";
+        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
       default:
-        return "text-text-secondary";
+        return "bg-gray-500/10 text-gray-500 border-gray-500/20";
     }
   };
 
@@ -202,415 +239,216 @@ const SeriesTimelinePage = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
       {/* Series Header */}
-      <div className="relative">
-        <div className="h-64 bg-gradient-to-r from-primary-500 to-accent-500 rounded-xl overflow-hidden">
-          <img
-            src={series.coverImage}
-            alt={series.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40"></div>
-        </div>
+      <div className="relative group rounded-3xl overflow-hidden border border-white/10 bg-surface/50 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-purple-500/10 to-pink-500/10 opacity-50" />
 
-        <div className="absolute bottom-6 left-6 right-6">
-          <div className="flex items-center gap-4 mb-4">
-            {authorAvatar && (
-              <img
-                src={authorAvatar}
-                alt={authorName}
-                className="w-12 h-12 rounded-full border-2 border-white"
-              />
-            )}
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-1">
+        <div className="relative h-[400px] sm:h-[500px]">
+          {series.coverImage ? (
+            <img
+              src={series.coverImage}
+              alt={series.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-sky-900/20 to-pink-900/20 flex items-center justify-center">
+              <Layers className="w-24 h-24 text-white/10" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+
+          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="outline" className="bg-black/40 backdrop-blur-md text-white border-white/20 px-3 py-1.5">
+                {series.category}
+              </Badge>
+              <Badge variant="outline" className="bg-black/40 backdrop-blur-md text-white border-white/20 px-3 py-1.5 capitalize">
+                {series.difficulty}
+              </Badge>
+              <Badge variant="outline" className="bg-black/40 backdrop-blur-md text-white border-white/20 px-3 py-1.5 capitalize">
+                {series.status || 'ongoing'}
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-tight">
                 {series.title}
               </h1>
-              <p className="text-white/90">by {authorName}</p>
+              <div className="flex items-center gap-4 text-white/80 text-lg">
+                <div className="flex items-center gap-2">
+                  {authorAvatar ? (
+                    <img src={authorAvatar} alt={authorName} className="w-8 h-8 rounded-full border border-white/20" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-sky-500/20 flex items-center justify-center border border-white/20">
+                      <Users className="w-4 h-4 text-sky-200" />
+                    </div>
+                  )}
+                  <span className="font-medium text-white">{authorName}</span>
+                </div>
+                <span className="w-1 h-1 rounded-full bg-white/40" />
+                <span>{new Date(series.createdAt).getFullYear()}</span>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-6 text-white/90">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              <span>
-                {series.episodes?.length || 0} posts
-              </span>
+            <div className="flex flex-wrap items-center gap-6 text-white/90 pt-4 border-t border-white/10">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-sky-400" />
+                <span className="font-medium">{series.episodes?.length || 0} Posts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-pink-400" />
+                <span className="font-medium">{(series.analytics?.totalViews || 0).toLocaleString()} Views</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-red-400" />
+                <span className="font-medium">{(series.analytics?.likes || 0).toLocaleString()} Likes</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              <span>{(series.analytics?.totalViews || 0).toLocaleString()} views</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Heart className="w-4 h-4" />
-              <span>{(series.analytics?.likes || 0).toLocaleString()} likes</span>
-            </div>
-            <Badge
-              variant="outline"
-              className="bg-white/20 text-white border-white/30"
-            >
-              {series.status || 'ongoing'}
-            </Badge>
           </div>
         </div>
 
-        <div className="absolute top-6 right-6 flex items-center gap-2">
-          <Button variant="outline" className="bg-white/90 backdrop-blur-sm">
+        <div className="absolute top-6 right-6 flex items-center gap-3">
+          {user && (series.authorId?._id === user.id || series.authorId === user.id) && (
+            <Button
+              variant="outline"
+              onClick={() => setIsCollaboratorModalOpen(true)}
+              className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Manage Team
+            </Button>
+          )}
+          <Button variant="outline" className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors">
             <Share className="w-4 h-4 mr-2" />
             Share
           </Button>
-          <Button variant="outline" className="bg-white/90 backdrop-blur-sm">
+          <Button variant="outline" className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors">
             <Bookmark className="w-4 h-4 mr-2" />
-            Save
+            Save Series
           </Button>
         </div>
       </div>
 
-      {/* Series Info */}
+      {series && (
+        <CollaboratorModal
+          series={series}
+          isOpen={isCollaboratorModalOpen}
+          onClose={() => setIsCollaboratorModalOpen(false)}
+          onUpdate={setSeries}
+        />
+      )}
+
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-text-primary leading-relaxed mb-6">
-                {series.description}
-              </p>
+        {/* Left Column: Description & Timeline */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Description Card */}
+          <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6">
+            <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+              <Layers className="w-6 h-6 text-sky-500" />
+              About this Series
+            </h2>
+            <p className="text-text-secondary leading-relaxed text-lg">
+              {series.description}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {series.tags?.map((tag) => (
+                <span key={tag} className="px-3 py-1 rounded-full bg-secondary/50 border border-border/50 text-sm text-text-secondary">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          </div>
 
-              <div className="flex flex-wrap gap-2 mb-6">
-                {series.tags?.map((tag) => (
-                  <Badge key={tag} variant="outline">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+          {/* Timeline Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+                <Clock className="w-6 h-6 text-pink-500" />
+                Timeline
+              </h2>
+              <Button className="bg-gradient-to-r from-sky-500 to-pink-500 text-white border-0 hover:opacity-90 transition-opacity rounded-full px-6">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Post
+              </Button>
+            </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <div className="text-text-secondary">Started</div>
-                  <div className="font-medium text-text-primary">
-                    {series.createdAt ? new Date(series.createdAt).toLocaleDateString() : 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-text-secondary">Last Updated</div>
-                  <div className="font-medium text-text-primary">
-                    {series.updatedAt ? new Date(series.updatedAt).toLocaleDateString() : 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-text-secondary">Progress</div>
-                  <div className="font-medium text-text-primary">
-                    {Math.round((publishedEpisodesCount / totalEpisodesCount) * 100)}%
-                  </div>
-                </div>
-                <div>
-                  <div className="text-text-secondary">Comments</div>
-                  <div className="font-medium text-text-primary">
-                    {series.analytics?.comments || 0}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="space-y-4">
+              {(series.episodes || []).map((episode, index) => {
+                const episodeStatus = getEpisodeField(episode, "status") || episode.status || "draft";
+                const StatusIcon = getStatusIcon(episodeStatus);
+                const episodeTitle = getEpisodeField(episode, "title") || `Episode ${index + 1}`;
+                const rawEpisodeSummary = getEpisodeField(episode, "summary") || getEpisodeField(episode, "excerpt") || getEpisodeField(episode, "content");
+                const episodeSummary = stripHtml(rawEpisodeSummary);
+                const episodePublishedAt = getEpisodeField(episode, "publishedAt");
+                const episodeReadingTime = getEpisodeField(episode, "readingTime");
+                const episodeLikes = getEpisodeField(episode, "likes") || 0;
+                const episodeBookmarks = getEpisodeField(episode, "bookmarks");
+                const episodeId = episode.episodeId?._id || episode.episodeId || episode._id || episode.id;
+                const episodeSlug = getEpisodeField(episode, "slug");
+                const isMenuOpen = menuEpisodeId === episodeId;
 
-        <div className="space-y-6">
-          {/* Progress Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary-500" />
-                Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                {(() => {
-                  const publishedCount = series.episodes?.filter(e => e.episodeId?.status === 'published').length || 0;
-                  const totalCount = series.episodes?.length || 1;
-                  const progress = Math.round((publishedCount / totalCount) * 100);
-                  return (
-                    <>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-primary-500 mb-2">
-                          {progress}%
+                return (
+                  <div
+                    key={episodeId || index}
+                    className="group relative bg-surface/50 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-surface/80 transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/5 hover:-translate-y-0.5"
+                  >
+                    <div className="flex gap-6">
+                      {/* Timeline Connector */}
+                      <div className="flex flex-col items-center">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${episodeStatus === "published"
+                          ? "bg-green-500/10 border-green-500/30 text-green-500"
+                          : "bg-yellow-500/10 border-yellow-500/30 text-yellow-500"
+                          }`}>
+                          <StatusIcon className="w-5 h-5" />
                         </div>
-                        <div className="text-sm text-text-secondary">
-                          {publishedCount} of {totalCount} posts published
-                        </div>
+                        {index < (episodes.length || 0) - 1 && (
+                          <div className="w-0.5 flex-1 bg-gradient-to-b from-border to-transparent my-2 opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                        )}
                       </div>
 
-                      <div className="w-full bg-secondary-100 rounded-full h-3">
-                        <div
-                          className="bg-primary-500 h-3 rounded-full transition-all duration-300"
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="text-center p-3 bg-success/10 rounded-lg">
-                          <div className="text-success font-bold">
-                            {publishedCount}
-                          </div>
-                          <div className="text-text-secondary">Published</div>
-                        </div>
-                        <div className="text-center p-3 bg-warning/10 rounded-lg">
-                          <div className="text-warning font-bold">
-                            {totalCount - publishedCount}
-                          </div>
-                          <div className="text-text-secondary">Remaining</div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Stats Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary-500" />
-                Series Stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">Total Views</span>
-                <span className="font-medium text-text-primary">
-                  {(series.analytics?.totalViews || 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">Total Likes</span>
-                <span className="font-medium text-text-primary">
-                  {(series.analytics?.likes || 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">
-                  Total Comments
-                </span>
-                <span className="font-medium text-text-primary">
-                  {series.analytics?.comments || 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">
-                  Avg. Read Time
-                </span>
-                <span className="font-medium text-text-primary">7.5 min</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Author Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary-500" />
-                Author
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                {authorAvatar && (
-                  <img
-                    src={authorAvatar}
-                    alt={authorName}
-                    className="w-12 h-12 rounded-full"
-                  />
-                )}
-                <div>
-                  <div className="font-medium text-text-primary">
-                    {authorName}
-                  </div>
-                  <div className="text-sm text-text-secondary">
-                    @{authorUsername}
-                  </div>
-                </div>
-              </div>
-              {authorUsername && authorUsername !== "unknown" && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate(`/profile/${authorUsername}`)}
-                >
-                  View Profile
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-text-primary">Timeline</h2>
-          <Button className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Add Post
-          </Button>
-        </div>
-
-        <div className="space-y-6">
-          {(series.episodes || []).map((episode, index) => {
-            const episodeStatus = getEpisodeField(episode, "status") || episode.status || "draft";
-            const StatusIcon = getStatusIcon(episodeStatus);
-            const episodeTitle = getEpisodeField(episode, "title") || `Episode ${index + 1}`;
-            const rawEpisodeSummary = getEpisodeField(episode, "summary") || getEpisodeField(episode, "excerpt") || getEpisodeField(episode, "content");
-            const episodeSummary = stripHtml(rawEpisodeSummary);
-            const episodePublishedAt = getEpisodeField(episode, "publishedAt");
-            const episodeReadingTime = getEpisodeField(episode, "readingTime");
-            const episodeLikes = getEpisodeField(episode, "likes") || 0;
-            const episodeBookmarks = getEpisodeField(episode, "bookmarks");
-            const episodeId = episode.episodeId?._id || episode.episodeId || episode._id || episode.id;
-            const isMenuOpen = menuEpisodeId === episodeId;
-            return (
-              <Card
-                key={episodeId || index}
-                className="hover:shadow-lg transition-all duration-300"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-6">
-                    {/* Timeline Indicator */}
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          episodeStatus === "published"
-                            ? "bg-success text-white"
-                            : episodeStatus === "draft"
-                              ? "bg-warning text-white"
-                              : "bg-secondary-200 text-text-secondary"
-                        }`}
-                      >
-                        <StatusIcon className="w-4 h-4" />
-                      </div>
-                      {index < (episodes.length || 0) - 1 && (
-                        <div className="w-0.5 h-16 bg-border mt-2"></div>
-                      )}
-                    </div>
-
-                    {/* Post Content */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-semibold text-text-primary">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Episode {index + 1}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(episodeStatus)}`}>
+                                {episodeStatus}
+                              </span>
+                            </div>
+                            <h3 className="text-xl font-bold text-text-primary group-hover:text-sky-500 transition-colors">
                               {episodeTitle}
                             </h3>
-                            {getEpisodeField(episode, "featured") && (
-                              <Badge
-                                variant="default"
-                                className="bg-warning text-white"
-                              >
-                                <Star className="w-3 h-3 mr-1" />
-                                Featured
-                              </Badge>
-                            )}
-                            <Badge
-                              variant="outline"
-                              className={getStatusColor(episodeStatus)}
-                            >
-                              {episodeStatus}
-                            </Badge>
                           </div>
-                          {episodeSummary && (
-                            <p className="text-text-secondary leading-relaxed">
-                              {episodeSummary}
-                            </p>
-                          )}
-                        </div>
-                      </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-sm text-text-secondary">
-                          {episodeStatus === "published" && (
-                            <>
-                              {episodePublishedAt && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-4 h-4" />
-                                  {new Date(episodePublishedAt).toLocaleDateString()}
-                                </span>
-                              )}
-                              {episodeReadingTime && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4" />
-                                  {episodeReadingTime} min read
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <Heart className="w-4 h-4" />
-                                {episodeLikes.toLocaleString()}
-                              </span>
-                              {episodeBookmarks !== undefined && (
-                                <span className="flex items-center gap-1">
-                                  <Bookmark className="w-4 h-4" />
-                                  {(episodeBookmarks || 0).toLocaleString()}
-                                </span>
-                              )}
-                            </>
-                          )}
-                          {episodeStatus === "draft" && (
-                            <span className="text-warning">
-                              Draft - Not published
-                            </span>
-                          )}
-                          {episodeStatus === "planned" && (
-                            <span className="text-text-secondary">
-                              Planned for future
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {episodeStatus === "published" && episodeId && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/article/${episodeId}`)}
-                            >
-                              <ArrowRight className="w-4 h-4 mr-1" />
-                              Read
-                            </Button>
-                          )}
-                          {episodeStatus === "draft" && episodeId && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/edit-blog/${episodeId}`)}
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Edit
-                            </Button>
-                          )}
                           <div className="relative">
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="hover:bg-white/5 rounded-full"
                               onClick={() => toggleEpisodeMenu(episodeId)}
                             >
-                              <MoreHorizontal className="w-4 h-4" />
+                              <MoreHorizontal className="w-5 h-5 text-text-secondary" />
                             </Button>
                             {isMenuOpen && (
-                              <div className="absolute right-0 mt-2 w-44 rounded-md border border-border bg-surface shadow-lg z-10">
+                              <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-surface shadow-xl shadow-black/20 z-20 overflow-hidden backdrop-blur-xl">
                                 <button
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-surface/80"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-white/5 transition-colors flex items-center gap-2"
                                   onClick={() => {
                                     setMenuEpisodeId(null);
-                                    if (episodeStatus === "published" && episodeId) {
-                                      navigate(`/article/${episodeId}`);
+                                    if (episodeStatus === "published" && (episodeSlug || episodeId)) {
+                                      navigate(`/article/${episodeSlug || episodeId}`);
                                     }
                                   }}
                                   disabled={!episodeId}
                                 >
-                                  View post
+                                  <Eye className="w-4 h-4" /> View post
                                 </button>
                                 <button
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-surface/80"
+                                  className="w-full px-4 py-3 text-left text-sm hover:bg-white/5 transition-colors flex items-center gap-2"
                                   onClick={() => {
                                     setMenuEpisodeId(null);
                                     if (episodeId) {
@@ -619,26 +457,181 @@ const SeriesTimelinePage = () => {
                                   }}
                                   disabled={!episodeId}
                                 >
-                                  Edit post
+                                  <Edit className="w-4 h-4" /> Edit post
                                 </button>
                                 <button
-                                  className="w-full px-4 py-2 text-left text-sm text-error hover:bg-error/10 disabled:opacity-60"
+                                  className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
                                   onClick={() => handleRemoveEpisode(episodeId)}
                                   disabled={isRemoving}
                                 >
-                                  Remove from series
+                                  <Share className="w-4 h-4 rotate-180" /> Remove
                                 </button>
                               </div>
                             )}
                           </div>
                         </div>
+
+                        {episodeSummary && (
+                          <p className="text-text-secondary leading-relaxed line-clamp-2">
+                            {episodeSummary}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-4 text-sm text-text-secondary">
+                            {episodePublishedAt && (
+                              <span className="flex items-center gap-1.5">
+                                <Calendar className="w-4 h-4" />
+                                {new Date(episodePublishedAt).toLocaleDateString()}
+                              </span>
+                            )}
+                            {episodeReadingTime && (
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="w-4 h-4" />
+                                {episodeReadingTime} min
+                              </span>
+                            )}
+                          </div>
+
+                          {episodeStatus === "published" && (episodeSlug || episodeId) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-sky-500 hover:text-sky-400 hover:bg-sky-500/10 p-0 px-3 font-medium"
+                              onClick={() => navigate(`/article/${episodeSlug || episodeId}`)}
+                            >
+                              Read Article <ArrowRight className="w-4 h-4 ml-1.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Stats & Info */}
+        <div className="space-y-6">
+          {/* Progress Card */}
+          <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-3xl p-6 space-y-6">
+            <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
+              <Target className="w-5 h-5 text-sky-500" />
+              Series Progress
+            </h3>
+
+            <div className="flex items-center justify-center py-4">
+              <div className="relative w-32 h-32 flex items-center justify-center">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    className="text-secondary/30 stroke-current"
+                    strokeWidth="8"
+                    fill="transparent"
+                    r="40"
+                    cx="50"
+                    cy="50"
+                  />
+                  <circle
+                    className="text-sky-500 stroke-current transition-all duration-1000 ease-out"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    fill="transparent"
+                    r="40"
+                    cx="50"
+                    cy="50"
+                    strokeDasharray={`${2 * Math.PI * 40}`}
+                    strokeDashoffset={`${2 * Math.PI * 40 * (1 - publishedEpisodesCount / totalEpisodesCount)}`}
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center">
+                  <span className="text-2xl font-bold text-text-primary">{Math.round((publishedEpisodesCount / totalEpisodesCount) * 100)}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-green-500/10 rounded-xl p-4 text-center border border-green-500/20">
+                <div className="text-2xl font-bold text-green-500">{publishedEpisodesCount}</div>
+                <div className="text-xs text-green-500/70 uppercase tracking-wider font-medium">Published</div>
+              </div>
+              <div className="bg-yellow-500/10 rounded-xl p-4 text-center border border-yellow-500/20">
+                <div className="text-2xl font-bold text-yellow-500">{totalEpisodesCount - publishedEpisodesCount}</div>
+                <div className="text-xs text-yellow-500/70 uppercase tracking-wider font-medium">Remaining</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Card */}
+          <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-3xl p-6 space-y-6">
+            <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-pink-500" />
+              Engagement
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-sm text-text-secondary flex items-center gap-2">
+                  <Eye className="w-4 h-4" /> Total Views
+                </span>
+                <span className="font-bold text-text-primary">
+                  {(series.analytics?.totalViews || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-sm text-text-secondary flex items-center gap-2">
+                  <Heart className="w-4 h-4" /> Total Likes
+                </span>
+                <span className="font-bold text-text-primary">
+                  {(series.analytics?.likes || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                <span className="text-sm text-text-secondary flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4" /> Comments
+                </span>
+                <span className="font-bold text-text-primary">
+                  {series.analytics?.comments || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Author Card */}
+          <div className="bg-surface/50 backdrop-blur-md border border-white/10 rounded-3xl p-6 space-y-6">
+            <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
+              <Users className="w-5 h-5 text-purple-500" />
+              Creator
+            </h3>
+
+            <div className="flex items-center gap-4">
+              {authorAvatar ? (
+                <img src={authorAvatar} alt={authorName} className="w-16 h-16 rounded-full border-2 border-purple-500/20" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center border-2 border-purple-500/20">
+                  <Users className="w-8 h-8 text-purple-500" />
+                </div>
+              )}
+              <div>
+                <div className="font-bold text-text-primary text-lg flex items-center gap-1">
+                  {authorName}
+                  {series.authorId?.verified && <Shield className="w-4 h-4 text-sky-500 fill-sky-500" />}
+                </div>
+                <div className="text-sm text-text-secondary">@{authorUsername}</div>
+              </div>
+            </div>
+
+            {authorUsername && authorUsername !== "unknown" && (
+              <Button
+                variant="outline"
+                className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                onClick={() => navigate(`/profile/${authorUsername}`)}
+              >
+                View Profile
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

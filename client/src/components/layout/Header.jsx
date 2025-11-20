@@ -54,11 +54,10 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
 
   return (
     <header
-      className={`fixed top-0 z-[9999] glassmorphism border-b border-border theme-transition transition-all duration-300 ${
-        sidebarCollapsed
-          ? "left-0 lg:left-16 right-0"
-          : "left-0 lg:left-64 right-0"
-      }`}
+      className={`fixed top-0 z-[9999] glassmorphism border-b border-border theme-transition transition-all duration-300 ${sidebarCollapsed
+        ? "left-0 lg:left-16 right-0"
+        : "left-0 lg:left-64 right-0"
+        }`}
     >
       <div className="flex justify-between items-center h-14 sm:h-16 px-3 sm:px-4 lg:px-8">
         {/* Left Section */}
@@ -70,6 +69,15 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
           >
             <Menu className="w-5 h-5" />
           </button>
+
+          {/* Show VocalInk logo when sidebar is collapsed on desktop */}
+          {sidebarCollapsed && (
+            <Link to="/" className="hidden lg:flex items-center gap-2">
+              <h1 className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                VocalInk
+              </h1>
+            </Link>
+          )}
         </div>
 
         {/* Center Search - Desktop */}
@@ -220,7 +228,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                         <Plus className="w-4 h-4 mr-3" />
                         Create Post
                       </Link>
-                      
+
                       <Link
                         to="/profile/me"
                         className="flex items-center px-4 py-3 sm:py-2 text-sm text-text-primary cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded touch-target"
@@ -229,7 +237,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                         <User className="w-4 h-4 mr-3" />
                         Profile
                       </Link>
-                      
+
                       <Link
                         to="/analytics"
                         className="flex items-center px-4 py-3 sm:py-2 text-sm text-text-primary cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded touch-target"
@@ -238,7 +246,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                         <BookOpen className="w-4 h-4 mr-3" />
                         Analytics
                       </Link>
-                      
+
                       <Link
                         to="/settings"
                         className="flex items-center px-4 py-3 sm:py-2 text-sm text-text-primary cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded touch-target"
@@ -247,9 +255,9 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                         <Settings className="w-4 h-4 mr-3" />
                         Settings
                       </Link>
-                      
+
                       <hr className="my-1 border-[var(--border-color)]" />
-                      
+
                       <button
                         onClick={() => {
                           logout();

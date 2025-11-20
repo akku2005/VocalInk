@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 class OpenAIService {
   constructor() {
     this.openai = null;
-    
+
     // Only initialize OpenAI client if API key is available
     if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim()) {
       try {
@@ -19,6 +19,37 @@ class OpenAIService {
     } else {
       logger.warn('OpenAI API key not configured - OpenAI features will be disabled');
     }
+  }
+
+  /**
+   * Strip HTML tags and truncate content to fit token limits
+   * Uses intelligent sampling for very large documents
+   */
+  stripAndTruncateContent(content, maxTokens = 12000) {
+    // Strip HTML tags
+    const textOnly = content
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&[^;]+;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Rough estimate: 1 token ≈ 4 characters
+    const maxChars = maxTokens * 4;
+
+    if (textOnly.length <= maxChars) {
+      return textOnly;
+    }
+
+    // For very large content, take samples from beginning, middle, and end
+    const sampleSize = Math.floor(maxChars / 3);
+    const beginning = textOnly.substring(0, sampleSize);
+    const middle = textOnly.substring(
+      Math.floor(textOnly.length / 2) - Math.floor(sampleSize / 2),
+      Math.floor(textOnly.length / 2) + Math.floor(sampleSize / 2)
+    );
+    const end = textOnly.substring(textOnly.length - sampleSize);
+
+    return `${beginning}\n\n[...middle section...]\n\n${middle}\n\n[...continued...]\n\n${end}`;
   }
 
   /**
@@ -37,8 +68,17 @@ class OpenAIService {
         return this.generateLocalSummary(content, options);
       }
 
-      const prompt = this.buildSummaryPrompt(content, maxLength, style, language);
-      
+      // Truncate content to fit within token limits
+      const truncatedContent = this.stripAndTruncateContent(content, 12000);
+
+      logger.info('Content truncation stats', {
+        originalLength: content.length,
+        truncatedLength: truncatedContent.length,
+        reduction: `${((1 - truncatedContent.length / content.length) * 100).toFixed(1)}%`
+      });
+
+      const prompt = this.buildSummaryPrompt(truncatedContent, maxLength, style, language);
+
       const response = await this.openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
@@ -59,7 +99,7 @@ class OpenAIService {
       });
 
       const summary = response.choices[0]?.message?.content?.trim();
-      
+
       if (!summary) {
         throw new Error('No summary generated from OpenAI');
       }
@@ -86,7 +126,7 @@ class OpenAIService {
 
     } catch (error) {
       logger.error('OpenAI summary generation failed:', error);
-      
+
       // Fallback to local summary generation
       logger.info('Falling back to local summary generation');
       return this.generateLocalSummary(content, options);
@@ -106,7 +146,7 @@ class OpenAIService {
       // Simple extractive summarization
       const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
       const words = content.split(/\s+/);
-      
+
       if (sentences.length < 3) {
         return {
           summary: content.substring(0, maxLength),
@@ -125,7 +165,7 @@ class OpenAIService {
       // Select first few sentences that fit within maxLength
       let summary = '';
       let currentLength = 0;
-      
+
       for (const sentence of sentences) {
         if (currentLength + sentence.length <= maxLength) {
           summary += sentence + '. ';
@@ -136,7 +176,7 @@ class OpenAIService {
       }
 
       summary = summary.trim();
-      
+
       if (!summary) {
         summary = content.substring(0, maxLength);
       }
@@ -189,12 +229,13 @@ class OpenAIService {
 ${content}
 
 Requirements:
-- Maximum ${maxLength} characters
+- Maximum 150 words (approximately ${maxLength} characters)
 - ${styleInstructions[style] || styleInstructions.concise}
 - ${languageInstructions[language] || languageInstructions.en}
 - Focus on the main ideas and key insights
 - Maintain the original tone and intent
 - Do not include personal opinions or commentary
+- If the content is sampled, create a cohesive summary that captures the overall theme
 
 TL;DR Summary:`;
   }

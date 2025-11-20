@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema(
       enum: ['male', 'female', 'other', 'prefer_not_to_say'],
     },
     address: { type: String },
+    location: { type: String }, // e.g., "New York, NY, USA"
     profilePicture: { type: String },
     avatar: { type: String },
     avatarKey: { type: String }, // Cloudinary public ID for avatar
@@ -199,14 +200,14 @@ const userSchema = new mongoose.Schema(
       speechToText: { type: Boolean, default: false },
       language: { type: String, default: 'en' }, // AI language preference
     },
-    
+
     // Legacy theme field for backward compatibility
-    theme: { 
-      type: String, 
-      enum: ['light', 'dark', 'system'], 
-      default: 'system' 
+    theme: {
+      type: String,
+      enum: ['light', 'dark', 'system'],
+      default: 'system'
     },
-    
+
     // AI usage tracking
     aiUsage: {
       ttsGenerated: { type: Number, default: 0 },
@@ -214,14 +215,14 @@ const userSchema = new mongoose.Schema(
       transcriptionsCreated: { type: Number, default: 0 },
       lastAIFeature: { type: Date }
     },
-    
+
     // Account visibility
     accountVisibility: {
       type: String,
       enum: ['public', 'private', 'friends'],
       default: 'public',
     },
-    
+
     // Notification preferences - SINGLE SOURCE OF TRUTH
     notificationSettings: {
       // Basic notification toggles
@@ -230,7 +231,7 @@ const userSchema = new mongoose.Schema(
       marketingEmails: { type: Boolean, default: false },
       soundEnabled: { type: Boolean, default: true },
       desktopNotifications: { type: Boolean, default: true },
-      
+
       // Detailed notification preferences
       newFollowers: { type: Boolean, default: true },
       newLikes: { type: Boolean, default: true },
@@ -242,17 +243,17 @@ const userSchema = new mongoose.Schema(
       aiGenerations: { type: Boolean, default: false },
       weeklyDigest: { type: Boolean, default: false },
       monthlyReport: { type: Boolean, default: false },
-      
+
       // Frequency settings
-      emailDigestFrequency: { 
-        type: String, 
+      emailDigestFrequency: {
+        type: String,
         enum: ['immediate', 'daily', 'weekly', 'monthly', 'never'],
-        default: 'weekly' 
+        default: 'weekly'
       },
-      pushNotificationTime: { 
-        type: String, 
+      pushNotificationTime: {
+        type: String,
         enum: ['immediate', 'hourly', 'daily', 'never'],
-        default: 'immediate' 
+        default: 'immediate'
       }
     },
     privacySettings: {
@@ -320,7 +321,7 @@ userSchema.pre('save', async function (next) {
   // Update level based on XP using enhanced calculation
   if (this.isModified('xp')) {
     this.level = this.calculateLevel(this.xp);
-    
+
     // Check for new feature unlocks
     await this.checkFeatureUnlocks();
   }
@@ -370,14 +371,14 @@ userSchema.methods.calculateLevel = function (xp) {
 userSchema.methods.updateStreak = async function (streakType, action = 'increment') {
   const streak = this.streaks[streakType];
   const now = new Date();
-  
+
   if (!streak) return;
 
   if (action === 'increment') {
     // Check if this is a consecutive day
     const lastAction = streak.lastLogin || streak.lastPublish || streak.lastRead || streak.lastComment;
     const daysSinceLastAction = lastAction ? Math.floor((now - lastAction) / (1000 * 60 * 60 * 24)) : 1;
-    
+
     if (daysSinceLastAction === 1) {
       // Consecutive day
       streak.current += 1;
@@ -391,7 +392,7 @@ userSchema.methods.updateStreak = async function (streakType, action = 'incremen
       // Same day, don't increment
       return;
     }
-    
+
     // Update last action date
     switch (streakType) {
       case 'login':
@@ -410,7 +411,7 @@ userSchema.methods.updateStreak = async function (streakType, action = 'incremen
   } else if (action === 'reset') {
     streak.current = 0;
   }
-  
+
   await this.save();
 };
 
@@ -425,7 +426,7 @@ userSchema.methods.incrementDailyAction = async function (actionType) {
 userSchema.methods.resetDailyActionsIfNeeded = async function () {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+
   // Check if we need to reset daily actions
   if (!this.dailyActions.login || this.dailyActions.login < today) {
     this.dailyActions = {
@@ -501,7 +502,7 @@ userSchema.methods.updateEngagementScore = async function () {
 
   const totalEngagement = Object.values(engagementFactors).reduce((sum, val) => sum + val, 0);
   const daysActive = Math.max(1, Math.floor((Date.now() - this.createdAt) / (1000 * 60 * 60 * 24)));
-  
+
   this.engagementScore = Math.round(totalEngagement / daysActive);
   await this.save();
 };
@@ -603,142 +604,142 @@ userSchema.index({ 'streaks.reading.longest': -1 }); // Longest reading streak
 userSchema.index({ 'streaks.commenting.longest': -1 }); // Longest commenting streak
 
 // Compound indexes for complex queries
-userSchema.index({ 
-  role: 1, 
-  isVerified: 1, 
-  createdAt: -1 
+userSchema.index({
+  role: 1,
+  isVerified: 1,
+  createdAt: -1
 }); // Role + verification + date
 
-userSchema.index({ 
-  level: 1, 
-  engagementScore: -1, 
-  createdAt: -1 
+userSchema.index({
+  level: 1,
+  engagementScore: -1,
+  createdAt: -1
 }); // Level + engagement + date
 
-userSchema.index({ 
-  xp: -1, 
-  level: 1, 
-  createdAt: -1 
+userSchema.index({
+  xp: -1,
+  level: 1,
+  createdAt: -1
 }); // XP + level + date
 
-userSchema.index({ 
-  'streaks.login.current': -1, 
-  'streaks.login.longest': -1 
+userSchema.index({
+  'streaks.login.current': -1,
+  'streaks.login.longest': -1
 }); // Current + longest login streak
 
-userSchema.index({ 
-  'streaks.publishing.current': -1, 
-  'streaks.publishing.longest': -1 
+userSchema.index({
+  'streaks.publishing.current': -1,
+  'streaks.publishing.longest': -1
 }); // Current + longest publishing streak
 
-userSchema.index({ 
-  totalBlogs: -1, 
-  totalLikes: -1, 
-  engagementScore: -1 
+userSchema.index({
+  totalBlogs: -1,
+  totalLikes: -1,
+  engagementScore: -1
 }); // Content + engagement metrics
 
-userSchema.index({ 
-  'aiPreferences.language': 1, 
-  'aiPreferences.autoSummarize': 1 
+userSchema.index({
+  'aiPreferences.language': 1,
+  'aiPreferences.autoSummarize': 1
 }); // AI preferences combination
 
-userSchema.index({ 
-  'privacySettings.profileVisibility': 1, 
-  'privacySettings.showEmail': 1 
+userSchema.index({
+  'privacySettings.profileVisibility': 1,
+  'privacySettings.showEmail': 1
 }); // Privacy settings combination
 
-userSchema.index({ 
-  'gamificationSettings.showXP': 1, 
-  'gamificationSettings.showLevel': 1, 
-  'gamificationSettings.showBadges': 1 
+userSchema.index({
+  'gamificationSettings.showXP': 1,
+  'gamificationSettings.showLevel': 1,
+  'gamificationSettings.showBadges': 1
 }); // Gamification settings combination
 
 // Partial indexes for better performance
-userSchema.index({ 
-  createdAt: -1 
-}, { 
-  partialFilterExpression: { isVerified: true } 
+userSchema.index({
+  createdAt: -1
+}, {
+  partialFilterExpression: { isVerified: true }
 }); // Only verified users by date
 
-userSchema.index({ 
-  xp: -1 
-}, { 
-  partialFilterExpression: { isVerified: true } 
+userSchema.index({
+  xp: -1
+}, {
+  partialFilterExpression: { isVerified: true }
 }); // Only verified users by XP
 
-userSchema.index({ 
-  engagementScore: -1 
-}, { 
-  partialFilterExpression: { isVerified: true } 
+userSchema.index({
+  engagementScore: -1
+}, {
+  partialFilterExpression: { isVerified: true }
 }); // Only verified users by engagement
 
-userSchema.index({ 
-  totalBlogs: -1 
-}, { 
-  partialFilterExpression: { isVerified: true } 
+userSchema.index({
+  totalBlogs: -1
+}, {
+  partialFilterExpression: { isVerified: true }
 }); // Only verified users by blog count
 
 // Sparse indexes for optional fields
-userSchema.index({ 
-  'socialLinks.platform': 1 
-}, { 
-  sparse: true 
+userSchema.index({
+  'socialLinks.platform': 1
+}, {
+  sparse: true
 }); // Sparse index for social links
 
-userSchema.index({ 
-  'badges': 1 
-}, { 
-  sparse: true 
+userSchema.index({
+  'badges': 1
+}, {
+  sparse: true
 }); // Sparse index for badges
 
-userSchema.index({ 
-  'followers': 1 
-}, { 
-  sparse: true 
+userSchema.index({
+  'followers': 1
+}, {
+  sparse: true
 }); // Sparse index for followers
 
-userSchema.index({ 
-  'following': 1 
-}, { 
-  sparse: true 
+userSchema.index({
+  'following': 1
+}, {
+  sparse: true
 }); // Sparse index for following
 
-userSchema.index({ 
-  'unlockedFeatures.feature': 1 
-}, { 
-  sparse: true 
+userSchema.index({
+  'unlockedFeatures.feature': 1
+}, {
+  sparse: true
 }); // Sparse index for unlocked features
 
-userSchema.index({ 
-  'aiUsage.lastAIFeature': 1 
-}, { 
-  sparse: true 
+userSchema.index({
+  'aiUsage.lastAIFeature': 1
+}, {
+  sparse: true
 }); // Sparse index for AI usage
 
 // Background index creation for production
 if (process.env.NODE_ENV === 'production') {
-  userSchema.index({ 
-    role: 1, 
-    isVerified: 1, 
-    createdAt: -1 
-  }, { 
-    background: true 
+  userSchema.index({
+    role: 1,
+    isVerified: 1,
+    createdAt: -1
+  }, {
+    background: true
   });
-  
-  userSchema.index({ 
-    level: 1, 
-    engagementScore: -1, 
-    createdAt: -1 
-  }, { 
-    background: true 
+
+  userSchema.index({
+    level: 1,
+    engagementScore: -1,
+    createdAt: -1
+  }, {
+    background: true
   });
-  
-  userSchema.index({ 
-    xp: -1, 
-    level: 1, 
-    createdAt: -1 
-  }, { 
-    background: true 
+
+  userSchema.index({
+    xp: -1,
+    level: 1,
+    createdAt: -1
+  }, {
+    background: true
   });
 }
 

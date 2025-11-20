@@ -98,7 +98,7 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
                   >
                     <X className="w-4 h-4" />
                   </button>
-                  
+
                   {/* Desktop collapse button */}
                   <button
                     onClick={toggleCollapsed}
@@ -121,8 +121,8 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
           </div>
 
           {/* Navigation - Scrollable on mobile for many items */}
-          <nav 
-            aria-label="Primary" 
+          <nav
+            aria-label="Primary"
             className="flex-1 px-2 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600"
           >
             {navigation.map((item) => {
@@ -135,10 +135,9 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
                   onClick={handleLinkClick}
                   className={`
                     flex items-center space-x-3 px-3 py-3 sm:py-2.5 rounded-lg transition-all hover:bg-[var(--secondary-btn-hover)] cursor-pointer duration-200 group touch-target
-                    ${
-                      active
-                        ? "bg-primary-50 text-primary-500 border-r-2 border-indigo-500 shadow-sm"
-                        : "text-text-secondary hover:bg-primary-50 hover:text-primary-500 hover:shadow-sm border-r border-transparent"
+                    ${active
+                      ? "bg-primary-50 text-primary-500 border-r-2 border-indigo-500 shadow-sm"
+                      : "text-text-secondary hover:bg-primary-50 hover:text-primary-500 hover:shadow-sm border-r border-transparent"
                     }
                   `}
                   title={collapsed ? item.name : undefined}
