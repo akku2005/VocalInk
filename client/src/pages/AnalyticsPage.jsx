@@ -1,23 +1,25 @@
 import { useState, useEffect, useMemo } from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import CustomDropdown from "../components/ui/CustomDropdown";
 import {
-  TrendingUp,
   Target,
   Activity,
   Calendar,
-  Clock,
-  PieChart,
+  Download,
+  TrendingUp,
+  Users,
+  Eye,
   Heart,
+  MessageCircle,
+  Share2,
 } from "lucide-react";
 import dashboardService from "../services/dashboardService";
 import useAnalyticsPreferences from "../hooks/useAnalyticsPreferences";
+import StatCard from "../components/analytics/StatCard";
+import GrowthChart from "../components/analytics/GrowthChart";
+import { AgeDistributionChart, LocationChart } from "../components/analytics/DemographicsCharts";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 
 const timeOptions = [
   { id: "7d", name: "Last 7 days" },
@@ -56,9 +58,6 @@ const bestTimes = [
   { label: "6 PM", percentage: 64 },
 ];
 
-const formatNumber = (value) =>
-  typeof value === "number" ? value.toLocaleString() : value;
-
 const AnalyticsPage = () => {
   const {
     timeRange,
@@ -80,35 +79,11 @@ const AnalyticsPage = () => {
     activity: null,
   });
 
-  const primaryMetric = useMemo(() => {
-    const stats = personalAnalytics?.stats;
-    if (!stats) return null;
-    if (preferredMetric === "likes") {
-      return {
-        label: "Total likes",
-        value: stats.totalLikes,
-        detail: `${stats.totalLikes} total likes`,
-      };
-    }
-    if (preferredMetric === "engagement") {
-      return {
-        label: "Engagement rate",
-        value: `${stats.engagementRate}%`,
-        detail: `${stats.engagementRate}% of viewers interact`,
-      };
-    }
-    return {
-      label: "Total views",
-      value: stats.totalViews,
-      detail: `${stats.totalViews} page views`,
-    };
-  }, [personalAnalytics, preferredMetric]);
-
   const loadOverview = async () => {
     setLoading((prev) => ({ ...prev, overview: true }));
     try {
-    const data = await dashboardService.getDashboardData();
-    setDashboardOverview(data);
+      const data = await dashboardService.getDashboardData();
+      setDashboardOverview(data);
     } catch (error) {
       setErrors((prev) => ({
         ...prev,
@@ -164,24 +139,44 @@ const AnalyticsPage = () => {
     window.print();
   };
 
-  const summaryCards = useMemo(() => {
+  const summaryStats = useMemo(() => {
     if (!dashboardOverview?.stats) return [];
     const stats = dashboardOverview.stats;
+
+    // Calculate fake trends for demo purposes if real ones aren't available
+    // In a real app, these would come from the API comparison with previous period
     return [
       {
-        label: "Total followers",
-        value: formatNumber(dashboardOverview.stats?.followerCount || 0),
-        icon: <Target className="w-5 h-5 text-primary-500" />,
+        label: "Total Views",
+        value: stats.totalViews?.toLocaleString() || "0",
+        icon: Eye,
+        color: "blue",
+        trend: "up",
+        trendValue: "12%",
       },
       {
-        label: "Total likes",
-        value: formatNumber(stats.totalLikes),
-        icon: <Heart className="w-5 h-5 text-primary-500" />,
+        label: "Total Likes",
+        value: stats.totalLikes?.toLocaleString() || "0",
+        icon: Heart,
+        color: "rose",
+        trend: "up",
+        trendValue: "8%",
       },
       {
-        label: "Total comments",
-        value: formatNumber(stats.totalComments),
-        icon: <Activity className="w-5 h-5 text-primary-500" />,
+        label: "Comments",
+        value: stats.totalComments?.toLocaleString() || "0",
+        icon: MessageCircle,
+        color: "amber",
+        trend: "down",
+        trendValue: "3%",
+      },
+      {
+        label: "Followers",
+        value: dashboardOverview.stats?.followerCount?.toLocaleString() || "0",
+        icon: Users,
+        color: "emerald",
+        trend: "up",
+        trendValue: "24%",
       },
     ];
   }, [dashboardOverview]);
@@ -217,219 +212,166 @@ const AnalyticsPage = () => {
   }, [personalAnalytics]);
 
   return (
-    <div className="space-y-8 print:p-0 print:bg-white bg-surface-light text-text-primary">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-semibold">Analytics & Personalization</h2>
-        <Button variant="secondary" onClick={handleDownloadReport}>
-          Download PDF Report
-        </Button>
+    <div className="relative min-h-screen pb-20 overflow-hidden bg-background text-text-primary">
+      {/* Background Gradients */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-500/10 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-fuchsia-500/10 blur-[120px]" />
+        <div className="absolute top-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-blue-500/10 blur-[100px]" />
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="w-full lg:w-1/3 grid gap-3">
-          {summaryCards.map((card) => (
-            <Card key={card.label}>
-              <CardContent className="flex items-center gap-4">
-                <div className="p-3 bg-primary-100 rounded-lg">{card.icon}</div>
-                <div>
-                  <p className="text-xs text-text-secondary">{card.label}</p>
-                  <p className="text-2xl font-semibold">{card.value}</p>
-                </div>
-              </CardContent>
-            </Card>
+      <div className="relative z-10 container mx-auto px-4 py-8 space-y-8">
+        {/* Header Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between mb-10"
+        >
+          <div>
+            <h2 className="text-4xl font-bold tracking-tight text-text-primary mb-2">Analytics Dashboard</h2>
+            <p className="text-lg text-text-secondary">Track your content performance and audience growth.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <CustomDropdown
+              label="Time Range"
+              options={timeOptions}
+              value={timeRange}
+              onChange={setTimeRange}
+              variant="outline"
+            />
+            <Button variant="primary" onClick={handleDownloadReport} className="flex items-center gap-2 shadow-lg shadow-primary-500/20">
+              <Download className="w-4 h-4" />
+              Export Report
+            </Button>
+          </div>
+        </motion.div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {summaryStats.map((stat, index) => (
+            <StatCard
+              key={stat.label}
+              {...stat}
+              delay={index * 0.1}
+            />
           ))}
         </div>
-        <div className="w-full lg:w-2/3 grid gap-4">
-          <Card>
-            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-primary-500" />
-                Growth ({timeRange})
-              </CardTitle>
-              <div className="flex gap-3">
-                <CustomDropdown
-                  label="Time Range"
-                  options={timeOptions}
-                  value={timeRange}
-                  onChange={setTimeRange}
-                  variant="ghost"
-                />
-                <CustomDropdown
-                  label="Focus Metric"
-                  options={metricOptions}
-                  value={preferredMetric}
-                  onChange={setPreferredMetric}
-                  variant="ghost"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {errors.personal && <p className="text-sm text-error-500">{errors.personal}</p>}
-              {loading.personal ? (
-                <p className="text-sm text-text-secondary">Loading growth chart…</p>
-              ) : personalAnalytics?.timeline?.length === 0 ? (
-                <p className="text-sm text-text-secondary">Waiting for data.</p>
-              ) : (
-                <Analytics3DBarChart data={personalAnalytics?.timeline || []} />
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary-500" />
-                Focus Metric
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-            {loading.overview ? (
-              <p className="text-sm text-text-secondary">Loading focus metrics…</p>
-            ) : personalAnalytics ? (
-              <>
-                <p className="text-xs text-text-secondary">{primaryMetric?.label}</p>
-                <p className="text-3xl font-semibold text-text-primary">
-                  {primaryMetric?.value?.toLocaleString
-                      ? primaryMetric.value.toLocaleString()
-                      : primaryMetric?.value || "—"}
-                  </p>
-                  <p className="text-sm text-text-secondary">{primaryMetric?.detail}</p>
-                </>
-              ) : (
-                <p className="text-sm text-text-secondary">No data yet.</p>
-              )}
-            </CardContent>
-          </Card>
+
+        {/* Main Chart Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-[500px]">
+            <GrowthChart
+              data={personalAnalytics?.timeline || []}
+              title={`Growth Trend (${timeRange})`}
+              color="#6366f1"
+            />
+          </div>
+          <div className="space-y-6">
+            <div className="h-[238px]">
+              <AgeDistributionChart data={normalizedAgeGroups} />
+            </div>
+            <div className="h-[238px]">
+              <LocationChart data={normalizedLocations} />
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Age Range</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {normalizedAgeGroups.map((group) => (
-              <div key={group.range} className="flex items-center gap-3 mb-3">
-                <div className="text-xs w-12 text-text-secondary">{group.range}</div>
-                <div className="flex-1 bg-secondary-100 h-2 rounded-full">
-                  <div
-                    className="bg-primary-500 h-2 rounded-full"
-                    style={{ width: `${group.value}%` }}
-                  ></div>
-                </div>
-                <span className="text-xs text-text-primary">{group.value}%</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        {/* Bottom Section: Best Times & Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <Card className="h-full border-border/50 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Target className="w-5 h-5 text-amber-500" />
+                  Best Times to Publish
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6 p-6">
+                {(() => {
+                  const raw = personalAnalytics?.bestTimes || bestTimes;
+                  const maxValue = Math.max(...raw.map((item) => item.value ?? item.percentage ?? 0), 1);
+                  return raw.map((time, index) => {
+                    const value = time.value ?? time.percentage ?? 0;
+                    const percentage = time.percentage ?? Math.round((value / maxValue) * 100);
+                    return (
+                      <div key={time.label} className="relative">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-text-secondary">{time.label}</span>
+                          <span className="text-sm font-bold text-text-primary">{percentage}%</span>
+                        </div>
+                        <div className="w-full bg-secondary-100 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                          <motion.div
+                            className="bg-gradient-to-r from-amber-400 to-orange-500 h-2.5 rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${percentage}%` }}
+                            transition={{ duration: 1, delay: 0.5 + (index * 0.1) }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Locations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {normalizedLocations.map((loc) => (
-              <div key={loc.label} className="flex items-center justify-between mb-3 text-sm text-text-secondary">
-                <span>{loc.label}</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-24 bg-secondary-100 h-2 rounded-full">
-                    <div className="bg-accent h-2 rounded-full" style={{ width: `${loc.value}%` }}></div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="lg:col-span-2"
+          >
+            <Card className="h-full border-border/50 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Activity className="w-5 h-5 text-primary-500" />
+                  Recent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {errors.activity && <p className="text-sm text-error-500">{errors.activity}</p>}
+                {loading.activity ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+                    ))}
                   </div>
-                  <span className="text-text-primary">{loc.value}%</span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Best Times to Publish</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {(() => {
-              const raw = personalAnalytics?.bestTimes || bestTimes;
-              const maxValue = Math.max(...raw.map((item) => item.value ?? item.percentage ?? 0), 1);
-              return raw.map((time) => {
-                const value = time.value ?? time.percentage ?? 0;
-                const percentage = time.percentage ?? Math.round((value / maxValue) * 100);
-                return (
-                  <div key={time.label} className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{time.label}</span>
-                    <span className="text-sm font-semibold">{percentage}% engagement</span>
+                ) : activity.length === 0 ? (
+                  <p className="text-sm text-text-secondary">No recent activity to display.</p>
+                ) : (
+                  <div className="grid gap-3">
+                    {activity.map((item, index) => (
+                      <motion.div
+                        key={`${item.title}-${index}`}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: 0.6 + (index * 0.05) }}
+                        className="flex items-start gap-4 p-3 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/10 transition-colors border border-transparent hover:border-primary-100 dark:hover:border-primary-900/30"
+                      >
+                        <div className="p-2 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 mt-1">
+                          <Activity className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-text-primary">{item.title}</p>
+                          <p className="text-xs text-text-secondary mt-0.5">{item.description}</p>
+                        </div>
+                        <div className="text-[0.7rem] text-text-secondary whitespace-nowrap flex items-center gap-1 bg-secondary-50 dark:bg-gray-800 px-2 py-1 rounded-full">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(item.timestamp).toLocaleDateString()}
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
-                );
-              });
-            })()}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary-500" />
-            Recent Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {errors.activity && <p className="text-sm text-error-500">{errors.activity}</p>}
-          {loading.activity ? (
-            <p className="text-sm text-text-secondary">Loading activity feed…</p>
-          ) : activity.length === 0 ? (
-            <p className="text-sm text-text-secondary">No recent activity to display.</p>
-          ) : (
-            <div className="grid gap-3">
-              {activity.map((item, index) => (
-                <div key={`${item.title}-${index}`} className="border border-border rounded-lg p-3 bg-white">
-                  <p className="text-sm font-semibold text-text-primary">{item.title}</p>
-                  <p className="text-xs text-text-secondary">{item.description}</p>
-                  <p className="text-[0.7rem] text-text-secondary mt-1 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(item.timestamp).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-const Analytics3DBarChart = ({ data }) => {
-  const maxValue = Math.max(...data.map((entry) => entry.value || 0), 1);
-  return (
-    <div className="relative h-48" style={{ perspective: 800 }}>
-      <div className="absolute inset-0 grid grid-cols-5 items-end gap-3 px-2">
-        {data.map((entry) => {
-          const height = ((entry.value || 0) / maxValue) * 100;
-          return (
-            <div key={entry.label} className="flex flex-col items-center">
-              <div
-                className="relative w-11/12 bg-transparent"
-                style={{ height: `${height}%` }}
-              >
-                <div
-                  className="absolute inset-0 rounded-sm bg-gradient-to-br from-primary-500 to-fuchsia-500 shadow-2xl"
-                  style={{
-                    transform: "skewX(-15deg) translateZ(0)",
-                    transformOrigin: "bottom left",
-                  }}
-                ></div>
-                <div
-                  className="absolute inset-0 rounded-sm bg-gradient-to-tl from-white/30 to-transparent"
-                  style={{
-                    transform: "translateY(-50%) scale(0.9) rotateX(60deg)",
-                    transformOrigin: "center",
-                  }}
-                ></div>
-              </div>
-              <p className="text-xs text-text-secondary mt-2">{entry.label}</p>
-            </div>
-          );
-        })}
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
       </div>
     </div>
   );

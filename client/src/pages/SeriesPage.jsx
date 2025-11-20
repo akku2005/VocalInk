@@ -105,7 +105,7 @@ const SeriesPage = () => {
       const cat = s.category || 'Other';
       categoryMap[cat] = (categoryMap[cat] || 0) + 1;
     });
-    
+
     const cats = [{ id: "all", name: "All Series", count: series.length }];
     Object.entries(categoryMap).forEach(([name, count]) => {
       cats.push({
@@ -123,7 +123,7 @@ const SeriesPage = () => {
       const tmpl = s.template || 'Other';
       templateMap[tmpl] = (templateMap[tmpl] || 0) + 1;
     });
-    
+
     const tmpls = [{ id: "all", name: "All Templates", count: series.length }];
     Object.entries(templateMap).forEach(([name, count]) => {
       tmpls.push({
@@ -141,20 +141,20 @@ const SeriesPage = () => {
       const diff = s.difficulty || 'Other';
       difficultyMap[diff] = (difficultyMap[diff] || 0) + 1;
     });
-    
+
     const diffs = [{
       id: "all",
       name: "All Levels",
       count: series.length,
       color: "bg-gray-500 text-white hover:bg-gray-600",
     }];
-    
+
     const colorMap = {
       beginner: "bg-indigo-600 text-white hover:bg-indigo-700",
       intermediate: "bg-black text-white hover:bg-gray-800",
       advanced: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-100",
     };
-    
+
     Object.entries(difficultyMap).forEach(([name, count]) => {
       diffs.push({
         id: name,
@@ -363,12 +363,13 @@ const SeriesPage = () => {
     const progress = getSeriesProgress(series.episodes || []);
 
     const handleCardClick = () => {
-      navigate(`/series/${series._id || series.id}`);
+      const identifier = series.slug || series._id || series.id;
+      navigate(`/series/${identifier}`);
     };
 
     if (viewMode === "list") {
       return (
-        <Card 
+        <Card
           className="cursor-pointer group hover:shadow-lg transition-all duration-300 border border-[var(--border-color)] bg-surface/50 dark:bg-white/5 backdrop-blur-sm"
           onClick={handleCardClick}
         >
@@ -459,15 +460,15 @@ const SeriesPage = () => {
                         ))}
                       {series.tags.length >
                         (window.innerWidth < 640 ? 2 : 3) && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs px-2 py-1 border border-[var(--border-color)]"
-                        >
-                          +
-                          {series.tags.length -
-                            (window.innerWidth < 640 ? 2 : 3)}
-                        </Badge>
-                      )}
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-2 py-1 border border-[var(--border-color)]"
+                          >
+                            +
+                            {series.tags.length -
+                              (window.innerWidth < 640 ? 2 : 3)}
+                          </Badge>
+                        )}
                     </div>
 
                     {/* Title */}
@@ -565,181 +566,117 @@ const SeriesPage = () => {
 
     // Grid View
     return (
-      <Card 
-        className="cursor-pointer group overflow-hidden hover:shadow-lg transition-all duration-300 border border-[var(--border-color)] bg-surface/50 dark:bg-white/5 backdrop-blur-sm"
+      <div
+        className="group relative flex flex-col h-full bg-surface border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1 cursor-pointer"
         onClick={handleCardClick}
       >
-        {/* Cover Image */}
-        <div className="aspect-video relative overflow-hidden rounded-t-2xl bg-[var(--secondary-btn2)] border border-b-0 border-[var(--border-color)]">
+        {/* Image Container */}
+        <div className="aspect-[16/10] relative overflow-hidden bg-gradient-to-br from-sky-500/10 to-pink-500/10">
           {series.coverImage ? (
             <img
               src={resolveAssetUrl(series.coverImage)}
               alt={series.title}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-3xl sm:text-4xl opacity-30">📚</div>
+              <span className="text-4xl font-bold text-sky-500/20 tracking-widest">SERIES</span>
             </div>
           )}
 
-          {/* Template and Difficulty Badges */}
-          {/* Left Side */}
-          <div className="absolute top-4 left-4 flex flex-col gap-2">
-            <Badge
-              variant="outline"
-              className="flex items-center text-xs px-2 py-1 border border-[var(--border-color)] bg-[var(--secondary-btn)] text-[var(--text-color)] backdrop-blur-sm h-6 w-fit"
-            >
-              {getTemplateIcon(series.template)}
-              <span className="ml-1 capitalize hidden sm:inline">
-                {series.template.replace("_", " ")}
-              </span>
-            </Badge>
-            <Badge
-              className={`text-xs px-2 py-1 backdrop-blur-sm h-6 w-fit ${getDifficultyColor(
-                series.difficulty
-              )}`}
-            >
-              {getDifficultyIcon(series.difficulty)}
-              <span className="ml-1 capitalize hidden sm:inline">
-                {series.difficulty}
-              </span>
-            </Badge>
-          </div>
+          {/* Overlay Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity duration-300" />
 
-          {/* Right Side */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            {series.visibility === "premium" && (
-              <Badge
-                variant="warning"
-                className="flex items-center text-xs px-2 py-1 backdrop-blur-sm h-6 w-fit border border-[var(--border-color)] bg-[var(--secondary-btn)] text-[var(--text-color)]"
-              >
-                <span className="hidden sm:inline">Premium</span>
-                <span className="sm:hidden">💎</span>
-              </Badge>
-            )}
-            <button className="flex items-center justify-center h-8 w-8 rounded-lg transition-all duration-200 shadow-sm border border-[var(--border-color)] bg-[var(--secondary-btn2)] cursor-pointer">
-              <Star
-                className={`w-4 h-4 ${
-                  series.isBookmarked
-                    ? "fill-current text-primary-500"
-                    : "text-text-secondary"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm p-2 sm:p-3">
-            <div className="flex items-center justify-between text-xs text-white mb-1">
-              <span>
-                {publishedEpisodes}/{series.episodes.length} episodes
+          {/* Floating Badges (Top Left) */}
+          <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 text-xs font-medium bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10 flex items-center gap-1.5">
+                {getTemplateIcon(series.template)}
+                <span className="capitalize">{series.template.replace("_", " ")}</span>
               </span>
-              <span>{progress}% complete</span>
             </div>
-            <div className="w-full bg-white/20 rounded-full h-1">
+            <span className={`px-2.5 py-1 text-xs font-medium backdrop-blur-md rounded-full border border-white/10 w-fit flex items-center gap-1.5 ${series.difficulty === 'beginner' ? 'bg-green-500/20 text-green-200' :
+              series.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-200' :
+                'bg-red-500/20 text-red-200'
+              }`}>
+              {getDifficultyIcon(series.difficulty)}
+              <span className="capitalize">{series.difficulty}</span>
+            </span>
+          </div>
+
+          {/* Premium Badge (Top Right) */}
+          {series.visibility === "premium" && (
+            <div className="absolute top-4 right-4 z-10">
+              <span className="px-2.5 py-1 text-xs font-bold bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full shadow-lg shadow-orange-500/20 flex items-center gap-1">
+                <Star className="w-3 h-3 fill-current" />
+                PREMIUM
+              </span>
+            </div>
+          )}
+
+          {/* Progress Bar (Bottom) */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-md p-3 border-t border-white/10">
+            <div className="flex items-center justify-between text-[10px] font-medium text-white/90 mb-1.5">
+              <span>{publishedEpisodes}/{series.episodes.length} EPISODES</span>
+              <span>{progress}% COMPLETE</span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-1 overflow-hidden">
               <div
-                className="bg-primary-400 h-1 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-sky-400 to-pink-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
         </div>
 
-        <CardHeader className="space-y-4 p-4 sm:p-6">
-          {/* Tags */}
-          <div className="flex flex-wrap gap-2">
-            {series.tags
-              .slice(0, window.innerWidth < 640 ? 2 : 3)
-              .map((tag, index) => (
-                <Badge
-                  key={index}
-                  variant="outline"
-                  className="text-xs px-2 py-1 border border-[var(--border-color)]"
-                >
-                  {tag}
-                </Badge>
+        {/* Content */}
+        <div className="flex flex-col flex-1 p-5 space-y-4">
+          <div className="space-y-2 flex-1">
+            {/* Tags */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {series.tags.slice(0, 2).map((tag, index) => (
+                <span key={index} className="text-[10px] font-medium text-text-secondary bg-secondary/50 px-2 py-0.5 rounded border border-border/50">
+                  #{tag}
+                </span>
               ))}
-            {series.tags.length > (window.innerWidth < 640 ? 2 : 3) && (
-              <Badge
-                variant="outline"
-                className="text-xs px-2 py-1 border border-[var(--border-color)]"
-              >
-                +{series.tags.length - (window.innerWidth < 640 ? 2 : 3)}
-              </Badge>
-            )}
+            </div>
+
+            <h3 className="text-xl font-bold text-text-primary line-clamp-2 group-hover:text-sky-500 transition-colors leading-tight">
+              {series.title}
+            </h3>
+            <p className="text-sm text-text-secondary line-clamp-2 leading-relaxed">
+              {series.summary}
+            </p>
           </div>
 
-          {/* Title */}
-          <CardTitle className="text-lg sm:text-xl line-clamp-2 group-hover:text-primary-500 transition-colors leading-tight">
-            {series.title}
-          </CardTitle>
-
-          {/* Summary */}
-          <p className="text-sm text-text-secondary line-clamp-2 sm:line-clamp-3 leading-relaxed">
-            {series.summary}
-          </p>
-        </CardHeader>
-
-        <CardContent className="pt-0 p-4 sm:p-6">
-          {/* Author and Category */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-text-secondary mb-4">
-            <div className="flex items-center gap-2">
-              <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="font-medium">{getAuthorName(series)}</span>
-              {series.authorId?.verified && (
-                <Shield className="w-2 h-2 sm:w-3 sm:h-3 text-primary-500" />
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Layers className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">{series.category}</span>
-              <span className="sm:hidden">{series.category.slice(0, 8)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span>{totalReadTime} min</span>
-            </div>
-          </div>
-
-          {/* Analytics */}
-          <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-[var(--border-color)]">
-            <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-text-secondary">
-              <div className="flex items-center gap-1">
-                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="font-medium">
-                  {formatNumber(series.analytics?.totalViews || 0)}
-                </span>
+          {/* Footer */}
+          <div className="pt-4 border-t border-border/50 flex items-center justify-between text-xs text-text-secondary">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                <span className="font-medium max-w-[100px] truncate">{getAuthorName(series)}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="font-medium">
-                  {formatNumber(series.analytics?.subscribers || 0)}
-                </span>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{totalReadTime}m</span>
               </div>
-              {series.rating !== undefined && (
-                <div className="flex items-center gap-1">
-                  <Star className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="font-medium">{series.rating}</span>
-                  {series.totalRatings !== undefined && (
-                    <span className="opacity-75 hidden lg:inline">
-                      ({series.totalRatings})
-                    </span>
-                  )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1" title="Views">
+                <Eye className="w-3.5 h-3.5" />
+                <span>{formatNumber(series.analytics?.totalViews || 0)}</span>
+              </div>
+              {series.collaborators?.length > 0 && (
+                <div className="flex items-center gap-1 text-sky-500" title={`${series.collaborators.length} Collaborators`}>
+                  <Users className="w-3.5 h-3.5" />
+                  <span className="font-medium">{series.collaborators.length}</span>
                 </div>
               )}
             </div>
-            <div className="text-xs text-text-secondary">
-              {series.collaborators?.length > 0 && (
-                <span className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {series.collaborators.length}
-                </span>
-              )}
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   };
 
@@ -755,307 +692,307 @@ const SeriesPage = () => {
 
   return (
     <ErrorBoundary>
-    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8">
-      {/* Header Section */}
-      <div className="text-center space-y-3 sm:space-y-4 py-4 sm:py-8">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-text-primary">
-          Discover Series
-        </h1>
-        <p className="text-base sm:text-lg text-text-secondary max-w-2xl mx-auto px-4">
-          Explore curated collections of interconnected content designed to take
-          you on a learning journey. From educational courses to story arcs,
-          find series that match your interests and skill level.
-        </p>
-      </div>
-
-      {/* Search and Actions Bar */}
-      <div className="flex flex-col gap-4 bg-surface/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-[var(--border-color)]">
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[var(--light-text-color2)]" />
-          <Input
-            type="text"
-            placeholder="Search series, authors, or topics..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search series"
-            className="pl-10 sm:pl-11 h-10 sm:h-12 text-sm sm:text-base text-[var(--light-text-color2)] placeholder:text-[var(--light-text-color)]
-             focus:outline-none focus:ring-0 focus-visible:ring-0 border border-[var(--border-color)]"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text-color)] cursor-pointer"
-              aria-label="Clear search"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+      <div className="w-full max-w-[1600px] mx-auto space-y-6 sm:space-y-8 lg:space-y-10 px-4 sm:px-6 lg:px-8">
+        {/* Header Section */}
+        <div className="relative py-12 sm:py-16 lg:py-20 text-center overflow-hidden rounded-3xl bg-gradient-to-b from-sky-500/5 via-pink-500/5 to-transparent border border-white/10">
+          <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
+          <div className="relative z-10 space-y-4 px-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-sky-400 via-blue-400 to-pink-400 bg-clip-text text-transparent tracking-tight">
+              Discover Series
+            </h1>
+            <p className="text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
+              Explore curated collections of interconnected content designed to take
+              you on a learning journey. From educational courses to story arcs,
+              find series that match your interests and skill level.
+            </p>
+          </div>
         </div>
 
-        {/* Actions Row */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-          {/* Sort and Filter Toggle */}
-          <div className="flex items-center gap-3">
-            {/* Sort */}
-            <div className="flex items-center gap-2 flex-1 sm:flex-none">
-              <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-              <label
-                htmlFor="sort"
-                className="text-sm text-text-secondary hidden sm:inline"
+        {/* Search and Actions Bar */}
+        <div className="flex flex-col gap-4 bg-surface/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-[var(--border-color)]">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-[var(--light-text-color2)]" />
+            <Input
+              type="text"
+              placeholder="Search series, authors, or topics..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search series"
+              className="pl-10 sm:pl-11 h-10 sm:h-12 text-sm sm:text-base text-[var(--light-text-color2)] placeholder:text-[var(--light-text-color)]
+             focus:outline-none focus:ring-0 focus-visible:ring-0 border border-[var(--border-color)]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text-color)] cursor-pointer"
+                aria-label="Clear search"
               >
-                Sort by
-              </label>
-              <DiscoverSeriesDropDown sortBy={sortBy} setSortBy={setSortBy} />
-            </div>
-
-            {/* Mobile Filter Toggle */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex sm:hidden items-center gap-2 px-3 py-2 bg-background rounded-lg border border-[var(--border-color)] text-sm"
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-            </button>
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          {/* View Mode and Create Button */}
-          <div className="flex items-center gap-3 justify-between sm:justify-end">
-            {/* View Mode Toggle - Hidden on mobile */}
-            <div
-              className="hidden sm:flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]"
-              role="tablist"
-              aria-label="View mode"
-            >
+          {/* Actions Row */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+            {/* Sort and Filter Toggle */}
+            <div className="flex items-center gap-3">
+              {/* Sort */}
+              <div className="flex items-center gap-2 flex-1 sm:flex-none">
+                <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+                <label
+                  htmlFor="sort"
+                  className="text-sm text-text-secondary hidden sm:inline"
+                >
+                  Sort by
+                </label>
+                <DiscoverSeriesDropDown sortBy={sortBy} setSortBy={setSortBy} />
+              </div>
+
+              {/* Mobile Filter Toggle */}
               <button
-                onClick={() => setViewMode("grid")}
-                role="tab"
-                aria-selected={viewMode === "grid"}
-                aria-controls="series-grid"
-                className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${
-                  viewMode === "grid"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex sm:hidden items-center gap-2 px-3 py-2 bg-background rounded-lg border border-[var(--border-color)] text-sm"
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+              </button>
+            </div>
+
+            {/* View Mode and Create Button */}
+            <div className="flex items-center gap-3 justify-between sm:justify-end">
+              {/* View Mode Toggle - Hidden on mobile */}
+              <div
+                className="hidden sm:flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]"
+                role="tablist"
+                aria-label="View mode"
+              >
+                <button
+                  onClick={() => setViewMode("grid")}
+                  role="tab"
+                  aria-selected={viewMode === "grid"}
+                  aria-controls="series-grid"
+                  className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "grid"
                     ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm hover:bg-[var(--secondary-btn-hover2)]"
                     : "text-text-secondary hover:text-text-primary hover:bg-surface"
-                }`}
-              >
-                <Grid3X3 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                role="tab"
-                aria-selected={viewMode === "list"}
-                aria-controls="series-grid"
-                className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
-                  viewMode === "list"
+                    }`}
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  role="tab"
+                  aria-selected={viewMode === "list"}
+                  aria-controls="series-grid"
+                  className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${viewMode === "list"
                     ? "bg-[var(--secondary-btn2)] hover:bg-[var(--secondary-btn-hover2)] text-[var(--text-color)]"
                     : "text-text-secondary hover:text-text-primary hover:bg-surface"
-                }`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
+                    }`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
 
-            <Link to="/create-series">
-              <Button className="flex items-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md cursor-pointer text-sm sm:text-base">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Create Series</span>
-                <span className="sm:hidden">Create</span>
-              </Button>
-            </Link>
+              <Link to="/create-series">
+                <Button className="flex items-center gap-2 h-10 sm:h-12 px-4 sm:px-6 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md cursor-pointer text-sm sm:text-base">
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Create Series</span>
+                  <span className="sm:hidden">Create</span>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Filters Section - Mobile Collapsible, Desktop Always Visible */}
-      <div
-        className={`space-y-4 sm:space-y-6 ${showFilters ? "block" : "hidden sm:block"}`}
-      >
-        {/* Categories */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-            <span className="text-sm sm:text-base font-semibold text-text-primary">
-              Categories:
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <Badge
-                key={category.id}
-                variant={
-                  selectedCategory === category.id ? "default" : "outline"
-                }
-                className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]${
-                  selectedCategory === category.id
+        {/* Filters Section - Mobile Collapsible, Desktop Always Visible */}
+        <div
+          className={`space-y-4 sm:space-y-6 ${showFilters ? "block" : "hidden sm:block"}`}
+        >
+          {/* Categories */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+              <span className="text-sm sm:text-base font-semibold text-text-primary">
+                Categories:
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <Badge
+                  key={category.id}
+                  variant={
+                    selectedCategory === category.id ? "default" : "outline"
+                  }
+                  className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]${selectedCategory === category.id
                     ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]"
                     : ""
-                }`}
-                onClick={() => setSelectedCategory(category.id)}
-                aria-pressed={selectedCategory === category.id}
-              >
-                <span className="hidden sm:inline">{category.name}</span>
-                <span className="sm:hidden">
-                  {category.name.replace("Series", "").trim()}
-                </span>
-                <span className="ml-1 opacity-75">({category.count})</span>
-              </Badge>
-            ))}
+                    }`}
+                  onClick={() => setSelectedCategory(category.id)}
+                  aria-pressed={selectedCategory === category.id}
+                >
+                  <span className="hidden sm:inline">{category.name}</span>
+                  <span className="sm:hidden">
+                    {category.name.replace("Series", "").trim()}
+                  </span>
+                  <span className="ml-1 opacity-75">({category.count})</span>
+                </Badge>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Templates */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-            <span className="text-sm sm:text-base font-semibold text-text-primary">
-              Templates:
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {templates.map((template) => (
-              <Badge
-                key={template.id}
-                variant={
-                  selectedTemplate === template.id ? "default" : "outline"
-                }
-                className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] ${
-                  selectedTemplate === template.id
+          {/* Templates */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+              <span className="text-sm sm:text-base font-semibold text-text-primary">
+                Templates:
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {templates.map((template) => (
+                <Badge
+                  key={template.id}
+                  variant={
+                    selectedTemplate === template.id ? "default" : "outline"
+                  }
+                  className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)] ${selectedTemplate === template.id
                     ? " bg-primary-500 text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]"
                     : ""
-                }`}
-                onClick={() => setSelectedTemplate(template.id)}
-                aria-pressed={selectedTemplate === template.id}
-              >
-                <span className="hidden sm:inline">{template.name}</span>
-                <span className="sm:hidden">{template.name.split(" ")[0]}</span>
-                <span className="ml-1 opacity-75">({template.count})</span>
-              </Badge>
-            ))}
+                    }`}
+                  onClick={() => setSelectedTemplate(template.id)}
+                  aria-pressed={selectedTemplate === template.id}
+                >
+                  <span className="hidden sm:inline">{template.name}</span>
+                  <span className="sm:hidden">{template.name.split(" ")[0]}</span>
+                  <span className="ml-1 opacity-75">({template.count})</span>
+                </Badge>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Difficulty Levels */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-            <span className="text-sm sm:text-base font-semibold text-text-primary">
-              Difficulty:
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {difficulties.map((difficulty) => (
-              <Badge
-                key={difficulty.id}
-                variant={
-                  selectedDifficulty === difficulty.id ? "default" : "outline"
-                }
-                className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]${
-                  selectedDifficulty === difficulty.id
+          {/* Difficulty Levels */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+              <span className="text-sm sm:text-base font-semibold text-text-primary">
+                Difficulty:
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {difficulties.map((difficulty) => (
+                <Badge
+                  key={difficulty.id}
+                  variant={
+                    selectedDifficulty === difficulty.id ? "default" : "outline"
+                  }
+                  className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover2)]${selectedDifficulty === difficulty.id
                     ? " bg-primary-500 hover:bg-[var(--secondary-btn-hover2)]"
                     : ""
-                }`}
-                onClick={() => setSelectedDifficulty(difficulty.id)}
-                aria-pressed={selectedDifficulty === difficulty.id}
-              >
-                {difficulty.name}
-                <span className="ml-1 opacity-75">({difficulty.count})</span>
-              </Badge>
+                    }`}
+                  onClick={() => setSelectedDifficulty(difficulty.id)}
+                  aria-pressed={selectedDifficulty === difficulty.id}
+                >
+                  {difficulty.name}
+                  <span className="ml-1 opacity-75">({difficulty.count})</span>
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <div className="text-center py-12 sm:py-16">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-red-600" />
+            </div>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary mb-2">
+              Error Loading Series
+            </h3>
+            <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto px-4">
+              {error}
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Results Summary */}
+        {!error && (
+          <div
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 sm:py-4 border-b border-[var(--border-color)]"
+            aria-live="polite"
+          >
+            <div className="text-sm sm:text-base text-text-secondary">
+              Showing{" "}
+              <span className="font-semibold text-text-primary">
+                {filteredAndSortedSeries.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-text-primary">
+                {series.length}
+              </span>{" "}
+              series
+            </div>
+            <div className="text-xs sm:text-sm text-text-secondary">
+              Updated {new Date().toLocaleDateString()}
+            </div>
+          </div>
+        )}
+
+        {/* Series Grid */}
+        {!isLoading && !error && filteredAndSortedSeries.length > 0 && (
+          <div
+            className={`grid gap-6 sm:gap-8 ${viewMode === "grid"
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+              : "grid-cols-1 max-w-5xl mx-auto"
+              }`}
+          >
+            {filteredAndSortedSeries.map((series) => (
+              <SeriesCard
+                key={series._id || series.id}
+                series={series}
+                viewMode={viewMode}
+              />
             ))}
           </div>
-        </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && filteredAndSortedSeries.length === 0 && (
+          <div className="text-center py-12 sm:py-16 px-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
+              <Layers className="w-8 h-8 sm:w-10 sm:h-10 text-primary-600" />
+            </div>
+            <h3 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
+              No series found
+            </h3>
+            <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto">
+              We couldn't find any series matching your search criteria. Try
+              adjusting your filters or search terms.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategory("all");
+                setSelectedTemplate("all");
+                setSelectedDifficulty("all");
+                setSortBy("recent");
+                setShowFilters(false);
+              }}
+              className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+            >
+              Clear all filters
+            </Button>
+          </div>
+        )}
       </div>
-
-      {/* Error State */}
-      {error && !isLoading && (
-        <div className="text-center py-12 sm:py-16">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 sm:w-10 sm:h-10 text-red-600" />
-          </div>
-          <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary mb-2">
-            Error Loading Series
-          </h3>
-          <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto px-4">
-            {error}
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => window.location.reload()}
-            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-          >
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {/* Results Summary */}
-      {!error && (
-        <div
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 sm:py-4 border-b border-[var(--border-color)]"
-          aria-live="polite"
-        >
-          <div className="text-sm sm:text-base text-text-secondary">
-            Showing{" "}
-            <span className="font-semibold text-text-primary">
-              {filteredAndSortedSeries.length}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-text-primary">
-              {series.length}
-            </span>{" "}
-            series
-          </div>
-          <div className="text-xs sm:text-sm text-text-secondary">
-            Updated {new Date().toLocaleDateString()}
-          </div>
-        </div>
-      )}
-
-      {/* Series Grid */}
-      {!isLoading && !error && filteredAndSortedSeries.length > 0 && (
-        <div
-          id="series-grid"
-          className={`grid gap-4 sm:gap-6 ${
-            viewMode === "grid"
-              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
-              : "grid-cols-1"
-          }`}
-        >
-          {filteredAndSortedSeries.map((series) => (
-            <SeriesCard key={series.id} series={series} viewMode={viewMode} />
-          ))}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !error && filteredAndSortedSeries.length === 0 && (
-        <div className="text-center py-12 sm:py-16 px-4">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center">
-            <Layers className="w-8 h-8 sm:w-10 sm:h-10 text-primary-600" />
-          </div>
-          <h3 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
-            No series found
-          </h3>
-          <p className="text-sm sm:text-base text-text-secondary mb-4 sm:mb-6 max-w-md mx-auto">
-            We couldn't find any series matching your search criteria. Try
-            adjusting your filters or search terms.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchQuery("");
-              setSelectedCategory("all");
-              setSelectedTemplate("all");
-              setSelectedDifficulty("all");
-              setSortBy("recent");
-              setShowFilters(false);
-            }}
-            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-          >
-            Clear all filters
-          </Button>
-        </div>
-      )}
-    </div>
     </ErrorBoundary>
   );
 };

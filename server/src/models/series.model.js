@@ -10,7 +10,7 @@ const seriesSchema = new mongoose.Schema(
     coverImageKey: { type: String }, // Cloudinary public ID for cover image
     bannerImage: { type: String },
     bannerImageKey: { type: String }, // Cloudinary public ID for banner image
-    
+
     // Author and Ownership
     authorId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -30,7 +30,7 @@ const seriesSchema = new mongoose.Schema(
       }],
       addedAt: { type: Date, default: Date.now }
     }],
-    
+
     // Series Classification
     category: { type: String, required: true },
     tags: [{ type: String, trim: true }],
@@ -41,7 +41,7 @@ const seriesSchema = new mongoose.Schema(
       enum: ['beginner', 'intermediate', 'advanced', 'expert'],
       default: 'intermediate'
     },
-    
+
     // Series Configuration
     template: {
       type: String,
@@ -57,7 +57,7 @@ const seriesSchema = new mongoose.Schema(
       ],
       default: 'story_arc'
     },
-    
+
     // Publishing Settings
     status: {
       type: String,
@@ -79,7 +79,7 @@ const seriesSchema = new mongoose.Schema(
       interval: { type: Number },
       timezone: { type: String, default: 'UTC' }
     },
-    
+
     // Monetization Settings
     monetization: {
       model: {
@@ -97,7 +97,7 @@ const seriesSchema = new mongoose.Schema(
       earlyAccessDays: { type: Number, default: 0 },
       adFree: { type: Boolean, default: false }
     },
-    
+
     // Content Structure
     episodes: [{
       episodeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Blog' },
@@ -114,7 +114,7 @@ const seriesSchema = new mongoose.Schema(
       estimatedReadTime: { type: Number }, // in minutes
       isPremium: { type: Boolean, default: false }
     }],
-    
+
     // Seasons (for complex series)
     seasons: [{
       seasonNumber: { type: Number, required: true },
@@ -125,7 +125,7 @@ const seriesSchema = new mongoose.Schema(
         end: { type: Number }
       }
     }],
-    
+
     // Dependencies and Navigation
     dependencies: {
       sequential: { type: Boolean, default: true },
@@ -141,7 +141,7 @@ const seriesSchema = new mongoose.Schema(
         }]
       }]
     },
-    
+
     // Interaction Settings
     interactionSettings: {
       commentsEnabled: { type: Boolean, default: true },
@@ -150,7 +150,7 @@ const seriesSchema = new mongoose.Schema(
       guestEpisodes: { type: Boolean, default: false },
       readerSubmissions: { type: Boolean, default: false }
     },
-    
+
     // Geographic and Age Restrictions
     restrictions: {
       geographic: {
@@ -166,7 +166,7 @@ const seriesSchema = new mongoose.Schema(
         }
       }
     },
-    
+
     // Analytics and Performance
     analytics: {
       totalViews: { type: Number, default: 0 },
@@ -183,15 +183,16 @@ const seriesSchema = new mongoose.Schema(
       revenue: { type: Number, default: 0 },
       subscribers: { type: Number, default: 0 }
     },
-    
+
     // SEO and Discovery
+    slug: { type: String, unique: true, sparse: true },
     seo: {
       metaTitle: { type: String },
       metaDescription: { type: String },
       keywords: [{ type: String }],
       canonicalUrl: { type: String }
     },
-    
+
     // Timeline and Progress
     timeline: {
       startDate: { type: Date },
@@ -201,7 +202,7 @@ const seriesSchema = new mongoose.Schema(
       totalEpisodes: { type: Number, default: 0 },
       publishedEpisodes: { type: Number, default: 0 }
     },
-    
+
     // Community and Social
     community: {
       discussionSpace: { type: String },
@@ -209,7 +210,7 @@ const seriesSchema = new mongoose.Schema(
       socialSharing: { type: Boolean, default: true },
       collaborativeFeatures: { type: Boolean, default: false }
     },
-    
+
     // Advanced Features
     features: {
       interactiveTimeline: { type: Boolean, default: false },
@@ -218,7 +219,7 @@ const seriesSchema = new mongoose.Schema(
       aiOptimization: { type: Boolean, default: false },
       crossSeriesConnections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Series' }]
     },
-    
+
     // Version Control
     version: { type: Number, default: 1 },
     changeHistory: [{
@@ -243,68 +244,84 @@ seriesSchema.index({ 'analytics.totalViews': -1 });
 seriesSchema.index({ createdAt: -1 });
 seriesSchema.index({ 'timeline.startDate': 1 });
 seriesSchema.index({ visibility: 1, status: 1 });
+seriesSchema.index({ slug: 1 });
 
 // Virtuals
-seriesSchema.virtual('episodeCount').get(function() {
+seriesSchema.virtual('episodeCount').get(function () {
   return this.episodes ? this.episodes.length : 0;
 });
 
-seriesSchema.virtual('publishedEpisodeCount').get(function() {
+seriesSchema.virtual('publishedEpisodeCount').get(function () {
   return this.episodes ? this.episodes.filter(ep => ep.status === 'published').length : 0;
 });
 
-seriesSchema.virtual('collaboratorCount').get(function() {
+seriesSchema.virtual('collaboratorCount').get(function () {
   return this.collaborators ? this.collaborators.length : 0;
 });
 
-seriesSchema.virtual('isCompleted').get(function() {
+seriesSchema.virtual('isCompleted').get(function () {
   return this.status === 'completed';
 });
 
-seriesSchema.virtual('isActive').get(function() {
+seriesSchema.virtual('isActive').get(function () {
   return this.status === 'active';
 });
 
-seriesSchema.virtual('isPremium').get(function() {
+seriesSchema.virtual('isPremium').get(function () {
   return this.monetization.model !== 'free';
 });
 
 // Pre-save middleware
-seriesSchema.pre('save', function(next) {
+seriesSchema.pre('save', async function (next) {
+  // Generate slug if title changed or slug is missing
+  if (this.isModified('title') || !this.slug) {
+    const slugify = require('slugify');
+    let baseSlug = slugify(this.title, { lower: true, strict: true });
+    let slug = baseSlug;
+    let counter = 1;
+
+    // Check for uniqueness
+    while (await mongoose.model('Series').findOne({ slug, _id: { $ne: this._id } })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+    this.slug = slug;
+  }
+
   // Update total episodes count
   this.timeline.totalEpisodes = this.episodes ? this.episodes.length : 0;
-  this.timeline.publishedEpisodes = this.episodes ? 
+  this.timeline.publishedEpisodes = this.episodes ?
     this.episodes.filter(ep => ep.status === 'published').length : 0;
-  
+
   // Update completion rate if there are views
   if (this.analytics.totalViews > 0) {
     this.analytics.completionRate = (this.analytics.totalReads / this.analytics.totalViews) * 100;
   }
-  
+
   next();
 });
 
 // Instance methods
-seriesSchema.methods.addEpisode = function(blogId, order, title) {
+seriesSchema.methods.addEpisode = function (blogId, order, title) {
   const episode = {
     episodeId: blogId,
     order: order,
     title: title,
     status: 'draft'
   };
-  
+
   this.episodes.push(episode);
   this.episodes.sort((a, b) => a.order - b.order);
-  
+
   return this.save();
 };
 
-seriesSchema.methods.removeEpisode = function(episodeId) {
+seriesSchema.methods.removeEpisode = function (episodeId) {
   this.episodes = this.episodes.filter(ep => ep.episodeId.toString() !== episodeId.toString());
   return this.save();
 };
 
-seriesSchema.methods.updateEpisodeOrder = function(episodeId, newOrder) {
+seriesSchema.methods.updateEpisodeOrder = function (episodeId, newOrder) {
   const episode = this.episodes.find(ep => ep.episodeId.toString() === episodeId.toString());
   if (episode) {
     episode.order = newOrder;
@@ -314,11 +331,11 @@ seriesSchema.methods.updateEpisodeOrder = function(episodeId, newOrder) {
   throw new Error('Episode not found');
 };
 
-seriesSchema.methods.addCollaborator = function(userId, role, permissions) {
+seriesSchema.methods.addCollaborator = function (userId, role, permissions) {
   const existingCollaborator = this.collaborators.find(
     col => col.userId.toString() === userId.toString()
   );
-  
+
   if (existingCollaborator) {
     existingCollaborator.role = role;
     existingCollaborator.permissions = permissions;
@@ -329,86 +346,86 @@ seriesSchema.methods.addCollaborator = function(userId, role, permissions) {
       permissions: permissions
     });
   }
-  
+
   return this.save();
 };
 
-seriesSchema.methods.removeCollaborator = function(userId) {
+seriesSchema.methods.removeCollaborator = function (userId) {
   this.collaborators = this.collaborators.filter(
     col => col.userId.toString() !== userId.toString()
   );
   return this.save();
 };
 
-seriesSchema.methods.hasPermission = function(userId, permission) {
+seriesSchema.methods.hasPermission = function (userId, permission) {
   // Author has all permissions
   if (this.authorId.toString() === userId.toString()) {
     return true;
   }
-  
+
   const collaborator = this.collaborators.find(
     col => col.userId.toString() === userId.toString()
   );
-  
+
   return collaborator && collaborator.permissions.includes(permission);
 };
 
-seriesSchema.methods.incrementViews = function() {
+seriesSchema.methods.incrementViews = function () {
   this.analytics.totalViews += 1;
   return this.save();
 };
 
-seriesSchema.methods.incrementReads = function() {
+seriesSchema.methods.incrementReads = function () {
   this.analytics.totalReads += 1;
   return this.save();
 };
 
-seriesSchema.methods.updateRevenue = function(amount) {
+seriesSchema.methods.updateRevenue = function (amount) {
   this.analytics.revenue += amount;
   return this.save();
 };
 
-seriesSchema.methods.addChangeHistory = function(changes, changedBy) {
+seriesSchema.methods.addChangeHistory = function (changes, changedBy) {
   this.version += 1;
   this.changeHistory.push({
     version: this.version,
     changes: changes,
     changedBy: changedBy
   });
-  
+
   return this.save();
 };
 
 // Static methods
-seriesSchema.statics.findByAuthor = function(authorId) {
+seriesSchema.statics.findByAuthor = function (authorId) {
   return this.find({ authorId: authorId }).sort({ createdAt: -1 });
 };
 
-seriesSchema.statics.findPublic = function() {
-  return this.find({ 
-    visibility: 'public', 
-    status: { $in: ['active', 'completed'] } 
+seriesSchema.statics.findPublic = function () {
+  return this.find({
+    visibility: 'public',
+    status: { $in: ['active', 'completed'] }
   }).sort({ 'analytics.totalViews': -1 });
 };
 
-seriesSchema.statics.findByCategory = function(category) {
-  return this.find({ 
+seriesSchema.statics.findByCategory = function (category) {
+  return this.find({
     category: category,
     visibility: 'public',
     status: { $in: ['active', 'completed'] }
   }).sort({ 'analytics.totalViews': -1 });
 };
 
-seriesSchema.statics.findTrending = function(limit = 10) {
+seriesSchema.statics.findTrending = function (limit = 10) {
   return this.find({
     visibility: 'public',
     status: { $in: ['active', 'completed'] }
   })
-  .sort({ 'analytics.totalViews': -1 })
-  .limit(limit);
+    .sort({ 'analytics.totalViews': -1 })
+    .limit(limit);
 };
 
-seriesSchema.statics.findByTags = function(tags) {
+seriesSchema.statics.findByTags = function (tags) {
   return this.find({
     tags: { $in: tags },
     visibility: 'public',

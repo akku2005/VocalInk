@@ -45,8 +45,8 @@ class BadgeService {
       try {
         const cached = await this.redisClient.get(key);
         if (!cached) return null;
-    const { secureJSONParse } = require('../utils/secureParser');
-    return secureJSONParse(cached, { maxLength: 10000 }) || null;
+        const { secureJSONParse } = require('../utils/secureParser');
+        return secureJSONParse(cached, { maxLength: 10000 }) || null;
       } catch (error) {
         logger.warn('Redis cache read failed:', error.message);
         return this.memoryCache.get(key) || null;
@@ -193,7 +193,7 @@ class BadgeService {
   /**
    * Get user's progress toward a specific badge
    */
-  async getUserBadgeProgress(user, badge) {
+  async getUserBadgeProgress(user, badge, stats = null) {
     if (user.badges.includes(badge._id)) {
       return { completed: true, progress: 100, requirements: [] };
     }
@@ -221,10 +221,16 @@ class BadgeService {
     if (user.xp >= requirements.xpRequired) completedRequirements++;
 
     // Check blogs requirement
-    const blogCount = await this.model('Blog').countDocuments({
-      author: user._id,
-      status: 'published',
-    });
+    let blogCount;
+    if (stats && typeof stats.blogCount === 'number') {
+      blogCount = stats.blogCount;
+    } else {
+      blogCount = await this.model('Blog').countDocuments({
+        author: user._id,
+        status: 'published',
+      });
+    }
+
     const blogProgress = Math.min(blogCount / requirements.blogsRequired, 1);
     progress.requirements.push({
       name: 'Blogs Required',
@@ -296,7 +302,17 @@ class BadgeService {
 
     const allBadges = await Badge.find({ status: 'active' });
     const userBadgeIds = user.badges.map(b => b.toString());
-    
+
+    // Pre-fetch statistics to avoid N+1 queries
+    const blogCount = await this.model('Blog').countDocuments({
+      author: user._id,
+      status: 'published',
+    });
+
+    const stats = {
+      blogCount
+    };
+
     const progressData = {
       totalBadges: allBadges.length,
       earnedBadges: user.badges.length,
@@ -307,7 +323,7 @@ class BadgeService {
 
     // Get progress for each badge
     for (const badge of allBadges) {
-      const badgeProgress = await this.getUserBadgeProgress(user, badge);
+      const badgeProgress = await this.getUserBadgeProgress(user, badge, stats);
       progressData.badges.push({
         badgeId: badge._id,
         badgeKey: badge.badgeKey,
@@ -328,7 +344,7 @@ class BadgeService {
    */
   async getEligibleBadges(userId) {
     const cacheKey = `eligible_badges:${userId}`;
-    
+
     // Try to get from cache first
     const cached = await this.getFromCache(cacheKey);
     if (cached) {
@@ -487,36 +503,36 @@ class BadgeService {
     try {
       // Award badge to user
       user.badges.push(badge._id);
-      
+
       // Award XP
       const xpReward = badge.rewards.xpReward;
       user.xp += xpReward;
       user.level = Math.floor(user.xp / 100) + 1;
-      
+
       // Update claim rewards
       claim.rewards.xpAwarded = xpReward;
       claim.rewards.featuresUnlocked = badge.rewards.featureUnlocks || [];
       claim.rewards.privilegesGranted = badge.rewards.specialPrivileges || [];
-      
+
       // Save user
       await user.save();
-      
+
       // Update claim
       claim.updateStatus('approved', null, 'Automatically approved');
       claim.applyRewards();
       await claim.save();
-      
+
       // Update badge analytics
       await Badge.updateAnalytics(badge._id, 'earned');
-      
+
       // Send comprehensive notification (in-app + email)
       await NotificationService.sendBadgeEarnedNotification(user._id, badge._id, xpReward);
-      
+
       // Clear user's eligible badges cache
       await this.deleteFromCache(`eligible_badges:${user._id}`);
-      
+
       logger.info(`Badge ${badge.name} awarded to user ${user._id}`);
-      
+
     } catch (error) {
       logger.error('Error processing approved claim:', error);
       claim.updateStatus('rejected', null, 'Processing error');
@@ -560,7 +576,7 @@ class BadgeService {
   async getBadgeAnalytics(timeframe = '30d') {
     const now = new Date();
     let startDate;
-    
+
     switch (timeframe) {
       case '7d':
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

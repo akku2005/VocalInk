@@ -38,6 +38,13 @@ import {
   Compass,
 } from "lucide-react";
 
+// Helper function to strip HTML tags
+const stripHtml = (html) => {
+  if (!html) return '';
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text;
+};
+
 const SearchPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -340,20 +347,19 @@ const SearchPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6 lg:space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-[var(--border-color)] bg-gradient-to-br from-[#0f0f0f] via-[#111827] to-[#050505] text-white shadow-2xl">
-        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_55%)]" />
-        <div className="relative z-10 p-5 sm:p-8 lg:p-12 space-y-6">
+    <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
+      <section className="relative rounded-3xl border border-border bg-surface/50 backdrop-blur-sm shadow-lg mb-6">
+        <div className="p-6 sm:p-8 lg:p-10 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center gap-6">
             <div className="flex-1 space-y-3">
-              <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-white/70">
+              <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-text-secondary">
                 <Compass className="w-4 h-4" />
                 Discover faster
               </span>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight bg-gradient-to-r from-sky-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Search the entire VocalInk library
               </h1>
-              <p className="text-sm sm:text-base text-white/80 max-w-2xl">
+              <p className="text-sm sm:text-base text-text-secondary max-w-2xl">
                 Find essays, guides, and curated collections from our writers. Apply filters, explore moods, and save your favorite discoveries.
               </p>
             </div>
@@ -361,10 +367,10 @@ const SearchPage = () => {
               {quickStats.map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center"
+                  className="rounded-xl border border-border bg-surface/80 p-3 text-center"
                 >
-                  <div className="text-2xl font-semibold">{stat.value}</div>
-                  <p className="text-xs uppercase tracking-wide text-white/70">
+                  <div className="text-2xl font-semibold text-text-primary">{stat.value}</div>
+                  <p className="text-xs uppercase tracking-wide text-text-secondary">
                     {stat.label}
                   </p>
                 </div>
@@ -375,26 +381,26 @@ const SearchPage = () => {
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="flex flex-col lg:flex-row gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/70" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" />
                 <Input
                   type="text"
                   placeholder="Search articles, authors, moods..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 pl-12 pr-4 bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:border-white/60"
+                  className="h-12 pl-12 pr-4"
                 />
               </div>
               <Button
                 type="submit"
-                className="h-12 px-6 bg-white text-black hover:bg-white/90 shadow-lg"
+                className="h-12 px-6"
                 loading={loading}
               >
                 Start searching
               </Button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-white/80">
-              <span className="uppercase tracking-wide text-[10px] text-white/60">
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+              <span className="uppercase tracking-wide text-[10px] text-text-secondary">
                 Recent
               </span>
               {recentSearches.map((item) => (
@@ -402,7 +408,7 @@ const SearchPage = () => {
                   key={item}
                   type="button"
                   onClick={() => handleRecentSearch(item)}
-                  className="px-3 py-1 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition-colors cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-surface border border-border text-text-primary hover:bg-surface/80 transition-colors cursor-pointer"
                 >
                   {item}
                 </button>
@@ -410,13 +416,13 @@ const SearchPage = () => {
             </div>
 
             {suggestions.length > 0 && (
-              <div className="flex flex-wrap gap-2 text-xs text-white/80">
+              <div className="flex flex-wrap gap-2 text-xs">
                 {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
                     type="button"
                     onClick={() => handleRecentSearch(suggestion)}
-                    className="px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer"
+                    className="px-3 py-1 rounded-full bg-surface/50 border border-border text-text-secondary hover:bg-surface transition-colors cursor-pointer"
                   >
                     {suggestion}
                   </button>
@@ -427,95 +433,7 @@ const SearchPage = () => {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[3fr,2fr]">
-        <Card>
-          <CardHeader className="flex flex-col gap-2">
-            <Badge variant="outline" className="w-fit uppercase text-[10px] tracking-[0.4em]">
-              Mood filters
-            </Badge>
-            <CardTitle className="text-lg sm:text-xl">
-              Refine by tone & emotion
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {moods.map((mood) => {
-                const MoodIcon = mood.Icon;
-                const isActive = filters.mood === mood.id;
-                return (
-                  <button
-                    key={mood.id}
-                    type="button"
-                    onClick={() => toggleMoodFilter(mood.id)}
-                    className={`p-3 rounded-2xl border transition-all duration-200 text-left bg-gradient-to-br ${mood.accent} ${isActive ? "opacity-95 shadow-lg" : "opacity-70 hover:opacity-95"
-                      }`}
-                  >
-                    <MoodIcon className="w-5 h-5 mb-2" />
-                    <div className="text-sm font-medium">{mood.name}</div>
-                    <p className="text-xs text-white/80">
-                      {isActive ? "Active" : "Tap to filter"}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm font-medium text-text-primary">
-                <span>Popular tags</span>
-                <span className="text-text-secondary">Live</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {popularTags.map((tag) => (
-                  <button
-                    key={tag.label}
-                    type="button"
-                    onClick={() => handleTagClick(tag.label)}
-                    className={`px-3 py-1 rounded-full border text-xs sm:text-sm transition-all cursor-pointer ${filters.tags.includes(tag.label)
-                        ? "bg-primary-500 text-white border-primary-500"
-                        : "bg-[var(--secondary-btn)] border-[var(--border-color)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover)]"
-                      }`}
-                  >
-                    {tag.label} <span className="opacity-70">{tag.change}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">
-              Featured collections
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 space-y-4">
-            {featuredCollections.map((collection) => (
-              <div
-                key={collection.title}
-                className={`rounded-2xl border border-[var(--border-color)] bg-gradient-to-r ${collection.accent} text-white p-4 shadow-lg`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-semibold">{collection.title}</h3>
-                  <span className="text-sm">{collection.count} posts</span>
-                </div>
-                <p className="text-sm text-white/80">
-                  {collection.description}
-                </p>
-              </div>
-            ))}
-
-            {suggestions.length === 0 && (
-              <div className="rounded-2xl border border-[var(--border-color)] bg-surface/70 p-4">
-                <p className="text-sm text-text-secondary">
-                  Start typing above to get live AI-powered suggestions tailored to your search.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </section>
 
       {/* Filters and Results Header */}
       <div className="flex flex-col gap-3 sm:gap-4">
@@ -598,8 +516,8 @@ const SearchPage = () => {
               <button
                 onClick={() => setViewMode("grid")}
                 className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "grid"
-                    ? "bg-primary-500 text-white shadow-sm"
-                    : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                  ? "bg-primary-500 text-white shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
                   }`}
               >
                 <Grid3X3 className="w-4 h-4" />
@@ -607,8 +525,8 @@ const SearchPage = () => {
               <button
                 onClick={() => setViewMode("list")}
                 className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "list"
-                    ? "bg-primary-500 text-white shadow-sm"
-                    : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                  ? "bg-primary-500 text-white shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
                   }`}
               >
                 <List className="w-4 h-4" />
@@ -627,8 +545,8 @@ const SearchPage = () => {
             <button
               onClick={() => setViewMode("grid")}
               className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "grid"
-                  ? "bg-primary-500 text-white shadow-sm"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                ? "bg-primary-500 text-white shadow-sm"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface"
                 }`}
             >
               <Grid3X3 className="w-4 h-4" />
@@ -636,8 +554,8 @@ const SearchPage = () => {
             <button
               onClick={() => setViewMode("list")}
               className={`p-2 rounded-md transition-all duration-200 cursor-pointer ${viewMode === "list"
-                  ? "bg-primary-500 text-white shadow-sm"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                ? "bg-primary-500 text-white shadow-sm"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface"
                 }`}
             >
               <List className="w-4 h-4" />
@@ -752,8 +670,8 @@ const SearchPage = () => {
                         setFilters((prev) => ({ ...prev, tags: newTags }));
                       }}
                       className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${filters.tags.includes(tag)
-                          ? "bg-primary-500 text-white"
-                          : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
+                        ? "bg-primary-500 text-white"
+                        : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
                         }`}
                     >
                       {tag}
@@ -862,8 +780,8 @@ const SearchPage = () => {
                         setFilters((prev) => ({ ...prev, tags: newTags }));
                       }}
                       className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${filters.tags.includes(tag)
-                          ? "bg-primary-500 text-white"
-                          : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
+                        ? "bg-primary-500 text-white"
+                        : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
                         }`}
                     >
                       {tag}
@@ -880,95 +798,66 @@ const SearchPage = () => {
       <div className={`${showFilters ? "hidden lg:block lg:col-span-3" : ""}`}>
         {searchResults.length > 0 ? (
           <div
-            className={`grid gap-4 sm:gap-6 ${viewMode === "grid"
-                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-                : "grid-cols-1 max-w-4xl mx-auto"
+            className={`grid gap-6 ${viewMode === "grid"
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+              : "grid-cols-1 max-w-4xl mx-auto"
               }`}
           >
             {searchResults.map((result) => (
-              <Card
+              <div
                 key={result._id || result.id}
-                className="hover:shadow-lg transition-all duration-300 cursor-pointer"
+                className="group relative flex flex-col h-full bg-surface border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1 cursor-pointer"
                 onClick={() => navigate(`/article/${result.slug || result._id || result.id}`)}
               >
-                <CardContent className="p-4 sm:p-6">
-                  <div className="space-y-3 sm:space-y-4">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex-shrink-0 bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold text-xs sm:text-sm">
-                          {result.author?.displayName?.[0] || result.author?.username?.[0] || '?'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-text-primary text-sm sm:text-base truncate">
-                            {typeof result.author === 'string' ? result.author : result.author?.displayName || result.author?.username || 'Anonymous'}
-                          </div>
-                          <div className="text-xs sm:text-sm text-text-secondary">
-                            {new Date(
-                              result.publishedAt
-                            ).toLocaleDateString()}
-                          </div>
-                        </div>
+                {/* Image Container - Simplified */}
+                {result.coverImage && (
+                  <div className="aspect-[16/10] relative overflow-hidden bg-gradient-to-br from-sky-500/5 to-pink-500/5">
+                    <img
+                      src={result.coverImage}
+                      alt={result.title}
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.parentElement.style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                  </div>
+                )}
+
+                {/* Content - Simplified */}
+                <div className="flex flex-col flex-1 p-5 space-y-3">
+                  <h3 className="text-lg font-bold text-text-primary line-clamp-2 group-hover:text-sky-500 transition-colors">
+                    {result.title}
+                  </h3>
+                  <p className="text-sm text-text-secondary leading-relaxed line-clamp-2">
+                    {stripHtml(result.summary || result.excerpt) || 'No description available'}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-3 mt-auto border-t border-border/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-pink-400 flex items-center justify-center text-white font-bold text-xs">
+                        {result.author?.displayName?.[0] || result.author?.username?.[0] || '?'}
                       </div>
-                      {moodLookup[result.mood] && (
-                        <Badge className="text-xs sm:text-sm bg-[var(--secondary-btn)] text-[var(--text-color)] border border-[var(--border-color)]">
-                          <span className="hidden sm:inline-flex items-center gap-1">
-                            {(() => {
-                              const MoodIcon = moodLookup[result.mood].Icon;
-                              return (
-                                <MoodIcon className="w-3.5 h-3.5 text-primary-200" />
-                              );
-                            })()}
-                          </span>
-                          {moodLookup[result.mood].name}
-                        </Badge>
-                      )}
+                      <span className="text-sm font-medium text-text-primary truncate max-w-[100px]">
+                        {typeof result.author === 'string' ? result.author : result.author?.displayName || result.author?.username || 'Anonymous'}
+                      </span>
                     </div>
 
-                    {/* Content */}
-                    <div>
-                      <h3 className="font-semibold text-text-primary text-base sm:text-lg mb-2 leading-tight line-clamp-2">
-                        {result.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-text-secondary leading-relaxed mb-3 line-clamp-3">
-                        {result.summary || result.excerpt || result.content?.substring(0, 150) || 'No description available'}
-                      </p>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-1">
-                      {(result.tags || []).slice(0, 3).map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="outline"
-                          className="text-xs px-2 py-0.5"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                      {(result.tags || []).length > 3 && (
-                        <Badge variant="outline" className="text-xs px-2 py-0.5">
-                          +{(result.tags || []).length - 3}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 text-xs sm:text-sm text-text-secondary">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                          {result.readingTime || 5} min read
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
-                          {result.likes || 0}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-3 text-sm text-text-secondary">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {result.readingTime || 5}m
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Heart className="w-4 h-4" />
+                        {result.likes || 0}
+                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         ) : searchQuery && !loading ? (
@@ -989,45 +878,7 @@ const SearchPage = () => {
         ) : null}
       </div>
 
-      {/* Trending Topics */}
-      {!searchQuery && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-              Trending Topics
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-              {trendingTopics.map((topic, index) => (
-                <div
-                  key={index}
-                  className="p-3 sm:p-4 border border-border rounded-lg hover:bg-surface transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-text-primary text-sm sm:text-base">
-                      {topic.topic}
-                    </span>
-                    <Badge variant="success" className="text-xs">
-                      {topic.trend}
-                    </Badge>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSearchQuery(topic.topic);
-                      setSearchParams({ q: topic.topic });
-                    }}
-                    className="text-xs sm:text-sm text-primary-500 hover:text-primary-600 cursor-pointer"
-                  >
-                    Search this topic →
-                  </button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
     </div>
   );
 };

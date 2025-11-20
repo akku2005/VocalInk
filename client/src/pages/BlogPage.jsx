@@ -151,7 +151,7 @@ const BlogPage = () => {
     const filtered = blogs.filter((blog) => {
       // Handle search query
       const searchText = debouncedQuery.toLowerCase();
-      const matchesSearch = !searchText || 
+      const matchesSearch = !searchText ||
         blog.title?.toLowerCase().includes(searchText) ||
         blog.summary?.toLowerCase().includes(searchText) ||
         blog.content?.toLowerCase().includes(searchText) ||
@@ -210,16 +210,18 @@ const BlogPage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8 px-3 sm:px-6">
+    <div className="w-full max-w-[1600px] mx-auto space-y-6 sm:space-y-8 lg:space-y-10 px-4 sm:px-6 lg:px-8">
       {/* Header Section */}
-      <div className="text-center space-y-3 sm:space-y-4 pt-4 sm:pt-0">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 bg-clip-text text-transparent pb-2">
-          Blog Posts
-        </h1>
-        <p className="text-sm sm:text-base lg:text-lg text-text-secondary max-w-2xl mx-auto px-4 sm:px-0">
-          Discover insights, stories, and knowledge from our community of
-          writers and creators
-        </p>
+      <div className="relative py-12 sm:py-16 lg:py-20 text-center overflow-hidden rounded-3xl bg-gradient-to-b from-sky-500/5 via-pink-500/5 to-transparent border border-white/10">
+        <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
+        <div className="relative z-10 space-y-4 px-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-sky-400 via-blue-400 to-pink-400 bg-clip-text text-transparent tracking-tight">
+            Explore Our Stories
+          </h1>
+          <p className="text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
+            Discover insights, tutorials, and perspectives from our community of writers and creators.
+          </p>
+        </div>
       </div>
 
       {/* Mobile Search Bar */}
@@ -250,11 +252,10 @@ const BlogPage = () => {
           <Button
             variant="outline"
             onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className={`flex items-center gap-2 px-3 py-2 text-sm relative ${
-              activeFiltersCount > 0
-                ? "border-primary-500 text-primary-600"
-                : ""
-            }`}
+            className={`flex items-center gap-2 px-3 py-2 text-sm relative ${activeFiltersCount > 0
+              ? "border-primary-500 text-primary-600"
+              : ""
+              }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filters
@@ -313,21 +314,19 @@ const BlogPage = () => {
           <div className="flex items-center bg-background rounded-lg p-1 border border-[var(--border-color)]">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
-                viewMode === "grid"
-                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
-              }`}
+              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${viewMode === "grid"
+                ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                }`}
             >
               <Grid3X3 className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${
-                viewMode === "list"
-                  ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm"
-                  : "text-text-secondary hover:text-text-primary hover:bg-surface"
-              }`}
+              className={`p-2 cursor-pointer rounded-md transition-all duration-200 ${viewMode === "list"
+                ? "bg-[var(--secondary-btn2)] text-[var(--text-color)] shadow-sm"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                }`}
             >
               <List className="w-4 h-4" />
             </button>
@@ -357,11 +356,10 @@ const BlogPage = () => {
                 <button
                   key={option.id}
                   onClick={() => setSortBy(option.id)}
-                  className={`p-3 text-left rounded-lg border transition-all text-sm ${
-                    sortBy === option.id
-                      ? "border-primary-500 bg-primary-50 text-primary-700"
-                      : "border-[var(--border-color)] hover:bg-surface"
-                  }`}
+                  className={`p-3 text-left rounded-lg border transition-all text-sm ${sortBy === option.id
+                    ? "border-primary-500 bg-primary-50 text-primary-700"
+                    : "border-[var(--border-color)] hover:bg-surface"
+                    }`}
                 >
                   {option.name}
                 </button>
@@ -389,11 +387,10 @@ const BlogPage = () => {
                   <button
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
-                    className={`p-2 text-left rounded-lg border transition-all text-xs ${
-                      selectedCategory === category.id
-                        ? " bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover3)] shadow-sm"
-                        : " bg-[var(--secondary-btn)] hover:bg-[var(--secondary-btn-hover2)] text-text-secondary  "
-                    }`}
+                    className={`p-2 text-left rounded-lg border transition-all text-xs ${selectedCategory === category.id
+                      ? " bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-[var(--secondary-btn-hover3)] shadow-sm"
+                      : " bg-[var(--secondary-btn)] hover:bg-[var(--secondary-btn-hover2)] text-text-secondary  "
+                      }`}
                   >
                     <div className="font-medium">{category.name}</div>
                     <div className="text-text-secondary">
@@ -439,11 +436,10 @@ const BlogPage = () => {
             <Badge
               key={category.id}
               variant={selectedCategory === category.id ? "default" : "outline"}
-              className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover)] ${
-                selectedCategory === category.id
-                  ? "bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-primary-600"
-                  : "text-[var(--text-color)]"
-              }`}
+              className={`cursor-pointer transition-all duration-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border border-[var(--border-color)] hover:bg-[var(--secondary-btn-hover)] ${selectedCategory === category.id
+                ? "bg-[var(--secondary-btn3)] text-[var(--text-color)] hover:bg-primary-600"
+                : "text-[var(--text-color)]"
+                }`}
               onClick={() => setSelectedCategory(category.id)}
             >
               {category.name}{" "}
@@ -527,11 +523,10 @@ const BlogPage = () => {
       {!isLoading && !error && filteredAndSortedBlogs.length > 0 && (
         <div
           id="blog-grid"
-          className={`grid gap-4 sm:gap-6 ${
-            viewMode === "grid"
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-              : "grid-cols-1 max-w-4xl mx-auto"
-          }`}
+          className={`grid gap-6 sm:gap-8 ${viewMode === "grid"
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+            : "grid-cols-1 max-w-5xl mx-auto"
+            }`}
         >
           {filteredAndSortedBlogs.map((blog, index) => (
             <BlogCard key={blog._id || blog.id || index} blog={blog} viewMode={viewMode} />

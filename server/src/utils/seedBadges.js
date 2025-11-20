@@ -1,3 +1,4 @@
+require('dotenv').config();
 const Badge = require('../models/badge.model');
 
 const logger = require('./logger');
@@ -260,6 +261,345 @@ const badges = [
       likesRequired: 100,
     },
     xpReward: 75,
+  },
+
+  // More Writing Badges
+  {
+    name: 'Wordsmith',
+    description: 'Published 10 blog posts',
+    icon: '🖊️',
+    color: '#10B981',
+    rarity: 'uncommon',
+    category: 'content',
+    criteria: 'Publish 10 blog posts',
+    requirements: {
+      blogsRequired: 10,
+    },
+    xpReward: 40,
+  },
+  {
+    name: 'Content Creator',
+    description: 'Published 30 blog posts',
+    icon: '📰',
+    color: '#8B5CF6',
+    rarity: 'rare',
+    category: 'content',
+    criteria: 'Publish 30 blog posts',
+    requirements: {
+      blogsRequired: 30,
+    },
+    xpReward: 100,
+  },
+  {
+    name: 'Publishing Legend',
+    description: 'Published 100 blog posts',
+    icon: '📖',
+    color: '#EF4444',
+    rarity: 'legendary',
+    category: 'content',
+    criteria: 'Publish 100 blog posts',
+    requirements: {
+      blogsRequired: 100,
+    },
+    xpReward: 250,
+  },
+
+  // Series Badges
+  {
+    name: 'Series Starter',
+    description: 'Created your first series',
+    icon: '📚',
+    color: '#10B981',
+    rarity: 'common',
+    category: 'content',
+    criteria: 'Create your first series',
+    requirements: {
+      xpRequired: 50,
+    },
+    xpReward: 20,
+  },
+  {
+    name: 'Series Master',
+    description: 'Completed a 5-episode series',
+    icon: '🎬',
+    color: '#3B82F6',
+    rarity: 'uncommon',
+    category: 'content',
+    criteria: 'Complete a series with 5+ episodes',
+    requirements: {
+      xpRequired: 100,
+    },
+    xpReward: 50,
+  },
+
+  // Social & Community Badges
+  {
+    name: 'Social Butterfly',
+    description: 'Gained 25 followers',
+    icon: '🦋',
+    color: '#F59E0B',
+    rarity: 'uncommon',
+    category: 'social',
+    criteria: 'Reach 25 followers',
+    requirements: {
+      followersRequired: 25,
+    },
+    xpReward: 35,
+  },
+  {
+    name: 'Celebrity',
+    description: 'Gained 200 followers',
+    icon: '⭐',
+    color: '#EF4444',
+    rarity: 'legendary',
+    category: 'social',
+    criteria: 'Reach 200 followers',
+    requirements: {
+      followersRequired: 200,
+    },
+    xpReward: 200,
+  },
+  {
+    name: 'Conversation King',
+    description: 'Made 25 comments',
+    icon: '💭',
+    color: '#10B981',
+    rarity: 'common',
+    category: 'engagement',
+    criteria: 'Make 25 comments',
+    requirements: {
+      commentsRequired: 25,
+    },
+    xpReward: 20,
+  },
+  {
+    name: 'Discussion Expert',
+    description: 'Made 100 comments',
+    icon: '🗣️',
+    color: '#8B5CF6',
+    rarity: 'rare',
+    category: 'engagement',
+    criteria: 'Make 100 comments',
+    requirements: {
+      commentsRequired: 100,
+    },
+    xpReward: 80,
+  },
+
+  // Like & Popularity Badges
+  {
+    name: 'Well Liked',
+    description: 'Received 50 likes',
+    icon: '❤️',
+    color: '#EF4444',
+    rarity: 'uncommon',
+    category: 'engagement',
+    criteria: 'Receive 50 likes total',
+    requirements: {
+      likesRequired: 50,
+    },
+    xpReward: 30,
+  },
+  {
+    name: 'Crowd Favorite',
+    description: 'Received 200 likes',
+    icon: '💖',
+    color: '#8B5CF6',
+    rarity: 'rare',
+    category: 'engagement',
+    criteria: 'Receive 200 likes total',
+    requirements: {
+      likesRequired: 200,
+    },
+    xpReward: 70,
+  },
+  {
+    name: 'Mega Star',
+    description: 'Received 500 likes',
+    icon: '🌟',
+    color: '#F59E0B',
+    rarity: 'epic',
+    category: 'engagement',
+    criteria: 'Receive 500 likes total',
+    requirements: {
+      likesRequired: 500,
+    },
+    xpReward: 150,
+  },
+
+  // Consistency & Activity Badges
+  {
+    name: 'Active Member',
+    description: 'Been active for 14 days',
+    icon: '🔥',
+    color: '#3B82F6',
+    rarity: 'uncommon',
+    category: 'achievement',
+    criteria: 'Stay active for 14 days',
+    requirements: {
+      daysActiveRequired: 14,
+    },
+    xpReward: 30,
+  },
+  {
+    name: 'Committed Creator',
+    description: 'Been active for 60 days',
+    icon: '💪',
+    color: '#8B5CF6',
+    rarity: 'rare',
+    category: 'achievement',
+    criteria: 'Stay active for 60 days',
+    requirements: {
+      daysActiveRequired: 60,
+    },
+    xpReward: 75,
+  },
+  {
+    name: 'Hall of Famer',
+    description: 'Been active for 200 days',
+    icon: '🏰',
+    color: '#F59E0B',
+    rarity: 'epic',
+    category: 'achievement',
+    criteria: 'Stay active for 200 days',
+    requirements: {
+      daysActiveRequired: 200,
+    },
+    xpReward: 150,
+  },
+  {
+    name: 'Legend',
+    description: 'Been active for 365 days',
+    icon: '👑',
+    color: '#EF4444',
+    rarity: 'legendary',
+    category: 'achievement',
+    criteria: 'Stay active for one full year',
+    requirements: {
+      daysActiveRequired: 365,
+    },
+    xpReward: 300,
+  },
+
+  // XP Milestones
+  {
+    name: 'Rising Star',
+    description: 'Reached 250 XP',
+    icon: '✨',
+    color: '#10B981',
+    rarity: 'common',
+    category: 'achievement',
+    criteria: 'Earn 250 XP',
+    requirements: {
+      xpRequired: 250,
+    },
+    xpReward: 10,
+  },
+  {
+    name: 'Level 15',
+    description: 'Reached level 15',
+    icon: '⭐⭐',
+    color: '#3B82F6',
+    rarity: 'uncommon',
+    category: 'achievement',
+    criteria: 'Reach level 15 (1500 XP)',
+    requirements: {
+      xpRequired: 1500,
+    },
+    xpReward: 40,
+  },
+  {
+    name: 'Level 35',
+    description: 'Reached level 35',
+    icon: '🌟',
+    color: '#8B5CF6',
+    rarity: 'rare',
+    category: 'achievement',
+    criteria: 'Reach level 35 (3500 XP)',
+    requirements: {
+      xpRequired: 3500,
+    },
+    xpReward: 75,
+  },
+  {
+    name: 'XP Master',
+    description: 'Reached 10,000 XP',
+    icon: '💎',
+    color: '#EF4444',
+    rarity: 'legendary',
+    category: 'achievement',
+    criteria: 'Earn 10,000 XP',
+    requirements: {
+      xpRequired: 10000,
+    },
+    xpReward: 500,
+  },
+
+  // Special Achievement Badges
+  {
+    name: 'Trendsetter',
+    description: 'One of your blogs went viral',
+    icon: '🔥',
+    color: '#F59E0B',
+    rarity: 'epic',
+    category: 'special',
+    criteria: 'Get 100+ likes on a single blog',
+    requirements: {
+      xpRequired: 200,
+    },
+    xpReward: 100,
+  },
+  {
+    name: 'Voice Pioneer',
+    description: 'Used AI voice features extensively',
+    icon: '🎙️',
+    color: '#8B5CF6',
+    rarity: 'rare',
+    category: 'special',
+    criteria: 'Use AI voice on 10+ blogs',
+    requirements: {
+      blogsRequired: 10,
+    },
+    xpReward: 60,
+  },
+  {
+    name: 'Night Owl',
+    description: 'Published blogs late at night',
+    icon: '🦉',
+    color: '#3B82F6',
+    rarity: 'uncommon',
+    category: 'special',
+    criteria: 'Publish 5 blogs between midnight and 5 AM',
+    requirements: {
+      blogsRequired: 5,
+    },
+    xpReward: 25,
+  },
+  {
+    name: 'Speed Writer',
+    description: 'Published 5 blogs in one day',
+    icon: '⚡',
+    color: '#F59E0B',
+    rarity: 'rare',
+    category: 'special',
+    criteria: 'Publish 5 blogs in 24 hours',
+    requirements: {
+      xpRequired: 100,
+    },
+    xpReward: 80,
+  },
+  {
+    name: 'Perfectionist',
+    description: 'Edited a blog 10+ times before publishing',
+    icon: '✅',
+    color: '#10B981',
+    rarity: 'uncommon',
+    category: 'special',
+    criteria: 'Make 10+ edits to a blog',
+    requirements: {
+      xpRequired: 50,
+    },
+    xpReward: 30,
   },
 ];
 

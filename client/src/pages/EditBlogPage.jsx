@@ -9,14 +9,15 @@ import { apiService } from '../services/api';
 import { resolveAssetUrl } from '../constants/apiConfig';
 import { useToast } from '../hooks/useToast';
 import AdvancedRichTextEditor from '../components/ui/AdvancedRichTextEditor';
-import { 
-  Save, 
-  Eye, 
-  Zap, 
-  Mic, 
-  Volume2, 
-  Globe, 
-  Tag, 
+import '../styles/edit-blog-animations.css';
+import {
+  Save,
+  Eye,
+  Zap,
+  Mic,
+  Volume2,
+  Globe,
+  Tag,
   BookOpen,
   Sparkles,
   Palette,
@@ -30,7 +31,9 @@ import {
   ArrowLeft,
   Trash2,
   History,
-  Share
+  Share,
+  MessageCircle,
+  Share2
 } from 'lucide-react';
 
 const EditBlogPage = () => {
@@ -93,6 +96,7 @@ const EditBlogPage = () => {
 
         setFormData({
           id: blog._id || id,
+          slug: blog.slug || id, // Store slug for navigation
           title: blog.title || '',
           content: blog.content || '',
           summary: blog.summary || '',
@@ -108,6 +112,7 @@ const EditBlogPage = () => {
           views: Number(blog.views ?? blog.viewCount ?? 0),
           likes: Number(blog.likes ?? (Array.isArray(blog.likedBy) ? blog.likedBy.length : 0)),
           comments: Number(blog.commentCount ?? (Array.isArray(blog.comments) ? blog.comments.length : 0)),
+          shares: Number(blog.shares ?? 0), // Add shares
           coverImage: blog.coverImage || '',
         });
       } catch (error) {
@@ -183,7 +188,7 @@ const EditBlogPage = () => {
       addToast({ type: 'warning', message: 'Please write some content before generating a summary.' });
       return;
     }
-    
+
     setAiGenerating(true);
     try {
       const response = await blogService.regenerateSummary(id, { maxLength: 220 });
@@ -205,7 +210,7 @@ const EditBlogPage = () => {
       addToast({ type: 'warning', message: 'Please add some content before generating audio.' });
       return;
     }
-    
+
     setTtsGenerating(true);
     try {
       await blogService.generateTTS(id, { provider: 'elevenlabs' });
@@ -268,7 +273,7 @@ const EditBlogPage = () => {
       });
 
       if (publish) {
-        navigate(`/article/${id}`);
+        navigate(`/article/${formData.slug || id}`);
       }
     } catch (error) {
       console.error('Error saving blog:', error);
@@ -348,436 +353,517 @@ const EditBlogPage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate(`/article/${id}`)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Post
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-text-primary">Edit Blog Post</h1>
-            <p className="text-text-secondary">Last modified: {new Date(formData.lastModified).toLocaleString()}</p>
+    <div className="min-h-screen bg-background page-load-animation">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/article/${formData.slug || formData.id}`)}
+                className="hover:scale-105 transition-transform"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Post
+              </Button>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">Edit Blog Post</h1>
+                <p className="text-sm text-text-secondary mt-1">
+                  Last modified: {new Date(formData.lastModified).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setPreviewMode(!previewMode)}
+                className="flex items-center gap-2 gradient-hover"
+                size="sm"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="hidden sm:inline">{previewMode ? 'Edit' : 'Preview'}</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center gap-2 gradient-hover"
+                size="sm"
+              >
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">History</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSave(false)}
+                loading={saving}
+                className="flex items-center gap-2"
+                size="sm"
+              >
+                <Save className="w-4 h-4" />
+                <span className="hidden sm:inline">Save</span>
+              </Button>
+              <Button
+                onClick={() => handleSave(true)}
+                loading={saving}
+                className="flex items-center gap-2 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-md hover:shadow-lg transition-all"
+                size="sm"
+              >
+                <BookOpen className="w-4 h-4" />
+                Update
+              </Button>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            onClick={() => setPreviewMode(!previewMode)}
-            className="flex items-center gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            {previewMode ? 'Edit' : 'Preview'}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center gap-2"
-          >
-            <History className="w-4 h-4" />
-            History
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => handleSave(false)}
-            loading={saving}
-            className="flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            Save Changes
-          </Button>
-          <Button 
-            onClick={() => handleSave(true)}
-            loading={saving}
-            className="flex items-center gap-2"
-          >
-            <BookOpen className="w-4 h-4" />
-            Update
-          </Button>
-        </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary-500">{formData.views.toLocaleString()}</div>
-            <div className="text-sm text-text-secondary">Views</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary-500">{formData.likes}</div>
-            <div className="text-sm text-text-secondary">Likes</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary-500">{formData.comments}</div>
-            <div className="text-sm text-text-secondary">Comments</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary-500">{readTime}</div>
-            <div className="text-sm text-text-secondary">Min Read</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Title */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Title *
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Enter your blog title..."
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    className="text-lg font-semibold"
-                  />
-                </div>
-                
-                <div className="flex items-center gap-4 text-sm text-text-secondary">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    {readTime} min read
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Target className="w-4 h-4" />
-                    {wordCount} words
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <BookOpen className="w-4 h-4" />
-                    Published {new Date(formData.publishedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Content Editor */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Content *</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateAISummary}
-                    loading={aiGenerating}
-                    className="flex items-center gap-1"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    AI Summary
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateTTS}
-                    loading={ttsGenerating}
-                    className="flex items-center gap-1"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                    Generate TTS
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {!previewMode ? (
-                <div className="p-4 sm:p-6">
-                  <AdvancedRichTextEditor
-                    value={formData.content}
-                    onChange={(html) => handleInputChange('content', html)}
-                    className="min-h-[420px]"
-                  />
-                </div>
-              ) : (
-                <div className="p-4 sm:p-6">
-                  <div
-                    className="article-content bg-[var(--secondary-btn3)] rounded-xl p-5"
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        formData.content?.trim() ||
-                        "<p class='text-text-secondary italic'>No content yet. Start writing to preview.</p>"
-                    }}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* AI Summary */}
-          {formData.summary && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary-500" />
-                  AI-Generated Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <p className="text-text-primary leading-relaxed">{formData.summary}</p>
-                <div className="mt-4 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-success" />
-                  <span className="text-sm text-success">Summary generated successfully</span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Sidebar */}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="space-y-6">
-          {/* Cover Image */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-primary-500" />
-                Cover Image
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              {formData.coverImage ? (
-                <img
-                  src={resolveAssetUrl(formData.coverImage)}
-                  alt="Cover"
-                  className="w-full rounded-lg border border-border object-cover"
-                />
-              ) : (
-                <p className="text-sm text-text-secondary">
-                  No cover image selected. Upload an image to make your blog stand out.
-                </p>
-              )}
-              <div className="flex gap-3">
-                <Button onClick={handleCoverUpload} loading={coverUploading}>
-                  {formData.coverImage ? 'Replace Image' : 'Upload Image'}
-                </Button>
-                {formData.coverImage && (
-                  <Button
-                    variant="outline"
-                    onClick={() => handleInputChange('coverImage', '')}
-                    className="border-error text-error hover:bg-error hover:text-white"
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Mood Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-primary-500" />
-                Mood
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 gap-2">
-                {moods.map((mood) => (
-                  <button
-                    key={mood.id}
-                    onClick={() => handleInputChange('mood', mood.id)}
-                    className={`p-3 rounded-lg border-2 transition-all duration-200 text-left cursor-pointer ${
-                      formData.mood === mood.id
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-border hover:border-primary-200'
-                    }`}
-                  >
-                    <div className="text-lg mb-1">{mood.icon}</div>
-                    <div className="text-sm font-medium text-text-primary">{mood.name}</div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Language Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Languages className="w-5 h-5 text-primary-500" />
-                Language
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <select
-                value={formData.language}
-                onChange={(e) => handleInputChange('language', e.target.value)}
-                className="w-full p-3 border border-border rounded-lg bg-background text-text-primary"
-              >
-                {languages.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.flag} {lang.name}
-                  </option>
-                ))}
-              </select>
-            </CardContent>
-          </Card>
-
-          {/* Tags */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-primary-500" />
-                Tags
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Add a tag..."
-                    value={currentTag}
-                    onChange={(e) => setCurrentTag(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleAddTag} size="sm">Add</Button>
-                </div>
-                
-                {formData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {formData.tags.map((tag) => (
-                      <Badge key={tag} variant="default" className="flex items-center gap-1">
-                        {tag}
-                        <button
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 hover:text-error cursor-pointer"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
+          {/* Stats Overview - Enhanced with Glassmorphism */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="glassmorphism-card p-6 hover:shadow-xl transition-all duration-300 cursor-pointer stat-card group">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-text-secondary mb-2">Suggested tags:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {suggestedTags.slice(0, 8).map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => {
-                          if (!formData.tags.includes(tag)) {
-                            setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
-                          }
-                        }}
-                        className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded hover:bg-secondary-200 transition-colors cursor-pointer"
+                  <div className="text-3xl font-bold gradient-text">
+                    {formData.views.toLocaleString()}
+                  </div>
+                  <div className="text-sm font-medium text-text-secondary mt-1">Views</div>
+                </div>
+                <div className="w-12 h-12 rounded-xl icon-gradient flex items-center justify-center shadow-lg">
+                  <Eye className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+            <div className="glassmorphism-card p-6 hover:shadow-xl transition-all duration-300 cursor-pointer stat-card group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold gradient-text">{formData.likes}</div>
+                  <div className="text-sm font-medium text-text-secondary mt-1">Likes</div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-error to-error/80 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                  <span className="text-white text-xl">❤️</span>
+                </div>
+              </div>
+            </div>
+            <div className="glassmorphism-card p-6 hover:shadow-xl transition-all duration-300 cursor-pointer stat-card group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold gradient-text">{formData.comments}</div>
+                  <div className="text-sm font-medium text-text-secondary mt-1">Comments</div>
+                </div>
+                <div className="w-12 h-12 rounded-xl icon-gradient flex items-center justify-center shadow-lg">
+                  <MessageCircle className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+            <div className="glassmorphism-card p-6 hover:shadow-xl transition-all duration-300 cursor-pointer stat-card group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-3xl font-bold gradient-text">{formData.shares || 0}</div>
+                  <div className="text-sm font-medium text-text-secondary mt-1">Shares</div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-success to-success/80 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                  <Share2 className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Title */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Title *
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Enter your blog title..."
+                        value={formData.title}
+                        onChange={(e) => handleInputChange('title', e.target.value)}
+                        className="text-lg font-semibold"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm text-text-secondary">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {readTime} min read
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Target className="w-4 h-4" />
+                        {wordCount} words
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <BookOpen className="w-4 h-4" />
+                        Published {new Date(formData.publishedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Content Editor */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Content *</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateAISummary}
+                        loading={aiGenerating}
+                        className="flex items-center gap-1"
                       >
-                        {tag}
+                        <Sparkles className="w-4 h-4" />
+                        AI Summary
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateTTS}
+                        loading={ttsGenerating}
+                        className="flex items-center gap-1"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                        Generate TTS
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {!previewMode ? (
+                    <div className="p-4 sm:p-6">
+                      <AdvancedRichTextEditor
+                        value={formData.content}
+                        onChange={(html) => handleInputChange('content', html)}
+                        className="min-h-[420px]"
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-4 sm:p-6">
+                      <div
+                        className="article-content bg-[var(--secondary-btn3)] rounded-xl p-5"
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            formData.content?.trim() ||
+                            "<p class='text-text-secondary italic'>No content yet. Start writing to preview.</p>"
+                        }}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* AI Summary */}
+              {formData.summary && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary-500" />
+                      AI-Generated Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <p className="text-text-primary leading-relaxed">{formData.summary}</p>
+                    <div className="mt-4 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-success" />
+                      <span className="text-sm text-success">Summary generated successfully</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Cover Image - Enhanced */}
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-primary-500/10 to-primary-600/10 border-b border-border/50">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg shadow-md">
+                      <ImageIcon className="w-5 h-5 text-white" />
+                    </div>
+                    Cover Image
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div
+                    className="relative aspect-video rounded-xl overflow-hidden border-2 border-dashed border-border hover:border-primary-400 transition-colors cursor-pointer group"
+                    onClick={formData.coverImage ? undefined : handleCoverUpload}
+                  >
+                    {formData.coverImage ? (
+                      <>
+                        <img
+                          src={resolveAssetUrl(formData.coverImage)}
+                          alt="Cover"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity cover-overlay">
+                          <div className="absolute bottom-4 left-4 right-4 flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); handleCoverUpload(); }}
+                              className="bg-white/90 text-black hover:bg-white"
+                            >
+                              <ImageIcon className="w-4 h-4 mr-2" />
+                              Replace
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => { e.stopPropagation(); handleInputChange('coverImage', ''); }}
+                              className="text-white border-white hover:bg-white/10"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-text-secondary bg-gradient-to-br from-surface to-surface-alt">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                          <ImageIcon className="w-8 h-8 text-primary-600 dark:text-primary-400" />
+                        </div>
+                        <p className="font-medium text-text-primary">Click or drag image here</p>
+                        <p className="text-xs mt-1">PNG, JPG up to 5MB</p>
+                      </div>
+                    )}
+                  </div>
+                  {!formData.coverImage && (
+                    <div className="flex justify-center">
+                      <Button
+                        onClick={handleCoverUpload}
+                        loading={coverUploading}
+                        className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-md hover:shadow-lg transition-all"
+                      >
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Upload Image
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Mood Selection - Enhanced */}
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-primary-500/10 to-primary-600/10 border-b border-border/50">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg shadow-md">
+                      <Palette className="w-5 h-5 text-white" />
+                    </div>
+                    Mood
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {moods.map((mood) => (
+                      <button
+                        key={mood.id}
+                        onClick={() => handleInputChange('mood', mood.id)}
+                        className={`relative p-4 rounded-xl border-2 transition-all duration-300 hover:scale-105 ${formData.mood === mood.id
+                          ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 shadow-lg shadow-primary-500/20'
+                          : 'border-border hover:border-primary-300 hover:shadow-md'
+                          }`}
+                      >
+                        <div className="text-2xl mb-2">{mood.icon}</div>
+                        <div className="text-sm font-semibold text-text-primary">{mood.name}</div>
+                        {formData.mood === mood.id && (
+                          <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center shadow-lg mood-selected-badge">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          {/* Series */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-primary-500" />
-                Series (Optional)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <Input
-                type="text"
-                placeholder="Add to a series..."
-                value={formData.series}
-                onChange={(e) => handleInputChange('series', e.target.value)}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-primary-500" />
-                Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={formData.isPublic}
-                  onChange={(e) => handleInputChange('isPublic', e.target.checked)}
-                  className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
-                />
-                <span className="text-sm text-text-primary">Make this post public</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={formData.allowComments}
-                  onChange={(e) => handleInputChange('allowComments', e.target.checked)}
-                  className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
-                />
-                <span className="text-sm text-text-primary">Allow comments</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={formData.generateTTS}
-                  onChange={(e) => handleInputChange('generateTTS', e.target.checked)}
-                  className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
-                />
-                <span className="text-sm text-text-primary">Generate audio version</span>
-              </label>
-            </CardContent>
-          </Card>
-
-          {/* Danger Zone */}
-          <Card className="border-error">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-error">
-                <AlertCircle className="w-5 h-5" />
-                Danger Zone
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-medium text-text-primary mb-2">Delete Post</h3>
-                  <p className="text-sm text-text-secondary mb-4">
-                    Permanently delete this blog post. This action cannot be undone.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleDelete}
-                    loading={deleting}
-                    className="text-error border-error hover:bg-error hover:text-white"
+              {/* Language Selection - Enhanced */}
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-primary-500/10 to-primary-600/10 border-b border-border/50">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg shadow-md">
+                      <Languages className="w-5 h-5 text-white" />
+                    </div>
+                    Language
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <select
+                    value={formData.language}
+                    onChange={(e) => handleInputChange('language', e.target.value)}
+                    className="w-full p-3 border-2 border-border rounded-xl bg-background text-text-primary hover:border-primary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                   >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Post
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    {languages.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.flag} {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                </CardContent>
+              </Card>
+
+              {/* Tags */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Tag className="w-5 h-5 text-primary-500" />
+                    Tags
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Add a tag..."
+                        value={currentTag}
+                        onChange={(e) => setCurrentTag(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                        className="flex-1"
+                      />
+                      <Button onClick={handleAddTag} size="sm">Add</Button>
+                    </div>
+
+                    {formData.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.tags.map((tag) => (
+                          <Badge key={tag} variant="default" className="flex items-center gap-1">
+                            {tag}
+                            <button
+                              onClick={() => handleRemoveTag(tag)}
+                              className="ml-1 hover:text-error cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-sm text-text-secondary mb-2">Suggested tags:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {suggestedTags.slice(0, 8).map((tag) => (
+                          <button
+                            key={tag}
+                            onClick={() => {
+                              if (!formData.tags.includes(tag)) {
+                                setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-secondary-100 text-text-secondary rounded hover:bg-secondary-200 transition-colors cursor-pointer"
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Series */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-primary-500" />
+                    Series (Optional)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Input
+                    type="text"
+                    placeholder="Add to a series..."
+                    value={formData.series}
+                    onChange={(e) => handleInputChange('series', e.target.value)}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-primary-500" />
+                    Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.isPublic}
+                      onChange={(e) => handleInputChange('isPublic', e.target.checked)}
+                      className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
+                    />
+                    <span className="text-sm text-text-primary">Make this post public</span>
+                  </label>
+
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.allowComments}
+                      onChange={(e) => handleInputChange('allowComments', e.target.checked)}
+                      className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
+                    />
+                    <span className="text-sm text-text-primary">Allow comments</span>
+                  </label>
+
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.generateTTS}
+                      onChange={(e) => handleInputChange('generateTTS', e.target.checked)}
+                      className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-border rounded"
+                    />
+                    <span className="text-sm text-text-primary">Generate audio version</span>
+                  </label>
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-error">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-error">
+                    <AlertCircle className="w-5 h-5" />
+                    Danger Zone
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-medium text-text-primary mb-2">Delete Post</h3>
+                      <p className="text-sm text-text-secondary mb-4">
+                        Permanently delete this blog post. This action cannot be undone.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={handleDelete}
+                        loading={deleting}
+                        className="text-error border-error hover:bg-error hover:text-white"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Post
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default EditBlogPage; 
+export default EditBlogPage;

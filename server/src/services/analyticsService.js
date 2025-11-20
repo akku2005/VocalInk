@@ -123,7 +123,8 @@ class AnalyticsService {
     followers.forEach((follower) => {
       if (follower.dob) {
         const dob = new Date(follower.dob);
-        const age = now.getFullYear() - dob.getFullYear();
+        // More accurate age calculation accounting for birth month/day
+        const age = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
         const bucket = ageGroups.find(
           (group) => age >= group.min && age <= group.max
         );
@@ -181,8 +182,8 @@ class AnalyticsService {
       followingCount: Array.isArray(user.following) ? user.following.length : 0,
       engagementRate: totalViews
         ? Math.round(
-            ((totalLikes + totalComments + totalBookmarks) / totalViews) * 100
-          )
+          ((totalLikes + totalComments + totalBookmarks) / totalViews) * 100
+        )
         : 0,
       avgLikesPerBlog: blogs.length ? Math.round(totalLikes / blogs.length) : 0,
       avgCommentsPerBlog: blogs.length
@@ -220,12 +221,12 @@ class AnalyticsService {
     const topPosts = blogs.slice(0, 3).map((blog) => {
       const engagementScore = blog.views
         ? Math.round(
-            ((blog.likes || 0) +
-              (blog.commentCount || 0) +
-              (blog.bookmarks || 0)) /
-              (blog.views || 1) *
-              100
-          )
+          ((blog.likes || 0) +
+            (blog.commentCount || 0) +
+            (blog.bookmarks || 0)) /
+          (blog.views || 1) *
+          100
+        )
         : 0;
       return {
         id: blog._id,

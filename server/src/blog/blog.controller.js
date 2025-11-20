@@ -449,14 +449,21 @@ exports.regenerateSummary = async (req, res) => {
       user: req.user._id.toString(),
       blog: blog._id,
       provider: summaryResult.provider,
+      model: summaryResult.model || 'unknown',
+      contentLength: blog.content.length,
+      summaryLength: summaryResult.summary.length,
+      oldSummary: blog.summary?.substring(0, 50) + '...',
+      newSummary: summaryResult.summary.substring(0, 50) + '...',
       usage
     });
 
     res.json({
       success: true,
-      summary: summaryResult.summary,
-      provider: summaryResult.provider,
-      metadata: summaryResult.metadata,
+      data: {
+        summary: summaryResult.summary,
+        provider: summaryResult.provider,
+        metadata: summaryResult.metadata
+      },
       usage
     });
   } catch (err) {

@@ -83,6 +83,7 @@ export default function ArticleView() {
 
           setArticle({
             id: blogData._id,
+            slug: blogData.slug || slug, // Store slug
             title: blogData.title,
             content: blogData.content,
             author: authorName,
@@ -258,7 +259,7 @@ export default function ArticleView() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
           {/* Main Content Column */}
@@ -443,16 +444,20 @@ export default function ArticleView() {
                 </div>
               </div>
 
-              {/* Table of Contents */}
+              {/* Table of Contents - Enhanced */}
               {toc.length > 0 && (
-                <div className="bg-surface rounded-2xl p-6 border border-[var(--border-color)] shadow-sm">
+                <div className="glassmorphism-card p-6 sticky top-6">
                   <h3 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-gradient-to-b from-primary-500 to-primary-600 rounded-full"></div>
                     Table of Contents
                   </h3>
                   <nav>
-                    <ol className="flex flex-col gap-3 list-decimal pl-4 marker:text-primary-500 marker:font-medium">
+                    <ol className="flex flex-col gap-2 list-none">
                       {toc.map((item, index) => (
-                        <li key={index} className={`text-sm ${item.level === 'h3' ? 'ml-4' : ''}`}>
+                        <li
+                          key={index}
+                          className={`${item.level === 'h3' ? 'ml-4' : ''} group`}
+                        >
                           <a
                             href={`#${item.id}`}
                             onClick={(e) => {
@@ -463,9 +468,12 @@ export default function ArticleView() {
                                 target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               }
                             }}
-                            className="text-text-secondary hover:text-primary-500 transition-colors block leading-relaxed"
+                            className="flex items-start gap-3 p-2 rounded-lg text-text-secondary hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all group-hover:translate-x-1"
                           >
-                            {item.text}
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-xs font-semibold flex items-center justify-center group-hover:scale-110 transition-transform">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm leading-relaxed">{item.text}</span>
                           </a>
                         </li>
                       ))}

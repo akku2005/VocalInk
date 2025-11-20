@@ -2,11 +2,11 @@ const Series = require('../models/series.model');
 const SeriesProgress = require('../models/seriesProgress.model');
 const Blog = require('../models/blog.model');
 const User = require('../models/user.model');
-const { 
-  ValidationError, 
-  NotFoundError, 
-  ForbiddenError, 
-  BadRequestError 
+const {
+  ValidationError,
+  NotFoundError,
+  ForbiddenError,
+  BadRequestError
 } = require('../utils/errors');
 const XPService = require('../services/XPService');
 const logger = require('../utils/logger');
@@ -136,13 +136,21 @@ exports.getSeriesById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { includeProgress } = req.query;
+    const mongoose = require('mongoose');
 
-    const series = await Series.findById(id)
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id };
+    } else {
+      query = { slug: id };
+    }
+
+    const series = await Series.findOne(query)
       .populate('authorId', 'firstName lastName displayName username email profilePicture bio')
       .populate('collaborators.userId', 'firstName lastName displayName username email profilePicture')
       .populate({
         path: 'episodes.episodeId',
-        select: 'title content summary coverImage status publishedAt likes bookmarks'
+        select: 'title content summary coverImage status publishedAt likes bookmarks slug'
       });
 
     if (!series) {
@@ -168,23 +176,55 @@ exports.getSeriesById = async (req, res, next) => {
     // Get user progress if requested and user is authenticated
     let userProgress = null;
     if (includeProgress && req.user) {
+      console.log('Fetching user progress for series:', series._id);
       userProgress = await SeriesProgress.findOne({
         userId: req.user.id,
-        seriesId: id
+        seriesId: series._id
       });
     }
 
     // Get series analytics
-    const analytics = await SeriesProgress.getSeriesAnalytics(id);
+    console.log('Fetching analytics for series:', series._id);
+    try {
+      const analytics = await SeriesProgress.getSeriesAnalytics(series._id);
+      console.log('Analytics fetched successfully:', analytics);
 
-    res.json({
-      success: true,
-      data: {
-        series,
-        userProgress,
-        analytics: analytics[0] || {}
+      // Auto-generate slug if missing (migration for legacy data)
+      if (!series.slug) {
+        const slugify = require('slugify');
+        let baseSlug = slugify(series.title, { lower: true, strict: true });
+        let slug = baseSlug;
+        let counter = 1;
+
+        // Check for uniqueness
+        while (await Series.findOne({ slug, _id: { $ne: series._id } })) {
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+        series.slug = slug;
+        await series.save();
       }
-    });
+
+      res.json({
+        success: true,
+        data: {
+          series,
+          userProgress,
+          analytics: analytics[0] || {}
+        }
+      });
+    } catch (analyticsError) {
+      console.error('Error fetching analytics:', analyticsError);
+      // Return series without analytics if analytics fail
+      res.json({
+        success: true,
+        data: {
+          series,
+          userProgress,
+          analytics: {}
+        }
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -388,7 +428,9 @@ exports.addCollaborator = async (req, res, next) => {
     const { id } = req.params;
     const { userId, role, permissions } = req.body;
 
-    const series = await Series.findById(id);
+    const mongoose = require('mongoose');
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { slug: id };
+    const series = await Series.findOne(query);
     if (!series) {
       throw new NotFoundError('Series not found');
     }
@@ -426,7 +468,9 @@ exports.addCollaborator = async (req, res, next) => {
 exports.removeCollaborator = async (req, res, next) => {
   try {
     const { id, userId } = req.params;
-    const series = await Series.findById(id);
+    const mongoose = require('mongoose');
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { slug: id };
+    const series = await Series.findOne(query);
 
     if (!series) {
       throw new NotFoundError('Series not found');
@@ -489,13 +533,13 @@ exports.updateProgress = async (req, res, next) => {
     const episodeExists = progressRecord.episodeProgress.find(
       ep => ep.episodeId.toString() === episodeId.toString()
     );
-    
+
     if (!episodeExists) {
       // Find episode in series
       const seriesEpisode = series.episodes.find(
         ep => ep.episodeId.toString() === episodeId.toString()
       );
-      
+
       if (seriesEpisode) {
         progressRecord.episodeProgress.push({
           episodeId: episodeId,
@@ -728,9 +772,9 @@ exports.getTrendingSeries = async (req, res, next) => {
       status: { $in: ['active', 'completed'] },
       createdAt: dateFilter
     })
-    .populate('authorId', 'name email profilePicture')
-    .sort({ 'analytics.totalViews': -1 })
-    .limit(parseInt(limit));
+      .populate('authorId', 'name email profilePicture')
+      .sort({ 'analytics.totalViews': -1 })
+      .limit(parseInt(limit));
 
     res.json({
       success: true,
@@ -790,9 +834,9 @@ async function checkAndAwardAchievements(progressRecord, userId) {
       );
 
       // Award XP to user
-      await XPService.awardXP(userId, 'earn_badge', { 
+      await XPService.awardXP(userId, 'earn_badge', {
         badgeName: achievement.name,
-        xpReward: achievement.xpReward 
+        xpReward: achievement.xpReward
       });
     }
   }
