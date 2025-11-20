@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -6,6 +6,7 @@ import { User, Camera, Upload, X } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import imageUploadService from '../../services/imageUploadService';
 import settingsService from '../../services/settingsService';
+import { userService } from '../../services/userService';
 
 // Language options matching reference
 const languages = [
@@ -48,11 +49,12 @@ const ProfileTab = ({
   loadSettings
 }) => {
   const profile = settings?.profile || {};
-  const userProfile = settings?.profile || {};
   const coverImageInputRef = useRef(null);
   const [processingImage, setProcessingImage] = useState(false);
   const [avatarBlobUrl, setAvatarBlobUrl] = useState(null);
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [usernameFeedback, setUsernameFeedback] = useState({ message: '', type: 'info' });
+  const [checkingUsername, setCheckingUsername] = useState(false);
 
   const handleInputChange = (section, field, value) => {
     setSettings((prev) => ({
@@ -68,6 +70,33 @@ const ProfileTab = ({
   const handleProfileInputChange = (field, value) => {
     handleInputChange('profile', field, value);
   };
+
+  const handleUsernameBlur = async (value) => {
+    if (!value || value === (profile.username || '')) {
+      setUsernameFeedback('');
+      return;
+    }
+    setCheckingUsername(true);
+    setUsernameFeedback('');
+
+    try {
+      const result = await userService.checkUsernameAvailability(value);
+      if (result.available) {
+        setUsernameFeedback({ message: 'Username is available', type: 'success' });
+      } else {
+        setUsernameFeedback({ message: 'Username is already taken', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Username availability check failed:', error);
+      setUsernameFeedback({ message: 'Unable to verify username at this time', type: 'error' });
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
+
+  useEffect(() => {
+    setUsernameFeedback({ message: '', type: 'info' });
+  }, [profile.username]);
 
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -227,18 +256,12 @@ const ProfileTab = ({
   };
 
   // Helper function to get initials from name
-  const getInitials = (firstName, lastName, displayName, userFirstName, userLastName) => {
+  const getInitials = (firstName, lastName, displayName) => {
     if (firstName && lastName) {
       return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
     }
     if (firstName) {
       return firstName.charAt(0).toUpperCase();
-    }
-    if (userFirstName && userLastName) {
-      return `${userFirstName.charAt(0)}${userLastName.charAt(0)}`.toUpperCase();
-    }
-    if (userFirstName) {
-      return userFirstName.charAt(0).toUpperCase();
     }
     if (displayName) {
       const names = displayName.split(' ');
@@ -292,9 +315,9 @@ const ProfileTab = ({
                   />
                 ) : (
                   <div 
-                    className={`w-full h-full flex items-center justify-center text-white font-semibold text-xl ${getAvatarBgColor(profile.firstName || profile.displayName || userProfile?.firstName || 'U')}`}
+                    className={`w-full h-full flex items-center justify-center text-white font-semibold text-xl ${getAvatarBgColor(profile.firstName || profile.displayName || 'U')}`}
                   >
-                    {getInitials(profile.firstName, profile.lastName, profile.displayName, userProfile?.firstName, userProfile?.lastName)}
+                    {getInitials(profile.firstName, profile.lastName, profile.displayName)}
                   </div>
                 )}
               </div>
@@ -400,8 +423,25 @@ const ProfileTab = ({
               <Input
                 value={profile.username || ''}
                 onChange={(e) => handleInputChange('profile', 'username', e.target.value)}
+                onBlur={(e) => handleUsernameBlur(e.target.value)}
                 placeholder="Enter username"
               />
+              {checkingUsername && (
+                <p className="text-xs text-text-secondary mt-1">Checking availability…</p>
+              )}
+              {usernameFeedback.message && !checkingUsername && (
+                <p
+                  className={`text-xs mt-1 ${
+                    usernameFeedback.type === 'success'
+                      ? 'text-emerald-400'
+                      : usernameFeedback.type === 'error'
+                      ? 'text-error-400'
+                      : 'text-text-secondary'
+                  }`}
+                >
+                  {usernameFeedback.message}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">

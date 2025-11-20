@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import LoadingSpinner from "../components/ui/LoadingSpinner.jsx";
 
 const Layout = lazy(() => import("../components/layout/Layout"));
@@ -47,8 +47,10 @@ export default function AppRoutes() {
           <Route index element={<Home />} />
           <Route path="blogs" element={<BlogPage />} />
           <Route path="series" element={<SeriesPage />} />
-          <Route path="article/:id" element={<ArticlePage />} />
-          <Route path="blog/:id" element={<ArticlePage />} />
+          <Route path="article/:slug" element={<ArticlePage />} />
+          <Route path="blog/:slug" element={<ArticlePage />} />
+          <Route path="article" element={<Navigate to="/blogs" replace />} />
+          <Route path="blog" element={<Navigate to="/blogs" replace />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="badges" element={<BadgeGalleryPage />} />
@@ -58,7 +60,7 @@ export default function AppRoutes() {
           <Route path="free-trial" element={<FreeTrialPage />} />
           <Route path="toast-test" element={<ToastTest />} />
           <Route path="appearance-test" element={<AppearanceTest />} />
-          
+
           {/* Guest Routes - Only for non-authenticated users */}
           <Route path="login" element={
             <GuestRoute>
@@ -85,7 +87,7 @@ export default function AppRoutes() {
               <ResetPassword />
             </GuestRoute>
           } />
-          
+
           {/* Protected Routes - Require authentication */}
           <Route path="dashboard" element={
             <ProtectedRoute>

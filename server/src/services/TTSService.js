@@ -774,6 +774,24 @@ class TTSService {
       logger.error(`TTS generation failed with ${provider}:`, { message: error.message });
       
       if (fallback && provider !== 'espeak') {
+        const canTryGoogleFallback = this.googleCloudClient && provider.toLowerCase() !== 'googlecloud';
+        if (canTryGoogleFallback) {
+          try {
+            logger.info(`${provider} failed, attempting Google Cloud fallback`);
+            return await this.generateWithGoogleCloud(text, {
+              voiceName,
+              languageCode,
+              ssmlGender,
+              speakingRate,
+              pitch,
+              volumeGainDb,
+              effectsProfileId
+            });
+          } catch (googleError) {
+            logger.warn('Google Cloud fallback failed:', { message: googleError.message });
+          }
+        }
+
         try {
           logger.info('Primary provider failed, trying gTTS fallback');
           return await this.generateWithGTTS(text, { language });

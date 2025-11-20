@@ -43,7 +43,8 @@ class ImageStorageService {
       const {
         width = imageType === 'avatar' ? 400 : 1200,
         height = imageType === 'avatar' ? 400 : 400,
-        quality = 85
+        quality = 85,
+        transformation,
       } = options;
 
       // Generate unique public ID
@@ -52,11 +53,19 @@ class ImageStorageService {
       // Convert buffer to base64 for Cloudinary
       const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
 
-      // Upload to Cloudinary with transformations
-      const result = await cloudinary.uploader.upload(base64Image, {
+      const uploadOptions = {
         public_id: publicId,
         folder: `vocalink/users/${userId}`,
-        transformation: [
+        tags: [userId, imageType, 'vocalink'],
+        context: {
+          userId: userId,
+          imageType: imageType,
+          uploadedAt: new Date().toISOString()
+        },
+      };
+
+      if (transformation === undefined) {
+        uploadOptions.transformation = [
           {
             width: width,
             height: height,
@@ -65,14 +74,12 @@ class ImageStorageService {
             quality: quality,
             format: 'jpg'
           }
-        ],
-        tags: [userId, imageType, 'vocalink'],
-        context: {
-          userId: userId,
-          imageType: imageType,
-          uploadedAt: new Date().toISOString()
-        }
-      });
+        ];
+      } else if (Array.isArray(transformation) || typeof transformation === 'object') {
+        uploadOptions.transformation = transformation;
+      }
+
+      const result = await cloudinary.uploader.upload(base64Image, uploadOptions);
 
       return {
         success: true,

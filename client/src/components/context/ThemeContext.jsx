@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import settingsService from '../../services/settingsService';
+import { storage } from '../../utils/storage';
 
 const ThemeContext = createContext();
 
@@ -13,10 +14,15 @@ export const useTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
   const [appearanceSettings, setAppearanceSettings] = useState(() => {
-    const saved = localStorage.getItem('appearanceSettings');
-    return saved ? JSON.parse(saved) : {
-      theme: 'system'
-    };
+    if (!storage.available) {
+      return { theme: 'system' };
+    }
+    try {
+      const saved = storage.getItem('appearanceSettings');
+      return saved ? JSON.parse(saved) : { theme: 'system' };
+    } catch {
+      return { theme: 'system' };
+    }
   });
 
   // Computed theme based on system preference and user setting
@@ -63,8 +69,9 @@ export const ThemeProvider = ({ children }) => {
       document.body.style.color = 'rgb(0, 0, 0)';
     }
 
-    // Save to localStorage
-    localStorage.setItem('appearanceSettings', JSON.stringify(appearanceSettings));
+    if (storage.available) {
+      storage.setItem('appearanceSettings', JSON.stringify(appearanceSettings));
+    }
   }, [actualTheme, appearanceSettings]);
 
 

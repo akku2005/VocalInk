@@ -13,10 +13,56 @@ const {
 } = require('../utils/errors');
 const { validatePassword } = require('../utils/sanitize');
 const logger = require('../utils/logger');
+const mongoose = require('mongoose');
+const { sanitizeUsername } = require('../utils/username');
+const { canViewProfile } = require('../utils/privacy');
+
+const buildObjectId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+  return new mongoose.Types.ObjectId(id);
+};
+
+const getTotalViewsForUser = async (userId) => {
+  const objectId = buildObjectId(userId);
+  if (!objectId) return 0;
+
+  const result = await Blog.aggregate([
+    {
+      $match: {
+        author: objectId,
+        status: 'published',
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalViews: { $sum: { $ifNull: ['$views', 0] } },
+      },
+    },
+  ]);
+
+  return (result[0]?.totalViews) || 0;
+};
+
+const ensureProfileVisible = async (targetId, viewerId) => {
+  const targetUser = await User.findById(targetId).select('privacySettings followers');
+  if (!targetUser) {
+    throw new NotFoundError('User not found');
+  }
+
+  if (!canViewProfile(viewerId, targetUser)) {
+    const error = new ConflictError('Profile is private');
+    error.statusCode = StatusCodes.FORBIDDEN;
+    throw error;
+  }
+
+  return targetUser;
+};
 
 // Get current user's detailed profile
 exports.getMyProfile = async (req, res) => {
   try {
+    logger.info('Fetching user profile for ID:', req.user.id);
     const user = await User.findById(req.user.id)
       .select(
         '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
@@ -26,15 +72,19 @@ exports.getMyProfile = async (req, res) => {
       .populate('following', 'name email avatar');
 
     if (!user) {
+      logger.warn('User not found for ID:', req.user.id);
       throw new NotFoundError('User not found');
     }
+    logger.info('User found:', user._id);
 
     // Add computed fields
     const profile = user.toObject();
+    logger.info('Calculating blogCount...');
     profile.blogCount = await Blog.countDocuments({
       author: user._id,
       status: 'published',
     });
+    logger.info('Calculating seriesCount...');
     profile.seriesCount = await Series.countDocuments({
       authorId: user._id,
       status: 'published',
@@ -43,9 +93,11 @@ exports.getMyProfile = async (req, res) => {
     profile.followingCount = user.following.length;
 
     // Add view counts
-    profile.totalViews = user.totalViews || 0;
+    logger.info('Calculating totalViews...');
+    profile.totalViews = await getTotalViewsForUser(user._id);
 
     // Calculate engagement score
+    logger.info('Calculating engagementScore...');
     profile.engagementScore = Math.min(100, Math.floor(
       (profile.totalLikes * 0.3 + 
        profile.totalComments * 0.4 + 
@@ -69,7 +121,7 @@ exports.getMyProfile = async (req, res) => {
       data: profile,
     });
   } catch (error) {
-    logger.error('Error in getMyProfile:', error);
+    logger.error('Error in getMyProfile:', error.message, error.stack);
     if (error.isOperational) {
       res.status(error.statusCode).json({
         success: false,
@@ -113,7 +165,7 @@ exports.getProfile = async (req, res) => {
     profile.followingCount = user.following.length;
 
     // Add view counts
-    profile.totalViews = user.totalViews || 0;
+    profile.totalViews = await getTotalViewsForUser(user._id);
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -184,6 +236,24 @@ exports.updateProfile = async (req, res) => {
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
     });
+
+    if (req.body.username !== undefined) {
+      const sanitizedUsername = sanitizeUsername(req.body.username);
+      if (!sanitizedUsername) {
+        throw new ValidationError('Username must be 3-30 characters and may contain only letters, numbers, dots, or underscores');
+      }
+
+      const existingUsername = await User.findOne({
+        username: sanitizedUsername,
+        _id: { $ne: userId },
+      });
+
+      if (existingUsername) {
+        throw new ConflictError('Username is already taken');
+      }
+
+      updates.username = sanitizedUsername;
+    }
 
     const user = await User.findByIdAndUpdate(userId, updates, {
       new: true,
@@ -393,6 +463,69 @@ exports.getUserBlogs = async (req, res) => {
       });
     }
   }
+};
+
+const paginateUserContent = async (req, res, filter) => {
+  try {
+    const { id } = req.params;
+    const viewerId = req.user?.id;
+    await ensureProfileVisible(id, viewerId);
+
+    const { page = 1, limit = 10 } = req.query;
+    const numericPage = Math.max(1, parseInt(page, 10) || 1);
+    const numericLimit = Math.min(20, Math.max(5, parseInt(limit, 10) || 10));
+
+    const query = {
+      status: 'published',
+      ...filter,
+    };
+
+    const blogsPromise = Blog.find(query)
+      .populate('author', 'name email avatar')
+      .sort({ createdAt: -1 })
+      .skip((numericPage - 1) * numericLimit)
+      .limit(numericLimit)
+      .lean();
+
+    const countPromise = Blog.countDocuments(query);
+
+    const [blogs, total] = await Promise.all([blogsPromise, countPromise]);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        blogs,
+        pagination: {
+          currentPage: numericPage,
+          totalPages: Math.ceil(total / numericLimit),
+          totalBlogs: total,
+          hasNext: numericPage * numericLimit < total,
+          hasPrev: numericPage > 1,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Error in paginateUserContent:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while fetching user content',
+      });
+    }
+  }
+};
+
+exports.getUserLikedBlogs = async (req, res) => {
+  await paginateUserContent(req, res, { likedBy: buildObjectId(req.params.id) });
+};
+
+exports.getUserBookmarkedBlogs = async (req, res) => {
+  await paginateUserContent(req, res, { bookmarkedBy: buildObjectId(req.params.id) });
 };
 
 // Get user's badges
@@ -736,10 +869,12 @@ exports.getUserLeaderboard = async (req, res) => {
   }
 };
 
-// Search users
+// Search users with privacy-aware filters
 exports.searchUsers = async (req, res) => {
   try {
     const { q, page = 1, limit = 20 } = req.query;
+    const pageNumber = Math.max(1, parseInt(page, 10) || 1);
+    const limitNumber = Math.min(50, Math.max(5, parseInt(limit, 10) || 20));
 
     if (!q || q.trim().length < 2) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -748,49 +883,71 @@ exports.searchUsers = async (req, res) => {
       });
     }
 
-          const { safeRegExp } = require('../utils/secureParser');
-      const searchRegex = safeRegExp(q, 'i');
-      if (!searchRegex) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid search query'
-        });
-      }
+    const { safeRegExp } = require('../utils/secureParser');
+    const searchRegex = safeRegExp(q, 'i');
+    if (!searchRegex) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid search query',
+      });
+    }
 
-    const users = await User.find({
-      $or: [
-        { name: searchRegex },
-        { email: searchRegex },
-        { bio: searchRegex },
-      ],
-    })
-      .select(
-        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
-      )
-      .populate('badges', 'name description icon')
-      .sort({ name: 1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .exec();
+    const viewerId = req.user ? req.user.id : null;
+    const viewerObjectId = viewerId ? mongoose.Types.ObjectId(viewerId) : null;
 
-    const total = await User.countDocuments({
-      $or: [
-        { name: searchRegex },
-        { email: searchRegex },
-        { bio: searchRegex },
+    const visibilityClause = viewerObjectId
+      ? {
+          $or: [
+            { 'privacySettings.profileVisibility': 'public' },
+            { _id: viewerObjectId },
+            {
+              'privacySettings.profileVisibility': { $in: ['followers', 'private'] },
+              followers: viewerObjectId,
+            },
+          ],
+        }
+      : { 'privacySettings.profileVisibility': 'public' };
+
+    const match = {
+      $and: [
+        { 'privacySettings.allowSearch': { $ne: false } },
+        visibilityClause,
+        {
+          $or: [
+            { username: searchRegex },
+            { displayName: searchRegex },
+            { firstName: searchRegex },
+            { lastName: searchRegex },
+            { email: searchRegex },
+            { bio: searchRegex },
+          ],
+        },
       ],
-    });
+    };
+
+    const projection = '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret -followers -following';
+
+    const [users, total] = await Promise.all([
+      User.find(match)
+        .select(projection)
+        .populate('badges', 'name description icon')
+        .sort({ displayName: 1, username: 1 })
+        .skip((pageNumber - 1) * limitNumber)
+        .limit(limitNumber)
+        .lean(),
+      User.countDocuments(match),
+    ]);
 
     res.status(StatusCodes.OK).json({
       success: true,
       data: {
         users,
         pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
+          currentPage: pageNumber,
+          totalPages: Math.ceil(total / limitNumber),
           totalUsers: total,
-          hasNext: page * limit < total,
-          hasPrev: page > 1,
+          hasNext: pageNumber * limitNumber < total,
+          hasPrev: pageNumber > 1,
         },
       },
     });
@@ -799,6 +956,43 @@ exports.searchUsers = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: 'An error occurred while searching users',
+    });
+  }
+};
+
+exports.checkUsernameAvailability = async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Username query parameter is required',
+      });
+    }
+
+    const sanitizedUsername = sanitizeUsername(username);
+    if (!sanitizedUsername) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid username provided',
+      });
+    }
+
+    const existing = await User.findOne({ username: sanitizedUsername });
+    const requesterId = req.user?.id;
+    const available =
+      !existing || (requesterId && existing._id.toString() === requesterId);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      available,
+      username: sanitizedUsername,
+    });
+  } catch (error) {
+    logger.error('Error checking username availability:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: 'Failed to check username availability',
     });
   }
 };

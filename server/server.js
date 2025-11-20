@@ -1,6 +1,7 @@
 const app = require('./src/app');
 const logger = require('./src/utils/logger');
 const webSocketService = require('./src/services/WebSocketService');
+const { runStartupCleanup } = require('./src/utils/startupCleanup');
 
 const DESIRED_PORT = parseInt(process.env.PORT, 10) || 5000;
 const MAX_ATTEMPTS = 10;
@@ -45,4 +46,15 @@ function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
   });
 }
 
-startServer();
+async function bootstrap() {
+  try {
+    await runStartupCleanup();
+  } catch (error) {
+    logger.warn('Startup cleanup encountered an issue but will not block server start', {
+      message: error.message,
+    });
+  }
+  startServer();
+}
+
+bootstrap();

@@ -114,7 +114,7 @@ const AIPreferencesTab = ({
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={ai?.autoSummarize !== false}
+                checked={ai?.autoSummarize || false}
                 onChange={() => handleToggle('ai', 'autoSummarize')}
                 className="sr-only peer"
               />

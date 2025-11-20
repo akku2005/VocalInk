@@ -1,5 +1,7 @@
 import api, { apiHelpers } from './api';
 import API_CONFIG from '../constants/apiConfig';
+import { storage, sessionStorageHelper, cookieStorage } from '../utils/storage';
+import locationService from './locationService';
 
 class AuthService {
   constructor() {
@@ -8,19 +10,23 @@ class AuthService {
 
   // Token management
   getStoredTokens() {
-    const accessToken = localStorage.getItem('accessToken');
-    const refreshToken = localStorage.getItem('refreshToken');
+    const accessToken = sessionStorageHelper.getItem('accessToken');
+    const refreshToken = sessionStorageHelper.getItem('refreshToken');
     return { accessToken, refreshToken };
   }
 
   setStoredTokens(accessToken, refreshToken) {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    sessionStorageHelper.setItem('accessToken', accessToken);
+    sessionStorageHelper.setItem('refreshToken', refreshToken);
+    cookieStorage.setItem('accessToken', accessToken, { path: '/', sameSite: 'Lax', secure: true });
+    cookieStorage.setItem('refreshToken', refreshToken, { path: '/', sameSite: 'Lax', secure: true });
   }
 
   clearTokens() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    sessionStorageHelper.removeItem('accessToken');
+    sessionStorageHelper.removeItem('refreshToken');
+    cookieStorage.removeItem('accessToken');
+    cookieStorage.removeItem('refreshToken');
   }
 
   // Set auth header for requests
@@ -73,6 +79,7 @@ class AuthService {
         loginData.twoFactorToken = twoFactorToken;
       }
 
+      await locationService.captureLocation();
       const response = await apiHelpers.post('AUTH.LOGIN', loginData);
       
       // Check if the response indicates success or failure
@@ -85,7 +92,7 @@ class AuthService {
         
         // Store device fingerprint for security (use server's if provided, otherwise use local)
         if (serverFingerprint) {
-          localStorage.setItem('deviceFingerprint', serverFingerprint);
+          sessionStorageHelper.setItem('deviceFingerprint', serverFingerprint);
         }
         
         return response.data;
@@ -180,9 +187,9 @@ class AuthService {
         this.setAuthHeader(accessToken);
         
         // Store device fingerprint for security
-        if (deviceFingerprint) {
-          localStorage.setItem('deviceFingerprint', deviceFingerprint);
-        }
+          if (deviceFingerprint) {
+            sessionStorageHelper.setItem('deviceFingerprint', deviceFingerprint);
+          }
         
         return response.data;
       } else {
@@ -415,7 +422,7 @@ class AuthService {
   // Refresh token
   async refreshToken() {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = sessionStorageHelper.getItem('refreshToken');
       if (!refreshToken) {
         throw new Error('No refresh token available');
       }
@@ -457,7 +464,7 @@ class AuthService {
       this.clearTokens();
       this.setAuthHeader(null);
       // Clear device fingerprint
-      localStorage.removeItem('deviceFingerprint');
+      sessionStorageHelper.removeItem('deviceFingerprint');
     }
   }
 
@@ -471,7 +478,7 @@ class AuthService {
       this.clearTokens();
       this.setAuthHeader(null);
       // Clear device fingerprint
-      localStorage.removeItem('deviceFingerprint');
+      sessionStorageHelper.removeItem('deviceFingerprint');
     }
   }
 
@@ -557,12 +564,12 @@ class AuthService {
 
   // Get stored access token
   getAccessToken() {
-    return localStorage.getItem('accessToken');
+    return storage.getItem('accessToken');
   }
 
   // Get device fingerprint
   getDeviceFingerprint() {
-    return localStorage.getItem('deviceFingerprint');
+    return sessionStorageHelper.getItem('deviceFingerprint');
   }
 
   // Generate and store a consistent device fingerprint
@@ -583,7 +590,7 @@ class AuthService {
     const fingerprint = btoa(fingerprintString).slice(0, 32); // Base64 encode and truncate
     
     // Store the fingerprint
-    localStorage.setItem('deviceFingerprint', fingerprint);
+    sessionStorageHelper.setItem('deviceFingerprint', fingerprint);
     return fingerprint;
   }
 

@@ -9,7 +9,10 @@ const User = require('../models/user.model');
 const Series = require('../models/series.model');
 const XPService = require('../services/XPService');
 const cacheService = require('../services/CacheService');
+const AnalyticsService = require('../services/analyticsService');
 const slugify = require('slugify');
+const { UsageService, UsageLimitError, USAGE_TYPES } = require('../services/usageService');
+const { sanitizeHtml } = require('../utils/sanitize');
 
 // Get singleton email service instance
 const emailService = EmailService;
@@ -18,21 +21,39 @@ const ttsService = new TTSService();
 const openaiService = new OpenAIService();
 const { fixBlogAuthors } = require('../utils/fixBlogAuthors');
 
+const normalizeDataUris = (html = '') => {
+  if (!html || typeof html !== 'string') return html;
+  return html
+    .replace(/(src|href)\s*=\s*(['"])image\/([a-zA-Z0-9+]+);base64,/gi, (_, attr, quote, type) => {
+      return `${attr}=${quote}data:image/${type};base64,`;
+    })
+    .replace(/url\((['"]?)\s*image\/([a-zA-Z0-9+]+);base64,/gi, (_, quote, type) => {
+      return `url(${quote}data:image/${type};base64,`;
+    });
+};
+
 exports.createBlog = async (req, res) => {
   try {
     // Generate slug from title
-    const baseSlug = slugify(req.body.title, { 
-      lower: true, 
+    const baseSlug = slugify(req.body.title, {
+      lower: true,
       strict: true,
       remove: /[*+~.()'"!:@]/g
     });
-    
+
     // Ensure unique slug
     let slug = baseSlug;
     let counter = 1;
     while (await Blog.findOne({ slug })) {
       slug = `${baseSlug}-${counter}`;
       counter++;
+    }
+
+    if (req.body.content) {
+      req.body.content = normalizeDataUris(sanitizeHtml(req.body.content));
+    }
+    if (req.body.summary) {
+      req.body.summary = sanitizeHtml(req.body.summary);
     }
 
     // Generate AI summary if not provided
@@ -44,9 +65,9 @@ exports.createBlog = async (req, res) => {
           style: 'concise'
         });
         summary = summaryResult.summary;
-        logger.info('AI summary generated for new blog', { 
-          blogId: 'new', 
-          provider: summaryResult.provider 
+        logger.info('AI summary generated for new blog', {
+          blogId: 'new',
+          provider: summaryResult.provider
         });
       } catch (summaryError) {
         logger.error('Failed to generate AI summary', { error: summaryError.message });
@@ -57,17 +78,18 @@ exports.createBlog = async (req, res) => {
     // Set publishedAt if status is published
     const publishedAt = req.body.status === 'published' ? new Date() : null;
 
-    const blog = new Blog({ 
-      ...req.body, 
+    const blog = new Blog({
+      ...req.body,
       author: req.user._id,
       slug,
       summary,
       publishedAt
     });
-    
+
     await blog.save();
+    await invalidateAnalyticsCache(blog.author);
     logger.info(`Blog created`, { user: req.user._id.toString(), blog: blog._id, slug });
-    
+
     // Award XP for blog creation
     try {
       await XPService.awardXP(req.user._id.toString(), 'create_blog_draft', {
@@ -83,7 +105,7 @@ exports.createBlog = async (req, res) => {
     } catch (xpError) {
       logger.error('Failed to award XP for blog creation', { userId: req.user._id.toString(), error: xpError.message });
     }
-    
+
     res.status(201).json(blog);
   } catch (err) {
     logger.error(`Blog creation failed`, { user: req.user._id.toString(), error: err.message });
@@ -93,13 +115,13 @@ exports.createBlog = async (req, res) => {
 
 exports.getBlogs = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      status = 'published', 
-      mood, 
-      tags, 
-      author, 
+    const {
+      page = 1,
+      limit = 10,
+      status = 'published',
+      mood,
+      tags,
+      author,
       seriesId,
       sort = 'createdAt',
       order = 'desc'
@@ -168,14 +190,14 @@ exports.getBlogs = async (req, res) => {
   }
 };
 
-exports.getallBlogs=async(req,res)=>{
-  try{
-    const blogs=await Blog.find()
+exports.getallBlogs = async (req, res) => {
+  try {
+    const blogs = await Blog.find()
       .populate('author', 'firstName lastName displayName username email avatar')
       .sort({ createdAt: -1 });
-    
+
     res.json(blogs);
-  }catch(err){
+  } catch (err) {
     logger.error('Get all blogs failed:', err);
     res.status(500).json({ message: err.message });
   }
@@ -212,15 +234,33 @@ const updateSeriesAnalytics = async (seriesId, increments = {}) => {
   await cacheService.delete(cacheService.generateKey('series', seriesId.toString()));
 };
 
+const normalizeOwnerId = (owner) => {
+  if (!owner) return null;
+  if (typeof owner === 'string') return owner;
+  if (owner._id) return owner._id.toString();
+  if (typeof owner.toString === 'function') return owner.toString();
+  return null;
+};
+
+const invalidateAnalyticsCache = async (owner) => {
+  const ownerId = normalizeOwnerId(owner);
+  if (!ownerId) return;
+  try {
+    await AnalyticsService.clearPersonalAnalyticsCache(ownerId);
+  } catch (error) {
+    logger.warn('Failed to invalidate analytics cache', { error: error.message, ownerId });
+  }
+};
+
 exports.getBlogById = async (req, res) => {
   try {
     const cacheKey = cacheService.generateKey('blog', req.params.id);
-    
+
     const blog = await cacheService.cacheFunction(cacheKey, async () => {
       return await Blog.findById(req.params.id)
         .populate('author', 'firstName lastName displayName username email avatar');
     }, 600); // Cache for 10 minutes
-    
+
     if (!blog) return res.status(404).json({ message: 'Blog not found' });
 
     const blogObject = blog.toObject ? blog.toObject() : JSON.parse(JSON.stringify(blog));
@@ -254,20 +294,43 @@ exports.getBlogById = async (req, res) => {
 exports.getBlogBySlug = async (req, res) => {
   try {
     const cacheKey = cacheService.generateKey('blog-slug', req.params.slug);
-    
+
     const blog = await cacheService.cacheFunction(cacheKey, async () => {
       return await Blog.findOne({ slug: req.params.slug })
-        .populate('author', 'firstName lastName displayName username email avatar');
+        .populate('author', 'firstName lastName displayName username email avatar bio');
     }, 600); // Cache for 10 minutes
-    
-    if (!blog) return res.status(404).json({ message: 'Blog not found' });
-    
+
+    if (!blog) {
+      return res.status(404).json({ message: 'Blog not found' });
+    }
+
     // Only return published blogs for public access
     if (blog.status !== 'published' && (!req.user || blog.author._id.toString() !== req.user._id.toString())) {
       return res.status(404).json({ message: 'Blog not found' });
     }
-    
-    res.json(blog);
+
+    const blogObject = blog.toObject ? blog.toObject() : JSON.parse(JSON.stringify(blog));
+
+    const commentCount = await Comment.countDocuments({ blogId: blog._id, status: 'active' });
+    blogObject.commentCount = commentCount;
+
+    const userId = req.user?.id?.toString();
+    if (userId) {
+      const likedByList = (blogObject.likedBy || []).map((entry) =>
+        entry?.toString ? entry.toString() : String(entry)
+      );
+      const bookmarkedByList = (blogObject.bookmarkedBy || []).map((entry) =>
+        entry?.toString ? entry.toString() : String(entry)
+      );
+
+      blogObject.isLiked = likedByList.includes(userId);
+      blogObject.isBookmarked = bookmarkedByList.includes(userId);
+    } else {
+      blogObject.isLiked = false;
+      blogObject.isBookmarked = false;
+    }
+
+    res.json({ success: true, data: blogObject });
   } catch (err) {
     logger.error('Get blog by slug failed:', err);
     res.status(500).json({ message: err.message });
@@ -290,12 +353,12 @@ exports.updateBlog = async (req, res) => {
 
     // Generate new slug if title is being updated
     if (req.body.title && req.body.title !== blog.title) {
-      const baseSlug = slugify(req.body.title, { 
-        lower: true, 
+      const baseSlug = slugify(req.body.title, {
+        lower: true,
         strict: true,
         remove: /[*+~.()'"!:@]/g
       });
-      
+
       let slug = baseSlug;
       let counter = 1;
       while (await Blog.findOne({ slug, _id: { $ne: blog._id } })) {
@@ -303,6 +366,14 @@ exports.updateBlog = async (req, res) => {
         counter++;
       }
       req.body.slug = slug;
+    }
+
+    if (req.body.content) {
+      req.body.content = normalizeDataUris(sanitizeHtml(req.body.content));
+    }
+
+    if (req.body.summary) {
+      req.body.summary = sanitizeHtml(req.body.summary);
     }
 
     // Update publishedAt if status is changing to published
@@ -316,6 +387,7 @@ exports.updateBlog = async (req, res) => {
     }).populate('author', 'name email avatar');
 
     logger.info(`Blog updated`, { user: req.user._id.toString(), blog: blog._id });
+    await invalidateAnalyticsCache(updatedBlog.author);
     res.json(updatedBlog);
   } catch (err) {
     logger.error(`Blog update failed`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
@@ -338,6 +410,7 @@ exports.deleteBlog = async (req, res) => {
     }
 
     await Blog.findByIdAndDelete(req.params.id);
+    await invalidateAnalyticsCache(blog.author);
     logger.info(`Blog deleted`, { user: req.user._id.toString(), blog: blog._id });
     res.json({ message: 'Blog deleted' });
   } catch (err) {
@@ -347,6 +420,8 @@ exports.deleteBlog = async (req, res) => {
 };
 
 exports.regenerateSummary = async (req, res) => {
+  const usageType = USAGE_TYPES.SUMMARY;
+
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
@@ -354,11 +429,7 @@ exports.regenerateSummary = async (req, res) => {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
-    // Check if user is the author
-    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      logger.warn(`Unauthorized summary regeneration attempt`, { user: req.user._id, blog: blog._id });
-      return res.status(403).json({ message: 'Forbidden: Only the author can regenerate summary' });
-    }
+    await UsageService.ensureWithinLimit(req.user._id, usageType);
 
     // Generate new AI summary
     const summaryResult = await openaiService.generateSummary(blog.content, {
@@ -370,19 +441,38 @@ exports.regenerateSummary = async (req, res) => {
     // Update blog with new summary
     blog.summary = summaryResult.summary;
     await blog.save();
+    await invalidateAnalyticsCache(blog.author);
 
-    logger.info(`Blog summary regenerated`, { 
-      user: req.user._id.toString(), 
-      blog: blog._id, 
-      provider: summaryResult.provider 
+    const usage = await UsageService.recordUsage(req.user._id, usageType);
+
+    logger.info(`Blog summary regenerated`, {
+      user: req.user._id.toString(),
+      blog: blog._id,
+      provider: summaryResult.provider,
+      usage
     });
 
     res.json({
+      success: true,
       summary: summaryResult.summary,
       provider: summaryResult.provider,
-      metadata: summaryResult.metadata
+      metadata: summaryResult.metadata,
+      usage
     });
   } catch (err) {
+    if (err instanceof UsageLimitError) {
+      logger.warn('Daily summary limit reached', {
+        user: req.user._id.toString(),
+        blog: req.params.id,
+        usage: err.usage
+      });
+      return res.status(429).json({
+        success: false,
+        message: 'Daily summary limit reached. Try again tomorrow.',
+        usage: err.usage
+      });
+    }
+
     logger.error(`Summary regeneration failed`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
     res.status(500).json({ message: err.message });
   }
@@ -406,6 +496,7 @@ exports.publishBlog = async (req, res) => {
     blog.status = 'published';
     blog.publishedAt = new Date();
     await blog.save();
+    await invalidateAnalyticsCache(blog.author);
 
     // Award XP for publishing
     try {
@@ -436,17 +527,22 @@ exports.publishBlog = async (req, res) => {
 
 // Stubs for advanced endpoints
 exports.generateTTS = async (req, res) => {
+  const usageType = USAGE_TYPES.AUDIO;
+
   try {
     const blog = await Blog.findById(req.params.id);
     if (!blog) {
       logger.warn(`Blog not found for TTS`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
+
+    await UsageService.ensureWithinLimit(req.user._id, usageType);
+
     // Any authenticated user can generate TTS for any blog
-    logger.debug(`TTS generation requested`, { 
+    logger.debug(`TTS generation requested`, {
       userId: req.user._id.toString(),
       blogId: blog._id.toString(),
-      userRole: req.user.role 
+      userRole: req.user.role
     });
     // Generate via unified TTS service (uses provider selection and fallbacks)
     const content = blog.content || '';
@@ -490,18 +586,35 @@ exports.generateTTS = async (req, res) => {
     };
     blog.audioDuration = result.duration;
     await blog.save();
+    await invalidateAnalyticsCache(blog.author);
 
-    logger.info(`TTS generated`, { 
-      user: req.user._id.toString(), 
-      blog: blog._id, 
-      ttsUrl: blog.ttsUrl, 
+    const usage = await UsageService.recordUsage(req.user._id, usageType);
+
+    logger.info(`TTS generated`, {
+      user: req.user._id.toString(),
+      blog: blog._id,
+      ttsUrl: blog.ttsUrl,
       provider: result.provider,
       resultUrl: result.url,
       resultPath: result.path,
-      fullResult: JSON.stringify(result)
+      fullResult: JSON.stringify(result),
+      usage
     });
-    res.json({ success: true, ttsUrl: blog.ttsUrl, provider: result.provider, duration: result.duration, metadata: result.metadata });
+    res.json({ success: true, ttsUrl: blog.ttsUrl, provider: result.provider, duration: result.duration, metadata: result.metadata, usage });
   } catch (err) {
+    if (err instanceof UsageLimitError) {
+      logger.warn('Daily audio generation limit reached', {
+        user: req.user._id.toString(),
+        blog: req.params.id,
+        usage: err.usage
+      });
+      return res.status(429).json({
+        success: false,
+        message: 'Daily audio generation limit reached. Try again tomorrow.',
+        usage: err.usage
+      });
+    }
+
     const message = err?.message || 'TTS generation failed';
     const lower = message.toLowerCase();
     let status = 500;
@@ -549,7 +662,7 @@ exports.translateBlog = async (req, res) => {
 exports.likeBlog = async (req, res) => {
   try {
     const userId = req.user._id.toString();
-    
+
     // RACE CONDITION FIX: Use atomic operations to prevent count inconsistencies
     // First, check if user already liked the blog
     const blog = await Blog.findById(req.params.id).populate('author');
@@ -557,10 +670,10 @@ exports.likeBlog = async (req, res) => {
       logger.warn(`Blog not found for like`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
-    
+
     const alreadyLiked = blog.likedBy.includes(userId);
     let updatedBlog;
-    
+
     const likeDelta = alreadyLiked ? -1 : 1;
 
     if (alreadyLiked) {
@@ -585,26 +698,26 @@ exports.likeBlog = async (req, res) => {
         { new: true }
       ).populate('author');
       logger.info(`Blog liked`, { user: req.user._id.toString(), blog: blog._id });
-      
+
       // Create in-app notification for blog author
       if (updatedBlog.author && updatedBlog.author._id.toString() !== userId) {
         const NotificationTriggers = require('../utils/notificationTriggers');
-        NotificationTriggers.createLikeNotification(updatedBlog._id, userId).catch(err => 
+        NotificationTriggers.createLikeNotification(updatedBlog._id, userId).catch(err =>
           logger.error('Failed to create like notification', err)
         );
       }
-      
+
       // Email notification to blog author (FIXED: Use notificationSettings)
-      if (updatedBlog.author && 
-          updatedBlog.author.notificationSettings?.emailNotifications !== false && 
-          updatedBlog.author._id.toString() !== userId) {
+      if (updatedBlog.author &&
+        updatedBlog.author.notificationSettings?.emailNotifications !== false &&
+        updatedBlog.author._id.toString() !== userId) {
         const subject = `Your blog was liked: ${updatedBlog.title}`;
         const html = `<p>Hi ${updatedBlog.author.name},</p>
           <p>Your blog <strong>${updatedBlog.title}</strong> was liked by a user.</p>`;
         emailService.sendNotificationEmail(updatedBlog.author.email, subject, html).catch(err => logger.error('Failed to send like notification email', err));
       }
     }
-    
+
     // Ensure likes count doesn't go negative
     if (updatedBlog.likes < 0) {
       await Blog.findByIdAndUpdate(req.params.id, { likes: 0 });
@@ -622,7 +735,8 @@ exports.likeBlog = async (req, res) => {
     }
 
     await cacheService.delete(cacheService.generateKey('blog', updatedBlog._id.toString()));
-    
+    await invalidateAnalyticsCache(updatedBlog.author);
+
     res.json({ liked: !alreadyLiked, likes: updatedBlog.likes });
   } catch (err) {
     logger.error(`Like error`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
@@ -632,17 +746,17 @@ exports.likeBlog = async (req, res) => {
 exports.bookmarkBlog = async (req, res) => {
   try {
     const userId = req.user._id.toString();
-    
+
     // RACE CONDITION FIX: Use atomic operations to prevent count inconsistencies
     const blog = await Blog.findById(req.params.id).populate('author');
     if (!blog) {
       logger.warn(`Blog not found for bookmark`, { user: req.user._id.toString(), blog: req.params.id });
       return res.status(404).json({ message: 'Blog not found' });
     }
-    
+
     const alreadyBookmarked = blog.bookmarkedBy.includes(userId);
     let updatedBlog;
-    
+
     const bookmarkDelta = alreadyBookmarked ? -1 : 1;
 
     if (alreadyBookmarked) {
@@ -667,18 +781,18 @@ exports.bookmarkBlog = async (req, res) => {
         { new: true }
       ).populate('author');
       logger.info(`Blog bookmarked`, { user: req.user._id.toString(), blog: blog._id });
-      
+
       // Email notification to blog author (FIXED: Use notificationSettings)
-      if (updatedBlog.author && 
-          updatedBlog.author.notificationSettings?.emailNotifications !== false && 
-          updatedBlog.author._id.toString() !== userId) {
+      if (updatedBlog.author &&
+        updatedBlog.author.notificationSettings?.emailNotifications !== false &&
+        updatedBlog.author._id.toString() !== userId) {
         const subject = `Your blog was bookmarked: ${updatedBlog.title}`;
         const html = `<p>Hi ${updatedBlog.author.name},</p>
           <p>Your blog <strong>${updatedBlog.title}</strong> was bookmarked by a user.</p>`;
         emailService.sendNotificationEmail(updatedBlog.author.email, subject, html).catch(err => logger.error('Failed to send bookmark notification email', err));
       }
     }
-    
+
     // Ensure bookmarks count doesn't go negative
     if (updatedBlog.bookmarks < 0) {
       await Blog.findByIdAndUpdate(req.params.id, { bookmarks: 0 });
@@ -693,7 +807,8 @@ exports.bookmarkBlog = async (req, res) => {
     }
 
     await cacheService.delete(cacheService.generateKey('blog', updatedBlog._id.toString()));
-    
+    await invalidateAnalyticsCache(updatedBlog.author);
+
     res.json({ bookmarked: !alreadyBookmarked, bookmarks: updatedBlog.bookmarks });
   } catch (err) {
     logger.error(`Bookmark error`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
@@ -706,9 +821,9 @@ exports.getBlogComments = async (req, res) => {
       blogId: req.params.id,
       status: 'active',
     })
-    .populate('userId', 'firstName lastName displayName avatar username email')
-    .sort({ createdAt: -1 });
-    
+      .populate('userId', 'firstName lastName displayName avatar username email')
+      .sort({ createdAt: -1 });
+
     res.json(comments);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -785,10 +900,10 @@ exports.likeComment = async (req, res) => {
     }
 
     await comment.populate('userId', 'firstName lastName displayName avatar username email');
-    
-    logger.info(`Comment ${isLiked ? 'unliked' : 'liked'}`, { 
-      user: req.user.id, 
-      comment: comment._id 
+
+    logger.info(`Comment ${isLiked ? 'unliked' : 'liked'}`, {
+      user: req.user.id,
+      comment: comment._id
     });
 
     res.json(comment);
@@ -813,7 +928,7 @@ exports.deleteComment = async (req, res) => {
 
     // Soft delete
     await comment.softDelete();
-    
+
     logger.info(`Comment deleted`, { user: req.user.id, comment: comment._id });
 
     res.json({ message: 'Comment deleted successfully' });

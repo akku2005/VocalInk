@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Card,
   CardHeader,
@@ -34,16 +34,183 @@ import {
 } from "lucide-react";
 import Modal from "../components/ui/Modal";
 import { Link } from "react-router-dom";
+import badgeService from "../services/badgeService";
+import { useAuth } from "../hooks/useAuth";
+import Skeleton from "../components/skeletons/Skeleton";
+
+const requirementFieldConfig = [
+  {
+    key: "xpRequired",
+    formatter: (value) =>
+      `Reach ${value.toLocaleString()} XP`,
+  },
+  {
+    key: "blogsRequired",
+    formatter: (value) =>
+      `Publish ${value.toLocaleString()} blog${value === 1 ? "" : "s"}`,
+  },
+  {
+    key: "followersRequired",
+    formatter: (value) =>
+      `Gain ${value.toLocaleString()} follower${value === 1 ? "" : "s"}`,
+  },
+  {
+    key: "likesRequired",
+    formatter: (value) =>
+      `Collect ${value.toLocaleString()} like${value === 1 ? "" : "s"}`,
+  },
+  {
+    key: "commentsRequired",
+    formatter: (value) =>
+      `Receive ${value.toLocaleString()} comment${value === 1 ? "" : "s"}`,
+  },
+  {
+    key: "daysActiveRequired",
+    formatter: (value) =>
+      `Stay active for ${value.toLocaleString()} day${value === 1 ? "" : "s"}`,
+  },
+];
+
+const clampPercentage = (value) => {
+  const numericValue =
+    typeof value === "number" ? value : Number.parseFloat(value ?? 0);
+  if (Number.isNaN(numericValue)) return 0;
+  return Math.max(0, Math.min(100, Math.round(numericValue)));
+};
+
+const normalizeRequirementItem = (requirement) => {
+  if (!requirement) return null;
+
+  const target =
+    requirement.target ??
+    requirement.required ??
+    requirement.goal ??
+    requirement.value ??
+    requirement.threshold ??
+    null;
+
+  const current =
+    requirement.current ??
+    requirement.progressCurrent ??
+    requirement.valueCurrent ??
+    undefined;
+
+  const text =
+    requirement.text ||
+    requirement.name ||
+    requirement.label ||
+    requirement.description ||
+    (typeof target === "number"
+      ? `Complete requirement (${target.toLocaleString()})`
+      : "Complete requirement");
+
+  return {
+    ...requirement,
+    text,
+    target,
+    current,
+    completed:
+      typeof requirement.completed === "boolean"
+        ? requirement.completed
+        : typeof current === "number" &&
+          typeof target === "number" &&
+          current >= target,
+  };
+};
+
+const normalizeRequirements = (requirements) => {
+  if (!requirements) return [];
+
+  if (Array.isArray(requirements)) {
+    return requirements
+      .map((item) => normalizeRequirementItem(item))
+      .filter(Boolean);
+  }
+
+  if (typeof requirements === "object") {
+    const derived = [];
+
+    requirementFieldConfig.forEach(({ key, formatter }) => {
+      const value = requirements[key];
+      if (typeof value === "number" && value > 0) {
+        derived.push(
+          normalizeRequirementItem({
+            text: formatter(value),
+            target: value,
+            current: undefined,
+            completed: false,
+          })
+        );
+      }
+    });
+
+    if (
+      Array.isArray(requirements.prerequisites) &&
+      requirements.prerequisites.length
+    ) {
+      derived.push(
+        normalizeRequirementItem({
+          text: `Unlock ${
+            requirements.prerequisites.length
+          } prerequisite badge${
+            requirements.prerequisites.length === 1 ? "" : "s"
+          }`,
+          target: requirements.prerequisites.length,
+          completed: false,
+        })
+      );
+    }
+
+    if (requirements.logicalExpression) {
+      derived.push(
+        normalizeRequirementItem({
+          text: "Meet special eligibility rules",
+          description: requirements.logicalExpression,
+          completed: false,
+        })
+      );
+    }
+
+    return derived;
+  }
+
+  return [];
+};
+
+const normalizeBadgeForDisplay = (badge, progressInfo = null) => {
+  const normalizedRequirements = normalizeRequirements(
+    progressInfo?.requirements ?? badge.requirements
+  );
+
+  return {
+    ...badge,
+    progress: clampPercentage(
+      progressInfo?.progress ?? badge.progress ?? 0
+    ),
+    requirements: normalizedRequirements,
+    earned: progressInfo?.earned ?? badge.earned ?? false,
+    earnedAt: progressInfo?.earned
+      ? progressInfo?.earnedAt || badge.earnedAt
+      : badge.earnedAt,
+  };
+};
+
+const formatRequirementValue = (value) =>
+  typeof value === "number" ? value.toLocaleString() : value;
 
 const BadgeGalleryPage = () => {
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRarity, setFilterRarity] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [sortBy, setSortBy] = useState("rarity");
+  const [badgeStats, setBadgeStats] = useState(null);
+  const [progressSummary, setProgressSummary] = useState(null);
 
   const [badgeModal, setBadgeModal] = useState({ open: false, badge: null });
+  const { userProfile, isAuthenticated } = useAuth();
 
   const badgeSlug = (name) =>
     name
@@ -51,331 +218,77 @@ const BadgeGalleryPage = () => {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setBadges([
-        // Writing Badges
-        {
-          id: 1,
-          name: "First Post",
-          description: "Published your first blog post",
-          icon: "🎉",
-          rarity: "common",
-          category: "writing",
-          earnedBy: 1247,
-          totalUsers: 1250,
-          progress: 100,
-          earnedAt: "2023-01-15",
-          requirements: [{ text: "Publish 1 blog post", completed: true }],
-        },
-        {
-          id: 2,
-          name: "Prolific Writer",
-          description: "Published 50 blog posts",
-          icon: "✍️",
-          rarity: "rare",
-          category: "writing",
-          earnedBy: 234,
-          totalUsers: 1250,
-          progress: 45,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Publish 50 blog posts",
-              completed: false,
-              current: 23,
-              target: 50,
-            },
-          ],
-        },
-        {
-          id: 3,
-          name: "Master Wordsmith",
-          description: "Published 100 blog posts",
-          icon: "📝",
-          rarity: "epic",
-          category: "writing",
-          earnedBy: 89,
-          totalUsers: 1250,
-          progress: 12,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Publish 100 blog posts",
-              completed: false,
-              current: 23,
-              target: 100,
-            },
-          ],
-        },
-        {
-          id: 4,
-          name: "Legendary Author",
-          description: "Published 500 blog posts",
-          icon: "👑",
-          rarity: "legendary",
-          category: "writing",
-          earnedBy: 12,
-          totalUsers: 1250,
-          progress: 2,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Publish 500 blog posts",
-              completed: false,
-              current: 23,
-              target: 500,
-            },
-          ],
-        },
-
-        // Engagement Badges
-        {
-          id: 5,
-          name: "Engagement Master",
-          description: "Received 100+ likes on a single post",
-          icon: "🔥",
-          rarity: "rare",
-          category: "engagement",
-          earnedBy: 156,
-          totalUsers: 1250,
-          progress: 85,
-          earnedAt: "2023-02-20",
-          requirements: [
-            { text: "Receive 100+ likes on a single post", completed: true },
-          ],
-        },
-        {
-          id: 6,
-          name: "Viral Sensation",
-          description: "Get 10,000+ views on a single post",
-          icon: "🚀",
-          rarity: "legendary",
-          category: "engagement",
-          earnedBy: 23,
-          totalUsers: 1250,
-          progress: 65,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Get 10,000+ views on a single post",
-              completed: false,
-              current: 6500,
-              target: 10000,
-            },
-          ],
-        },
-        {
-          id: 7,
-          name: "Comment King",
-          description: "Left 100+ meaningful comments",
-          icon: "💬",
-          rarity: "epic",
-          category: "engagement",
-          earnedBy: 67,
-          totalUsers: 1250,
-          progress: 45,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Left 100+ meaningful comments",
-              completed: false,
-              current: 45,
-              target: 100,
-            },
-          ],
-        },
-
-        // Series Badges
-        {
-          id: 8,
-          name: "Series Creator",
-          description: "Created a blog series with 5+ posts",
-          icon: "📚",
-          rarity: "epic",
-          category: "series",
-          earnedBy: 89,
-          totalUsers: 1250,
-          progress: 78,
-          earnedAt: "2023-03-10",
-          requirements: [
-            { text: "Create a blog series with 5+ posts", completed: true },
-          ],
-        },
-        {
-          id: 9,
-          name: "Series Master",
-          description: "Created 10+ blog series",
-          icon: "📖",
-          rarity: "legendary",
-          category: "series",
-          earnedBy: 34,
-          totalUsers: 1250,
-          progress: 12,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Create 10+ blog series",
-              completed: false,
-              current: 2,
-              target: 10,
-            },
-          ],
-        },
-
-        // AI Badges
-        {
-          id: 10,
-          name: "AI Pioneer",
-          description: "Used AI features 50+ times",
-          icon: "🤖",
-          rarity: "legendary",
-          category: "ai",
-          earnedBy: 45,
-          totalUsers: 1250,
-          progress: 100,
-          earnedAt: "2023-04-05",
-          requirements: [
-            { text: "Used AI features 50+ times", completed: true },
-          ],
-        },
-        {
-          id: 11,
-          name: "AI Enthusiast",
-          description: "Used AI features 10+ times",
-          icon: "⚡",
-          rarity: "rare",
-          category: "ai",
-          earnedBy: 234,
-          totalUsers: 1250,
-          progress: 67,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Used AI features 10+ times",
-              completed: false,
-              current: 7,
-              target: 10,
-            },
-          ],
-        },
-
-        // Social Badges
-        {
-          id: 12,
-          name: "Social Butterfly",
-          description: "Followed 50+ users",
-          icon: "🦋",
-          rarity: "rare",
-          category: "social",
-          earnedBy: 189,
-          totalUsers: 1250,
-          progress: 100,
-          earnedAt: "2023-05-12",
-          requirements: [{ text: "Followed 50+ users", completed: true }],
-        },
-        {
-          id: 13,
-          name: "Community Leader",
-          description: "Have 1,000+ followers",
-          icon: "👑",
-          rarity: "legendary",
-          category: "social",
-          earnedBy: 23,
-          totalUsers: 1250,
-          progress: 80,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Have 1,000+ followers",
-              completed: false,
-              current: 800,
-              target: 1000,
-            },
-          ],
-        },
-
-        // Consistency Badges
-        {
-          id: 14,
-          name: "Consistency Champion",
-          description: "Post for 30 consecutive days",
-          icon: "📅",
-          rarity: "epic",
-          category: "consistency",
-          earnedBy: 78,
-          totalUsers: 1250,
-          progress: 50,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Post for 30 consecutive days",
-              completed: false,
-              current: 15,
-              target: 30,
-            },
-          ],
-        },
-        {
-          id: 15,
-          name: "Daily Grinder",
-          description: "Post for 7 consecutive days",
-          icon: "⚡",
-          rarity: "common",
-          category: "consistency",
-          earnedBy: 456,
-          totalUsers: 1250,
-          progress: 78,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Post for 7 consecutive days",
-              completed: false,
-              current: 5,
-              target: 7,
-            },
-          ],
-        },
-
-        // Special Badges
-        {
-          id: 16,
-          name: "Early Adopter",
-          description: "Joined VocalInk in the first month",
-          icon: "🌟",
-          rarity: "legendary",
-          category: "special",
-          earnedBy: 12,
-          totalUsers: 1250,
-          progress: 100,
-          earnedAt: "2023-01-01",
-          requirements: [
-            { text: "Joined VocalInk in the first month", completed: true },
-          ],
-        },
-        {
-          id: 17,
-          name: "Beta Tester",
-          description: "Tested beta features and provided feedback",
-          icon: "🧪",
-          rarity: "epic",
-          category: "special",
-          earnedBy: 34,
-          totalUsers: 1250,
-          progress: 0,
-          earnedAt: null,
-          requirements: [
-            {
-              text: "Tested beta features and provided feedback",
-              completed: false,
-            },
-          ],
-        },
-      ]);
-      setLoading(false);
-    }, 1000);
+  const fetchBadgeStats = useCallback(async () => {
+    try {
+      const stats = await badgeService.getBadgeStats();
+      setBadgeStats(stats);
+    } catch (statsError) {
+      console.error("Failed to load badge stats", statsError);
+    }
   }, []);
+
+  const fetchBadges = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    if (!isAuthenticated) {
+      setProgressSummary(null);
+    }
+    try {
+      const params = { limit: 60 };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (filterRarity !== "all") params.rarity = filterRarity;
+      if (filterCategory !== "all") params.category = filterCategory;
+      if (sortBy === "rarity" || sortBy === "name") {
+        params.sortBy = sortBy;
+        params.sortOrder = sortBy === "name" ? "asc" : "desc";
+      }
+
+      const { badges: badgeList = [] } = await badgeService.getBadges(params);
+      let progressMap = null;
+
+      if (isAuthenticated) {
+        try {
+          const progress = await badgeService.getUserBadgeProgress();
+          if (progress) {
+            setProgressSummary(progress);
+            progressMap = new Map(
+              (progress.badges || []).map((entry) => [
+                entry.badgeId?.toString() || entry.badgeKey,
+                entry,
+              ])
+            );
+          }
+        } catch (progressError) {
+          setProgressSummary(null);
+          if (progressError.response?.status !== 401) {
+            console.error("Failed to load badge progress", progressError);
+          }
+        }
+      }
+
+      const enrichedBadges = badgeList.map((badge) => {
+        const key = badge._id?.toString?.() || badge.badgeKey;
+        const progressInfo = key && progressMap ? progressMap.get(key) : null;
+        return normalizeBadgeForDisplay(badge, progressInfo);
+      });
+
+      setBadges(enrichedBadges);
+    } catch (err) {
+      console.error("Failed to load badges", err);
+      setError(err.response?.data?.message || err.message || "Failed to load badges");
+      setBadges([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, filterRarity, filterCategory, sortBy, isAuthenticated]);
+
+  useEffect(() => {
+    fetchBadgeStats();
+  }, [fetchBadgeStats]);
+
+  useEffect(() => {
+    fetchBadges();
+  }, [fetchBadges]);
 
   const rarities = [
     { id: "all", name: "All Rarities", color: "bg-surface text-text-primary" },
@@ -407,64 +320,119 @@ const BadgeGalleryPage = () => {
     { value: "earned", label: "Recently Earned" },
   ];
 
-  const filteredBadges = badges
-    .filter((badge) => {
-      const matchesSearch =
-        badge.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        badge.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRarity =
-        filterRarity === "all" || badge.rarity === filterRarity;
-      const matchesCategory =
-        filterCategory === "all" || badge.category === filterCategory;
-      return matchesSearch && matchesRarity && matchesCategory;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "rarity": {
-          const order = { legendary: 4, epic: 3, rare: 2, common: 1 };
-          return order[b.rarity] - order[a.rarity];
-        }
-        case "progress":
-          return b.progress - a.progress;
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "earned":
-          if (a.earnedAt && !b.earnedAt) return -1;
-          if (!a.earnedAt && b.earnedAt) return 1;
-          if (a.earnedAt && b.earnedAt) {
-            return new Date(b.earnedAt) - new Date(a.earnedAt);
+  const filteredBadges = useMemo(() => {
+    return badges
+      .filter((badge) => {
+        const matchesSearch =
+          badge.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          badge.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesRarity =
+          filterRarity === "all" || badge.rarity === filterRarity;
+        const matchesCategory =
+          filterCategory === "all" || badge.category === filterCategory;
+        return matchesSearch && matchesRarity && matchesCategory;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "rarity": {
+            const order = {
+              mythic: 6,
+              legendary: 5,
+              epic: 4,
+              rare: 3,
+              uncommon: 2,
+              common: 1,
+            };
+            return (order[b.rarity] || 0) - (order[a.rarity] || 0);
           }
-          return 0;
-        default:
-          return 0;
-      }
-    });
+          case "progress":
+            return (b.progress || 0) - (a.progress || 0);
+          case "name":
+            return a.name.localeCompare(b.name);
+          case "earned":
+            if (a.earned && !b.earned) return -1;
+            if (!a.earned && b.earned) return 1;
+            if (a.earnedAt && b.earnedAt) {
+              return new Date(b.earnedAt) - new Date(a.earnedAt);
+            }
+            return 0;
+          default:
+            return 0;
+        }
+      });
+  }, [badges, searchQuery, filterRarity, filterCategory, sortBy]);
 
-  const earnedBadges = badges.filter((badge) => badge.earnedAt);
-  const totalBadges = badges.length;
-  const completionRate = Math.round((earnedBadges.length / totalBadges) * 100);
+  const earnedBadges = badges.filter((badge) => badge.earned || badge.earnedAt);
+  const totalBadges = badgeStats?.totalBadges ?? badges.length;
+  const completionRate =
+    progressSummary?.completionPercentage ??
+    (totalBadges
+      ? Math.round((earnedBadges.length / Math.max(totalBadges, 1)) * 100)
+      : 0);
+  const totalXp = userProfile?.xp ?? 0;
 
   if (loading) {
+    const placeholderBadges = Array.from({ length: 6 });
     return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-[rgba(var(--color-surface),0.6)] rounded w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-12 rounded border border-[var(--border-color)] bg-[rgba(var(--color-surface),0.6)]"
-              ></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="h-64 rounded border border-[var(--border-color)] bg-[rgba(var(--color-surface),0.6)]"
-              ></div>
-            ))}
-          </div>
+      <div className="max-w-7xl mx-auto p-6 space-y-8" aria-busy="true">
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+
+        <Card className="border border-[var(--border-color)]">
+          <CardContent className="space-y-6 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <Skeleton key={idx} className="h-12 w-full" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <Skeleton key={idx} className="h-12 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <Card
+              key={idx}
+              className="border border-[var(--border-color)] p-6 space-y-3"
+            >
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-3 w-full rounded-full" />
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {placeholderBadges.map((_, idx) => (
+            <Card
+              key={idx}
+              className="border border-[var(--border-color)]"
+            >
+              <CardContent className="p-6 space-y-4">
+                <div className="flex justify-center">
+                  <Skeleton className="h-16 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-5 w-3/4 mx-auto" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3 mx-auto" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full rounded-full" />
+                  <Skeleton className="h-3 w-3/4 rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -479,6 +447,12 @@ const BadgeGalleryPage = () => {
           Unlock achievements and showcase your progress
         </p>
       </div>
+
+      {error && (
+        <div className="border border-red-500/40 bg-red-500/10 text-red-400 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
 
       {/* Progress Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -512,7 +486,7 @@ const BadgeGalleryPage = () => {
         <Card className="border border-[var(--border-color)]">
           <CardContent className="p-6 text-center">
             <div className="text-3xl mb-2">⭐</div>
-            <div className="text-2xl font-bold text-primary-500">12,450</div>
+            <div className="text-2xl font-bold text-primary-500">{totalXp.toLocaleString()}</div>
             <div className="text-sm text-text-secondary">Total XP Earned</div>
           </CardContent>
         </Card>
@@ -615,7 +589,7 @@ const BadgeGalleryPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredBadges.map((badge) => (
           <Card
-            key={badge.id}
+            key={badge._id || badge.id}
             className="hover:shadow-lg transition-all duration-300 cursor-pointer border border-[var(--border-color)]"
             onClick={() => setBadgeModal({ open: true, badge })}
           >
@@ -676,43 +650,80 @@ const BadgeGalleryPage = () => {
 
                   {/* Requirements */}
                   <div className="mt-4 space-y-2">
-                    {badge.requirements.map((req, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        {req.completed ? (
-                          <CheckCircle className="w-4 h-4 text-success" />
-                        ) : (
-                          <Clock className="w-4 h-4 text-text-secondary" />
-                        )}
-                        <span
-                          className={
-                            req.completed
-                              ? "text-success"
-                              : "text-text-secondary"
-                          }
-                        >
-                          {req.text}
-                          {req.current !== undefined && (
-                            <span className="font-medium text-text-primary">
-                              {" "}
-                              ({req.current}/{req.target})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    ))}
+                    {Array.isArray(badge.requirements) &&
+                    badge.requirements.length > 0 ? (
+                      badge.requirements.map((req, index) => {
+                        const requirementText =
+                          req.text || req.name || "Requirement";
+                        const currentValue =
+                          req.current ?? req.value ?? undefined;
+                        const targetValue =
+                          req.target ?? req.required ?? req.goal ?? undefined;
+                        const showValues =
+                          typeof currentValue !== "undefined" &&
+                          typeof targetValue !== "undefined";
+
+                        return (
+                          <div
+                            key={`${requirementText}-${index}`}
+                            className="flex items-start gap-2 text-sm"
+                          >
+                            {req.completed ? (
+                              <CheckCircle className="w-4 h-4 mt-0.5 text-success" />
+                            ) : (
+                              <Clock className="w-4 h-4 mt-0.5 text-text-secondary" />
+                            )}
+                            <div>
+                              <span
+                                className={
+                                  req.completed
+                                    ? "text-success"
+                                    : "text-text-secondary"
+                                }
+                              >
+                                {requirementText}
+                                {showValues && (
+                                  <span className="font-medium text-text-primary">
+                                    {" "}
+                                    (
+                                    {formatRequirementValue(currentValue)}/
+                                    {formatRequirementValue(targetValue)})
+                                  </span>
+                                )}
+                              </span>
+                              {req.description && (
+                                <div className="text-xs text-text-secondary">
+                                  {req.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-text-secondary">
+                        Requirements will be announced soon.
+                      </p>
+                    )}
                   </div>
 
                   {/* Stats */}
                   <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                     <div className="flex items-center justify-between text-xs text-text-secondary">
-                      <span>{badge.earnedBy} earned</span>
                       <span>
-                        {Math.round((badge.earnedBy / badge.totalUsers) * 100)}%
-                        of users
+                        {(badge.analytics?.totalEarned ?? badge.earnedBy ?? 0).toLocaleString()} earned
                       </span>
+                      {typeof badge.analytics?.popularityScore === "number" && (
+                        <span>
+                          {Math.round(
+                            Math.min(
+                              badge.analytics.popularityScore * 100,
+                              100
+                            )
+                          )}
+                          % adoption
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -770,11 +781,13 @@ const BadgeGalleryPage = () => {
               {badgeModal.badge.description}
             </p>
             <div className="text-sm text-text-secondary">
-              Earned by {badgeModal.badge.earnedBy} users (
-              {Math.round(
-                (badgeModal.badge.earnedBy / badgeModal.badge.totalUsers) * 100
-              )}
-              %)
+              Earned by{" "}
+              {(
+                badgeModal.badge.analytics?.totalEarned ??
+                badgeModal.badge.earnedBy ??
+                0
+              ).toLocaleString()}{" "}
+              users
             </div>
           </div>
         )}

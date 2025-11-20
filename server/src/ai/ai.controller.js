@@ -4,6 +4,7 @@ const AISummaryService = require('../services/AISummaryService');
 const AIAnalyzerService = require('../services/AIAnalyzerService');
 const Blog = require('../models/blog.model');
 const logger = require('../utils/logger');
+const { UsageService, UsageLimitError, USAGE_TYPES } = require('../services/usageService');
 
 class AIController {
   constructor() {
@@ -15,6 +16,7 @@ class AIController {
 
   // TTS Endpoints
   async generateTTS(req, res) {
+    const usageType = USAGE_TYPES.AUDIO;
     try {
       const { 
         text, 
@@ -60,6 +62,8 @@ class AIController {
 
         content = blog.content;
       }
+
+      await UsageService.ensureWithinLimit(req.user.id, usageType);
 
       // Generate TTS
       const ttsResult = await this.ttsService.generateSpeech(content, {
@@ -113,6 +117,8 @@ class AIController {
         });
       }
 
+      const usage = await UsageService.recordUsage(req.user.id, usageType);
+
       res.json({
         success: true,
         ttsUrl: ttsResult.url,
@@ -123,10 +129,23 @@ class AIController {
           contentLength: content.length,
           wordCount: content.split(/\s+/).length,
           ...ttsResult.metadata
-        }
+        },
+        usage
       });
 
     } catch (error) {
+      if (error instanceof UsageLimitError) {
+        logger.warn('Daily audio generation limit reached', {
+          userId: req.user.id,
+          usage: error.usage
+        });
+        return res.status(429).json({
+          success: false,
+          message: 'Daily audio generation limit reached. Try again tomorrow.',
+          usage: error.usage
+        });
+      }
+
       logger.error('TTS generation failed:', error);
       res.status(500).json({ 
         message: 'TTS generation failed',
@@ -461,33 +480,25 @@ class AIController {
 
   // Summary Endpoints
   async generateSummary(req, res) {
+    const usageType = USAGE_TYPES.SUMMARY;
+
     try {
-      const { content, maxLength, style, includeKeyPoints, language } = req.body;
-      const { blogId } = req.params;
+              // If blogId is provided, get content from blog
+            if (blogId) {
+              blog = await Blog.findById(blogId);
+              if (!blog) {
+                return res.status(404).json({ message: 'Blog not found' });
+              }
+  
+              // User must be authenticated to generate a summary for a blog
+              if (!req.user) {
+                return res.status(401).json({ message: 'Unauthorized' });
+              }
+  
+              blogContent = blog.content;
+            }
 
-      if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
-        });
-      }
-
-      let blogContent = content;
-      let blog = null;
-
-      // If blogId is provided, get content from blog
-      if (blogId) {
-        blog = await Blog.findById(blogId);
-        if (!blog) {
-          return res.status(404).json({ message: 'Blog not found' });
-        }
-
-        // Check authorization
-        if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-          return res.status(403).json({ message: 'Forbidden' });
-        }
-
-        blogContent = blog.content;
-      }
+      await UsageService.ensureWithinLimit(req.user.id, usageType);
 
       // Generate summary
       const summary = await this.summaryService.generateSummary(blogContent, {
@@ -512,16 +523,31 @@ class AIController {
         });
       }
 
+      const usage = await UsageService.recordUsage(req.user.id, usageType);
+
       res.json({
         success: true,
         summary: summary.summary,
         keyPoints: summary.keyPoints,
         readingTime: summary.readingTime,
         confidence: summary.confidence,
-        metadata: summary.metadata
+        metadata: summary.metadata,
+        usage
       });
 
     } catch (error) {
+      if (error instanceof UsageLimitError) {
+        logger.warn('Daily summary limit reached', {
+          userId: req.user.id,
+          usage: error.usage
+        });
+        return res.status(429).json({
+          success: false,
+          message: 'Daily summary limit reached. Try again tomorrow.',
+          usage: error.usage
+        });
+      }
+
       logger.error('AI summary generation failed:', error);
       res.status(500).json({ 
         message: 'AI summary generation failed',
@@ -550,15 +576,13 @@ class AIController {
           return res.status(404).json({ message: 'Blog not found' });
         }
 
-        // Check authorization
-        if (blog.author.toString() !== req.user.id && req.user.role !== 'admin') {
-          return res.status(403).json({ message: 'Forbidden' });
+        // User must be authenticated to generate key points for a blog
+        if (!req.user) {
+          return res.status(401).json({ message: 'Unauthorized' });
         }
 
         blogContent = blog.content;
       }
-
-      // Generate key points
       const keyPoints = await this.summaryService.generateKeyPoints(blogContent, {
         maxPoints: maxPoints || 5,
         minLength: minLength || 10,

@@ -12,10 +12,10 @@ const TTSService = require('./services/TTSService');
 const swaggerDocument = require('../swagger.json');
 
 const { connectDB, checkDatabaseHealth, getDatabaseStats } = require('./config/connectDB');
-const { 
+const {
   apiLimiter,
   burstRateLimiter,
-  sensitiveOperationLimiter 
+  sensitiveOperationLimiter
 } = require('./middleware/rateLimiter');
 const {
   securityHeaders,
@@ -37,13 +37,13 @@ const { cleanupExpiredBlacklistedTokens } = require('./utils/cleanupTokens');
 let logger = console;
 try {
   logger = require('./utils/logger');
-} catch (e) {}
+} catch (e) { }
 
 // Production-safe logging
 let productionLogging = null;
 try {
   productionLogging = require('./config/logging');
-} catch (e) {}
+} catch (e) { }
 
 dotenv.config();
 
@@ -79,7 +79,7 @@ if (process.env.NODE_ENV !== 'test') {
       } else {
         logger.warn('Database not connected; running in degraded mode without DB');
       }
-      
+
       if (conn && process.env.ENABLE_IN_PROCESS_JOBS === 'true') {
         // Schedule cleanup of expired blacklisted tokens (run daily at 2 AM)
         setInterval(async () => {
@@ -92,7 +92,7 @@ if (process.env.NODE_ENV !== 'test') {
             logger.error('Scheduled token cleanup failed:', { message: error.message, name: error.name, code: error.code });
           }
         }, 24 * 60 * 60 * 1000); // 24 hours
-        
+
         // Run initial cleanup
         cleanupExpiredBlacklistedTokens().catch(error => {
           logger.error('Initial token cleanup failed:', { message: error.message, name: error.name, code: error.code });
@@ -169,16 +169,16 @@ if (process.env.ENABLE_COMPRESSION === 'true') {
 }
 
 // Body parsing middleware with enhanced limits
-app.use(express.json({ 
+app.use(express.json({
   limit: process.env.MAX_REQUEST_SIZE || '10mb',
   verify: (req, res, buf) => {
     // Store raw body for signature verification if needed
     req.rawBody = buf;
   }
 }));
-app.use(express.urlencoded({ 
-  extended: true, 
-  limit: process.env.MAX_REQUEST_SIZE || '10mb' 
+app.use(express.urlencoded({
+  extended: true,
+  limit: process.env.MAX_REQUEST_SIZE || '10mb'
 }));
 
 // Enhanced mongo sanitize middleware for Express 5 compatibility
@@ -186,9 +186,9 @@ const { sanitizeMongoQuery } = require('./utils/sanitize');
 
 const mongoSanitizeMiddleware = (obj) => {
   if (obj === null || typeof obj !== 'object') return obj;
-  
+
   const sanitized = Array.isArray(obj) ? [] : {};
-  
+
   // Comprehensive list of dangerous MongoDB operators
   const dangerousOperators = [
     '$where', '$regex', '$ne', '$gt', '$lt', '$gte', '$lte',
@@ -197,7 +197,7 @@ const mongoSanitizeMiddleware = (obj) => {
     '$text', '$search', '$language', '$caseSensitive', '$diacriticSensitive',
     '$expr', '$jsonSchema', '$geoIntersects', '$geoWithin', '$near', '$nearSphere'
   ];
-  
+
   for (const [key, value] of Object.entries(obj)) {
     // Block dangerous operators entirely
     if (dangerousOperators.includes(key) || key.startsWith('$')) {
@@ -209,11 +209,11 @@ const mongoSanitizeMiddleware = (obj) => {
       // Skip dangerous keys entirely instead of prefixing
       continue;
     }
-    
+
     // Recursively sanitize nested objects and arrays
     if (typeof value === 'object' && value !== null) {
       if (Array.isArray(value)) {
-        sanitized[key] = value.map(item => 
+        sanitized[key] = value.map(item =>
           typeof item === 'object' ? mongoSanitizeMiddleware(item) : item
         );
       } else {
@@ -223,7 +223,7 @@ const mongoSanitizeMiddleware = (obj) => {
       sanitized[key] = value;
     }
   }
-  
+
   return sanitized;
 };
 
@@ -313,7 +313,7 @@ app.get('/health', async (req, res) => {
       nodeVersion: process.version,
     }
   };
-  
+
   // Check database connection
   try {
     const dbHealth = await checkDatabaseHealth();
@@ -326,10 +326,10 @@ app.get('/health', async (req, res) => {
     health.status = 'unhealthy';
     logger.error('Database health check failed:', error);
   }
-  
+
   // Check Redis connection if enabled
   try {
-    const cacheService = require('./src/services/CacheService');
+    const cacheService = require('./services/CacheService');
     const cacheHealth = await cacheService.healthCheck();
     health.checks.redis = cacheHealth.status;
     health.cache = {
@@ -337,7 +337,7 @@ app.get('/health', async (req, res) => {
       connection: cacheHealth.connection || 'unknown',
       stats: cacheService.getStats()
     };
-    
+
     if (cacheHealth.status === 'unhealthy' && process.env.ENABLE_CACHING === 'true') {
       health.status = 'degraded'; // Don't mark as unhealthy since memory fallback works
     }
@@ -369,6 +369,8 @@ const audioStaticOptions = {
 app.use('/tts', express.static(path.join(__dirname, '../public/tts'), audioStaticOptions));
 app.use('/audio', express.static(path.join(__dirname, '../public/audio'), audioStaticOptions));
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads'), { maxAge: staticCacheMaxAge }));
+// Backward compatibility: also expose uploads under /api/uploads
+app.use('/api/uploads', express.static(path.join(__dirname, '../public/uploads'), { maxAge: staticCacheMaxAge }));
 
 // Swagger setup (disable in production)
 if (process.env.NODE_ENV !== 'production') {

@@ -1,610 +1,435 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
 } from "../components/ui/Card";
-import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import CustomDropdown from "../components/ui/CustomDropdown";
 import {
   TrendingUp,
-  TrendingDown,
-  Users,
-  Eye,
-  Heart,
-  MessageCircle,
-  Share,
-  Clock,
-  Calendar,
-  BarChart3,
-  PieChart,
-  Activity,
   Target,
-  Award,
-  BookOpen,
+  Activity,
+  Calendar,
+  Clock,
+  PieChart,
+  Heart,
 } from "lucide-react";
+import dashboardService from "../services/dashboardService";
+import useAnalyticsPreferences from "../hooks/useAnalyticsPreferences";
+
+const timeOptions = [
+  { id: "7d", name: "Last 7 days" },
+  { id: "30d", name: "Last 30 days" },
+  { id: "90d", name: "Last 90 days" },
+  { id: "1y", name: "Last year" },
+];
+
+const metricOptions = [
+  { id: "views", name: "Views" },
+  { id: "likes", name: "Likes" },
+  { id: "engagement", name: "Engagement" },
+];
+
+const ageGroups = [
+  { range: "13-17", value: 8 },
+  { range: "18-24", value: 28 },
+  { range: "25-34", value: 32 },
+  { range: "35-44", value: 20 },
+  { range: "45-54", value: 7 },
+  { range: "55-64", value: 4 },
+  { range: "65+", value: 1 },
+];
+
+const locations = [
+  { label: "New York", value: 28 },
+  { label: "San Francisco", value: 22 },
+  { label: "London", value: 18 },
+  { label: "Toronto", value: 10 },
+  { label: "Bengaluru", value: 8 },
+];
+
+const bestTimes = [
+  { label: "8 AM", percentage: 85 },
+  { label: "12 PM", percentage: 72 },
+  { label: "6 PM", percentage: 64 },
+];
+
+const formatNumber = (value) =>
+  typeof value === "number" ? value.toLocaleString() : value;
 
 const AnalyticsPage = () => {
-  const [timeRange, setTimeRange] = useState("30d");
-  const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const timeOptions = [
-    { id: "7d", name: "Last 7 days" },
-    { id: "30d", name: "Last 30 days" },
-    { id: "90d", name: "Last 90 days" },
-    { id: "1y", name: "Last year" },
-  ];
+  const {
+    timeRange,
+    setTimeRange,
+    preferredMetric,
+    setPreferredMetric,
+  } = useAnalyticsPreferences();
+  const [dashboardOverview, setDashboardOverview] = useState(null);
+  const [personalAnalytics, setPersonalAnalytics] = useState(null);
+  const [activity, setActivity] = useState([]);
+  const [loading, setLoading] = useState({
+    overview: true,
+    personal: true,
+    activity: true,
+  });
+  const [errors, setErrors] = useState({
+    overview: null,
+    personal: null,
+    activity: null,
+  });
+
+  const primaryMetric = useMemo(() => {
+    const stats = personalAnalytics?.stats;
+    if (!stats) return null;
+    if (preferredMetric === "likes") {
+      return {
+        label: "Total likes",
+        value: stats.totalLikes,
+        detail: `${stats.totalLikes} total likes`,
+      };
+    }
+    if (preferredMetric === "engagement") {
+      return {
+        label: "Engagement rate",
+        value: `${stats.engagementRate}%`,
+        detail: `${stats.engagementRate}% of viewers interact`,
+      };
+    }
+    return {
+      label: "Total views",
+      value: stats.totalViews,
+      detail: `${stats.totalViews} page views`,
+    };
+  }, [personalAnalytics, preferredMetric]);
+
+  const loadOverview = async () => {
+    setLoading((prev) => ({ ...prev, overview: true }));
+    try {
+    const data = await dashboardService.getDashboardData();
+    setDashboardOverview(data);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        overview: "Unable to load overview.",
+      }));
+    } finally {
+      setLoading((prev) => ({ ...prev, overview: false }));
+    }
+  };
+
+  const loadPersonalAnalytics = async () => {
+    setLoading((prev) => ({ ...prev, personal: true }));
+    try {
+      const data = await dashboardService.getPersonalAnalytics(timeRange);
+      setPersonalAnalytics(data);
+      setErrors((prev) => ({ ...prev, personal: null }));
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        personal: "Could not load personalized analytics.",
+      }));
+    } finally {
+      setLoading((prev) => ({ ...prev, personal: false }));
+    }
+  };
+
+  const loadActivity = async () => {
+    setLoading((prev) => ({ ...prev, activity: true }));
+    try {
+      const data = await dashboardService.getRecentActivity(6);
+      setActivity(data);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        activity: "Could not load activity feed.",
+      }));
+    } finally {
+      setLoading((prev) => ({ ...prev, activity: false }));
+    }
+  };
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setAnalytics({
-        overview: {
-          totalViews: 89234,
-          totalLikes: 15420,
-          totalComments: 3240,
-          totalShares: 1890,
-          avgReadTime: 4.2,
-          bounceRate: 23.5,
-          engagementRate: 8.7,
-        },
-        trends: {
-          views: { current: 89234, previous: 78456, change: 13.7 },
-          likes: { current: 15420, previous: 14230, change: 8.4 },
-          comments: { current: 3240, previous: 2890, change: 12.1 },
-          shares: { current: 1890, previous: 1650, change: 14.5 },
-        },
-        topPosts: [
-          {
-            id: 1,
-            title: "The Future of AI in Content Creation",
-            views: 15420,
-            likes: 1240,
-            comments: 89,
-            shares: 156,
-            avgReadTime: 6.2,
-            engagementRate: 9.8,
-          },
-          {
-            id: 2,
-            title: "Building a Successful Blog Series",
-            views: 12340,
-            likes: 890,
-            comments: 67,
-            shares: 123,
-            avgReadTime: 8.1,
-            engagementRate: 8.7,
-          },
-          {
-            id: 3,
-            title: "Voice-to-Text: The Next Big Thing",
-            views: 9876,
-            likes: 756,
-            comments: 45,
-            shares: 98,
-            avgReadTime: 5.4,
-            engagementRate: 9.1,
-          },
-        ],
-        audienceInsights: {
-          demographics: {
-            ageGroups: [
-              { range: "18-24", percentage: 25 },
-              { range: "25-34", percentage: 35 },
-              { range: "35-44", percentage: 22 },
-              { range: "45+", percentage: 18 },
-            ],
-            locations: [
-              { country: "United States", percentage: 45 },
-              { country: "United Kingdom", percentage: 18 },
-              { country: "Canada", percentage: 12 },
-              { country: "Australia", percentage: 8 },
-              { country: "Others", percentage: 17 },
-            ],
-          },
-          devices: [
-            { type: "Desktop", percentage: 52 },
-            { type: "Mobile", percentage: 38 },
-            { type: "Tablet", percentage: 10 },
-          ],
-          sources: [
-            { source: "Direct", percentage: 35 },
-            { source: "Social Media", percentage: 28 },
-            { source: "Search", percentage: 22 },
-            { source: "Referral", percentage: 15 },
-          ],
-        },
-        engagementMetrics: {
-          scrollDepth: [
-            { depth: "25%", percentage: 85 },
-            { depth: "50%", percentage: 62 },
-            { depth: "75%", percentage: 38 },
-            { depth: "100%", percentage: 24 },
-          ],
-          timeOnPage: [
-            { range: "0-30s", percentage: 25 },
-            { range: "30s-2min", percentage: 35 },
-            { range: "2-5min", percentage: 28 },
-            { range: "5min+", percentage: 12 },
-          ],
-        },
-      });
-      setLoading(false);
-    }, 1000);
+    loadOverview();
+    loadActivity();
+    loadPersonalAnalytics();
+  }, []);
+
+  useEffect(() => {
+    loadPersonalAnalytics();
   }, [timeRange]);
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-64 bg-gray-200 rounded"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const getTrendIcon = (change) => {
-    if (change > 0) return <TrendingUp className="w-4 h-4 text-success" />;
-    if (change < 0) return <TrendingDown className="w-4 h-4 text-error" />;
-    return <Activity className="w-4 h-4 text-text-secondary" />;
+  const handleDownloadReport = () => {
+    window.print();
   };
 
-  const getTrendColor = (change) => {
-    if (change > 0) return "text-success";
-    if (change < 0) return "text-error";
-    return "text-text-secondary";
-  };
+  const summaryCards = useMemo(() => {
+    if (!dashboardOverview?.stats) return [];
+    const stats = dashboardOverview.stats;
+    return [
+      {
+        label: "Total followers",
+        value: formatNumber(dashboardOverview.stats?.followerCount || 0),
+        icon: <Target className="w-5 h-5 text-primary-500" />,
+      },
+      {
+        label: "Total likes",
+        value: formatNumber(stats.totalLikes),
+        icon: <Heart className="w-5 h-5 text-primary-500" />,
+      },
+      {
+        label: "Total comments",
+        value: formatNumber(stats.totalComments),
+        icon: <Activity className="w-5 h-5 text-primary-500" />,
+      },
+    ];
+  }, [dashboardOverview]);
+
+  const normalizedAgeGroups = useMemo(() => {
+    const groups = personalAnalytics?.audience?.ageGroups || ageGroups;
+    const total = groups.reduce((sum, group) => sum + (group.value || 0), 0);
+
+    return groups.map((group) => {
+      const value = group.value || 0;
+      const percent = total ? Math.round((value / total) * 100) : 0;
+      return {
+        range: group.range || group.label || "—",
+        value: percent,
+        raw: value,
+      };
+    });
+  }, [personalAnalytics]);
+
+  const normalizedLocations = useMemo(() => {
+    const locs = personalAnalytics?.audience?.locations || locations;
+    const total = locs.reduce((sum, loc) => sum + (loc.value || 0), 0);
+
+    return locs.map((loc) => {
+      const value = loc.value || 0;
+      const percent = total ? Math.round((value / total) * 100) : 0;
+      return {
+        label: loc.label,
+        value: percent,
+        raw: value,
+      };
+    });
+  }, [personalAnalytics]);
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-text-primary">
-            Analytics Dashboard
-          </h1>
-          <p className="text-text-secondary">
-            Track your content performance and audience insights
-          </p>
+    <div className="space-y-8 print:p-0 print:bg-white bg-surface-light text-text-primary">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <h2 className="text-2xl font-semibold">Analytics & Personalization</h2>
+        <Button variant="secondary" onClick={handleDownloadReport}>
+          Download PDF Report
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <div className="w-full lg:w-1/3 grid gap-3">
+          {summaryCards.map((card) => (
+            <Card key={card.label}>
+              <CardContent className="flex items-center gap-4">
+                <div className="p-3 bg-primary-100 rounded-lg">{card.icon}</div>
+                <div>
+                  <p className="text-xs text-text-secondary">{card.label}</p>
+                  <p className="text-2xl font-semibold">{card.value}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <CustomDropdown
-            value={timeRange}
-            onChange={(val) => setTimeRange(val)}
-            options={timeOptions}
-            optionLabelKey="name"
-            optionValueKey="id"
-            placeholder="Select time range"
-            className="w-full"
-          />
-          <Button variant="outline">
-            <Calendar className="w-4 h-4 mr-2" />
-            Export Report
-          </Button>
+        <div className="w-full lg:w-2/3 grid gap-4">
+          <Card>
+            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary-500" />
+                Growth ({timeRange})
+              </CardTitle>
+              <div className="flex gap-3">
+                <CustomDropdown
+                  label="Time Range"
+                  options={timeOptions}
+                  value={timeRange}
+                  onChange={setTimeRange}
+                  variant="ghost"
+                />
+                <CustomDropdown
+                  label="Focus Metric"
+                  options={metricOptions}
+                  value={preferredMetric}
+                  onChange={setPreferredMetric}
+                  variant="ghost"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {errors.personal && <p className="text-sm text-error-500">{errors.personal}</p>}
+              {loading.personal ? (
+                <p className="text-sm text-text-secondary">Loading growth chart…</p>
+              ) : personalAnalytics?.timeline?.length === 0 ? (
+                <p className="text-sm text-text-secondary">Waiting for data.</p>
+              ) : (
+                <Analytics3DBarChart data={personalAnalytics?.timeline || []} />
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary-500" />
+                Focus Metric
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+            {loading.overview ? (
+              <p className="text-sm text-text-secondary">Loading focus metrics…</p>
+            ) : personalAnalytics ? (
+              <>
+                <p className="text-xs text-text-secondary">{primaryMetric?.label}</p>
+                <p className="text-3xl font-semibold text-text-primary">
+                  {primaryMetric?.value?.toLocaleString
+                      ? primaryMetric.value.toLocaleString()
+                      : primaryMetric?.value || "—"}
+                  </p>
+                  <p className="text-sm text-text-secondary">{primaryMetric?.detail}</p>
+                </>
+              ) : (
+                <p className="text-sm text-text-secondary">No data yet.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-text-secondary" />
+          <CardHeader>
+            <CardTitle>Age Range</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {analytics.overview.totalViews.toLocaleString()}
-            </div>
-            <div className="flex items-center gap-1 mt-1 font-medium">
-              {getTrendIcon(analytics.trends.views.change)}
-              <span
-                className={`text-sm ${getTrendColor(analytics.trends.views.change)}`}
-              >
-                {analytics.trends.views.change > 0 ? "+" : ""}
-                {analytics.trends.views.change}%
-              </span>
-              <span className="text-sm text-text-secondary">
-                vs last period
-              </span>
-            </div>
+            {normalizedAgeGroups.map((group) => (
+              <div key={group.range} className="flex items-center gap-3 mb-3">
+                <div className="text-xs w-12 text-text-secondary">{group.range}</div>
+                <div className="flex-1 bg-secondary-100 h-2 rounded-full">
+                  <div
+                    className="bg-primary-500 h-2 rounded-full"
+                    style={{ width: `${group.value}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs text-text-primary">{group.value}%</span>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Likes</CardTitle>
-            <Heart className="h-4 w-4 text-text-secondary" />
+          <CardHeader>
+            <CardTitle>Top Locations</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {analytics.overview.totalLikes.toLocaleString()}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {getTrendIcon(analytics.trends.likes.change)}
-              <span
-                className={`text-sm ${getTrendColor(analytics.trends.likes.change)}`}
-              >
-                {analytics.trends.likes.change > 0 ? "+" : ""}
-                {analytics.trends.likes.change}%
-              </span>
-              <span className="text-sm text-text-secondary">
-                vs last period
-              </span>
-            </div>
+            {normalizedLocations.map((loc) => (
+              <div key={loc.label} className="flex items-center justify-between mb-3 text-sm text-text-secondary">
+                <span>{loc.label}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 bg-secondary-100 h-2 rounded-full">
+                    <div className="bg-accent h-2 rounded-full" style={{ width: `${loc.value}%` }}></div>
+                  </div>
+                  <span className="text-text-primary">{loc.value}%</span>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Comments</CardTitle>
-            <MessageCircle className="h-4 w-4 text-text-secondary" />
+          <CardHeader>
+            <CardTitle>Best Times to Publish</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {analytics.overview.totalComments.toLocaleString()}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {getTrendIcon(analytics.trends.comments.change)}
-              <span
-                className={`text-sm ${getTrendColor(analytics.trends.comments.change)}`}
-              >
-                {analytics.trends.comments.change > 0 ? "+" : ""}
-                {analytics.trends.comments.change}%
-              </span>
-              <span className="text-sm text-text-secondary">
-                vs last period
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shares</CardTitle>
-            <Share className="h-4 w-4 text-text-secondary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {analytics.overview.totalShares.toLocaleString()}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {getTrendIcon(analytics.trends.shares.change)}
-              <span
-                className={`text-sm ${getTrendColor(analytics.trends.shares.change)}`}
-              >
-                {analytics.trends.shares.change > 0 ? "+" : ""}
-                {analytics.trends.shares.change}%
-              </span>
-              <span className="text-sm text-text-secondary">
-                vs last period
-              </span>
-            </div>
+          <CardContent className="flex flex-col gap-3">
+            {(() => {
+              const raw = personalAnalytics?.bestTimes || bestTimes;
+              const maxValue = Math.max(...raw.map((item) => item.value ?? item.percentage ?? 0), 1);
+              return raw.map((time) => {
+                const value = time.value ?? time.percentage ?? 0;
+                const percentage = time.percentage ?? Math.round((value / maxValue) * 100);
+                return (
+                  <div key={time.label} className="flex items-center justify-between">
+                    <span className="text-sm text-text-secondary">{time.label}</span>
+                    <span className="text-sm font-semibold">{percentage}% engagement</span>
+                  </div>
+                );
+              });
+            })()}
           </CardContent>
         </Card>
       </div>
 
-      {/* Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <Clock className="w-5 h-5 text-primary-500" />
-              Average Read Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-medium text-primary-500 mb-2 ">
-              {analytics.overview.avgReadTime} min
-            </div>
-            <p className="text-sm text-text-secondary">
-              Time readers spend on your content
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <Target className="w-5 h-5 text-success" />
-              Engagement Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-medium text-success mb-2 ">
-              {analytics.overview.engagementRate}%
-            </div>
-            <p className="text-sm text-text-secondary">
-              Likes, comments, and shares per view
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <Activity className="w-5 h-5 text-warning" />
-              Bounce Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-medium text-warning mb-2">
-              {analytics.overview.bounceRate}%
-            </div>
-            <p className="text-sm text-text-secondary">
-              Readers who leave after one page
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Performing Posts */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-medium">
-            <Award className="w-5 h-5 text-primary-500" />
-            Top Performing Posts
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary-500" />
+            Recent Activity
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {analytics.topPosts.map((post, index) => (
-              <div
-                key={post.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-[var(--border-color)] hover:bg-surface transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-primary-600">
-                      #{index + 1}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-text-primary">
-                      {post.title}
-                    </h3>
-                    <div className="flex items-center gap-4 text-sm text-text-secondary mt-1">
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-4 h-4" />
-                        {post.views.toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-4 h-4" />
-                        {post.likes.toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MessageCircle className="w-4 h-4" />
-                        {post.comments}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Share className="w-4 h-4" />
-                        {post.shares}
-                      </span>
-                    </div>
-                  </div>
+          {errors.activity && <p className="text-sm text-error-500">{errors.activity}</p>}
+          {loading.activity ? (
+            <p className="text-sm text-text-secondary">Loading activity feed…</p>
+          ) : activity.length === 0 ? (
+            <p className="text-sm text-text-secondary">No recent activity to display.</p>
+          ) : (
+            <div className="grid gap-3">
+              {activity.map((item, index) => (
+                <div key={`${item.title}-${index}`} className="border border-border rounded-lg p-3 bg-white">
+                  <p className="text-sm font-semibold text-text-primary">{item.title}</p>
+                  <p className="text-xs text-text-secondary">{item.description}</p>
+                  <p className="text-[0.7rem] text-text-secondary mt-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(item.timestamp).toLocaleString()}
+                  </p>
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-medium text-success">
-                    {post.engagementRate}%
-                  </div>
-                  <div className="text-sm text-text-secondary">Engagement</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+    </div>
+  );
+};
 
-      {/* Audience Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Demographics */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <Users className="w-5 h-5 text-primary-500" />
-              Audience Demographics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <h4 className="font-medium text-text-primary mb-3">
-                  Age Groups
-                </h4>
-                <div className="space-y-2">
-                  {analytics.audienceInsights.demographics.ageGroups.map(
-                    (group) => (
-                      <div
-                        key={group.range}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="text-sm text-text-secondary">
-                          {group.range}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 bg-secondary-100 rounded-full h-2">
-                            <div
-                              className="bg-primary-500 h-2 rounded-full"
-                              style={{ width: `${group.percentage}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium text-text-primary w-8">
-                            {group.percentage}%
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-text-primary mb-3">
-                  Top Locations
-                </h4>
-                <div className="space-y-2">
-                  {analytics.audienceInsights.demographics.locations.map(
-                    (location) => (
-                      <div
-                        key={location.country}
-                        className="flex items-center justify-between"
-                      >
-                        <span className="text-sm text-text-secondary">
-                          {location.country}
-                        </span>
-                        <span className="text-sm font-medium text-text-primary">
-                          {location.percentage}%
-                        </span>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Traffic Sources & Devices */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <BarChart3 className="w-5 h-5 text-primary-500" />
-              Traffic Sources & Devices
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <h4 className="font-medium text-text-primary mb-3">
-                  Traffic Sources
-                </h4>
-                <div className="space-y-2">
-                  {analytics.audienceInsights.sources.map((source) => (
-                    <div
-                      key={source.source}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-sm text-text-secondary">
-                        {source.source}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 bg-secondary-100 rounded-full h-2">
-                          <div
-                            className="bg-accent h-2 rounded-full"
-                            style={{ width: `${source.percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium text-text-primary w-8">
-                          {source.percentage}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-text-primary mb-3">Devices</h4>
-                <div className="space-y-2">
-                  {analytics.audienceInsights.devices.map((device) => (
-                    <div
-                      key={device.type}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-sm text-text-secondary">
-                        {device.type}
-                      </span>
-                      <span className="text-sm font-medium text-text-primary">
-                        {device.percentage}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Engagement Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <PieChart className="w-5 h-5 text-primary-500" />
-              Scroll Depth
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {analytics.engagementMetrics.scrollDepth.map((metric) => (
+const Analytics3DBarChart = ({ data }) => {
+  const maxValue = Math.max(...data.map((entry) => entry.value || 0), 1);
+  return (
+    <div className="relative h-48" style={{ perspective: 800 }}>
+      <div className="absolute inset-0 grid grid-cols-5 items-end gap-3 px-2">
+        {data.map((entry) => {
+          const height = ((entry.value || 0) / maxValue) * 100;
+          return (
+            <div key={entry.label} className="flex flex-col items-center">
+              <div
+                className="relative w-11/12 bg-transparent"
+                style={{ height: `${height}%` }}
+              >
                 <div
-                  key={metric.depth}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm text-text-secondary">
-                    {metric.depth}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 bg-secondary-100 rounded-full h-2">
-                      <div
-                        className="bg-success h-2 rounded-full"
-                        style={{ width: `${metric.percentage}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium text-text-primary w-8">
-                      {metric.percentage}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-medium">
-              <Clock className="w-5 h-5 text-primary-500" />
-              Time on Page
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {analytics.engagementMetrics.timeOnPage.map((metric) => (
+                  className="absolute inset-0 rounded-sm bg-gradient-to-br from-primary-500 to-fuchsia-500 shadow-2xl"
+                  style={{
+                    transform: "skewX(-15deg) translateZ(0)",
+                    transformOrigin: "bottom left",
+                  }}
+                ></div>
                 <div
-                  key={metric.range}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm text-text-secondary">
-                    {metric.range}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 bg-secondary-100 rounded-full h-2">
-                      <div
-                        className="bg-warning h-2 rounded-full"
-                        style={{ width: `${metric.percentage}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium text-text-primary w-8">
-                      {metric.percentage}%
-                    </span>
-                  </div>
-                </div>
-              ))}
+                  className="absolute inset-0 rounded-sm bg-gradient-to-tl from-white/30 to-transparent"
+                  style={{
+                    transform: "translateY(-50%) scale(0.9) rotateX(60deg)",
+                    transformOrigin: "center",
+                  }}
+                ></div>
+              </div>
+              <p className="text-xs text-text-secondary mt-2">{entry.label}</p>
             </div>
-          </CardContent>
-        </Card>
+          );
+        })}
       </div>
     </div>
   );

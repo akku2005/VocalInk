@@ -57,8 +57,7 @@ const AccountTab = ({
       console.log('Saving Account settings:', settings.account);
       
       const accountData = {
-        visibility: settings.account.accountVisibility,
-        postVisibility: settings.account.postVisibility,
+        accountVisibility: settings.account.accountVisibility,
         emailNotifications: settings.account.emailNotifications,
         pushNotifications: settings.account.pushNotifications,
         marketingEmails: settings.account.marketingEmails

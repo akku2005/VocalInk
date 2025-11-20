@@ -2,6 +2,7 @@ const Blog = require('../models/blog.model');
 const User = require('../models/user.model');
 const Comment = require('../models/comment.model');
 const logger = require('../utils/logger');
+const AnalyticsService = require('../services/analyticsService');
 
 /**
  * Get comprehensive dashboard data for authenticated user
@@ -195,7 +196,7 @@ exports.getTopBlogs = async (req, res) => {
 };
 
 /**
- * Get user's analytics over time
+* Get user's analytics over time
  * @route GET /api/dashboard/analytics
  * @access Private
  */
@@ -264,6 +265,27 @@ exports.getAnalytics = async (req, res) => {
   } catch (error) {
     logger.error('Error fetching analytics:', error);
     res.status(500).json({ message: 'Failed to fetch analytics' });
+  }
+};
+
+/**
+ * Get richer personalized analytics for the current user
+ * @route GET /api/dashboard/personal-analytics
+ * @access Private
+ */
+exports.getPersonalAnalytics = async (req, res) => {
+  try {
+    const analytics = await AnalyticsService.getPersonalAnalytics(
+      req.user,
+      req.query.period
+    );
+    res.json(analytics);
+  } catch (error) {
+    logger.error('Error fetching personal analytics:', error);
+    res.status(500).json({
+      message: 'Failed to fetch personalized analytics',
+      error: error.message,
+    });
   }
 };
 

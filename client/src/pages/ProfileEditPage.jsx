@@ -20,6 +20,7 @@ import {
   Image as ImageIcon,
   Camera
 } from 'lucide-react';
+import { storage } from '../utils/storage';
 
 const ProfileEditPage = () => {
   const navigate = useNavigate();
@@ -137,27 +138,36 @@ const ProfileEditPage = () => {
     try {
       setUploadingImage(true);
       
-      // Create FormData
       const formData = new FormData();
-      formData.append('file', file);
+      let url = '/api/images/upload';
+      if (type === 'avatar') {
+        url = '/api/images/avatar';
+        formData.append('avatar', file);
+      } else if (type === 'coverImage') {
+        url = '/api/images/cover';
+        formData.append('coverImage', file);
+      } else {
+        formData.append('file', file);
+      }
 
       // Upload image
-      const response = await fetch('/api/uploads/image', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: formData
-      });
+        const headers = {};
+        if (storage.available) {
+          const token = storage.getItem('accessToken');
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: formData
+        });
 
       if (!response.ok) {
         throw new Error('Failed to upload image');
       }
 
       const result = await response.json();
-      
-      // Update form data and preview
-      const imageUrl = result.url;
+      const imageUrl = result.data?.avatar || result.data?.coverImage || result.url || result.data?.url;
       setFormData(prev => ({
         ...prev,
         [type]: imageUrl
@@ -756,4 +766,4 @@ const ProfileEditPage = () => {
   );
 };
 
-export default ProfileEditPage; 
+export default ProfileEditPage;

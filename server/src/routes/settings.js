@@ -15,6 +15,7 @@ router.patch('/ai', protect, settingsController.updateAI);
 router.patch('/gamification', protect, settingsController.updateGamification);
 router.patch('/appearance', protect, settingsController.updateAppearance);
 router.patch('/security', protect, settingsController.updateSecurity);
+router.delete('/sessions/history', protect, settingsController.clearLoginHistory);
 
 // Password management
 router.patch('/change-password', protect, settingsController.changePassword);

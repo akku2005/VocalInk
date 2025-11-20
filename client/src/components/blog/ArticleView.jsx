@@ -1,49 +1,67 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Volume2, MessageCircle, BookmarkIcon, ShareIcon, Edit, Trash2, MoreVertical } from "lucide-react";
-import image3 from "../../assets/images/image3.jpg";
+import { Volume2, MessageCircle, BookmarkIcon, ShareIcon, Edit, Trash2, MoreVertical, Sparkles, RefreshCw, ChevronDown, User } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import IconButton from "../ui/IconButton.jsx";
 import Button from "../ui/Button.jsx";
 import EngagementButtons from "../engagement/EngagementButtons";
 import AudioPlayer from "../audio/AudioPlayer";
 import CommentList from "../comment/CommentList";
+import LoginPromptModal from "../auth/LoginPromptModal";
+import RelatedBlogs from "./RelatedBlogs";
 import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/useToast";
+import { buildQuotaToastPayload } from "../../utils/quotaToast";
 import blogService from "../../services/blogService";
+import { resolveAssetUrl } from "../../constants/apiConfig";
+
+const normalizeArticleContent = (html) => {
+  if (!html || typeof html !== 'string') return '';
+  return html
+    .replaceAll('src="/api/uploads/', 'src="/uploads/')
+    .replace(/(src|href)\s*=\s*(['"])image\/([a-zA-Z0-9+]+);base64,/gi, (match, attr, quote, type) => {
+      return `${attr}=${quote}data:image/${type};base64,`;
+    })
+    .replace(/url\((['"]?)\s*image\/([a-zA-Z0-9+]+);base64,/gi, (match, quote, type) => {
+      return `url(${quote}data:image/${type};base64,`;
+    });
+};
 
 export default function ArticleView() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, isAuthenticated } = useAuth();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showComments, setShowComments] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
-  const [showActions, setShowActions] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [toc, setToc] = useState([]);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
   const commentsSectionRef = useRef(null);
-  
+  const { showInfo, showError } = useToast();
+
   useEffect(() => {
     const fetchBlog = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await blogService.getBlogById(id);
-        
-        // Handle different response structures
+        const response = await blogService.getBlogBySlug(slug);
         const blogData = response?.data || response;
-        
+
         if (blogData) {
           // Extract author information properly
           let authorName = 'Anonymous';
           let authorId = null;
-          
+          let authorBio = null;
+          let authorAvatar = null;
+
           if (blogData.author) {
             if (typeof blogData.author === 'object' && blogData.author !== null) {
-              // Author is populated object
-              // Try to get name from various fields
               if (blogData.author.displayName) {
                 authorName = blogData.author.displayName;
               } else if (blogData.author.firstName || blogData.author.lastName) {
@@ -53,21 +71,24 @@ export default function ArticleView() {
               } else if (blogData.author.email) {
                 authorName = blogData.author.email.split('@')[0];
               }
-              
+
               authorId = blogData.author._id || blogData.author.id;
+              authorBio = blogData.author.bio;
+              authorAvatar = blogData.author.avatar;
             } else if (typeof blogData.author === 'string') {
-              // Author is just an ID string
               authorId = blogData.author;
               authorName = 'User';
             }
           }
-          
+
           setArticle({
             id: blogData._id,
             title: blogData.title,
             content: blogData.content,
             author: authorName,
             authorId: authorId,
+            authorBio: authorBio,
+            authorAvatar: authorAvatar,
             summary: blogData.summary,
             tags: blogData.tags || [],
             mood: blogData.mood,
@@ -83,8 +104,7 @@ export default function ArticleView() {
             ttsUrl: blogData.ttsUrl || null,
             audioDuration: blogData.audioDuration || null,
           });
-          
-          // Set cached audio URL if available
+
           if (blogData.ttsUrl) {
             setAudioUrl(blogData.ttsUrl);
           }
@@ -99,69 +119,84 @@ export default function ArticleView() {
       }
     };
 
-    if (id) {
-      fetchBlog();
+    if (!slug) {
+      setError('No article specified');
+      setLoading(false);
+      return;
     }
-  }, [id]);
 
-  // Handle hash navigation to comments
+    fetchBlog();
+  }, [slug]);
+
+  // Parse Table of Contents
+  useEffect(() => {
+    if (article?.content) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(article.content, 'text/html');
+      const headings = Array.from(doc.querySelectorAll('h2, h3'));
+      const tocItems = headings.map((heading, index) => {
+        const id = heading.id || `heading-${index}`;
+        // We need to ensure the actual rendered HTML has these IDs. 
+        // Since we use dangerouslySetInnerHTML, we can't easily inject IDs into the DOM *before* render without modifying the HTML string.
+        // For now, we'll assume the content might not have IDs and we'll just use the text for display. 
+        // To make scrolling work, we'd need to modify the HTML content to include IDs.
+        return {
+          id,
+          text: heading.textContent,
+          level: heading.tagName.toLowerCase()
+        };
+      });
+      setToc(tocItems);
+    }
+  }, [article]);
+
+  // Handle hash navigation
   useEffect(() => {
     if (window.location.hash === '#comments') {
       setShowComments(true);
-      // Scroll to comments after a short delay to ensure it's rendered
       setTimeout(() => {
         if (commentsSectionRef.current) {
-          commentsSectionRef.current.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-          });
+          commentsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 300);
     }
-  }, [id]);
+  }, [slug]);
 
   const handleCommentClick = () => {
     setShowComments(true);
-    
-    // Auto-scroll to comments section after a short delay to ensure it's rendered
     setTimeout(() => {
       if (commentsSectionRef.current) {
-        commentsSectionRef.current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
+        commentsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }, 100);
   };
 
-  // Check if current user can edit/delete this blog
+  const handleQuotaToast = (usage, type, isError = false) => {
+    const payload = buildQuotaToastPayload({ usage, type, isError });
+    if (!payload) return;
+    const show = isError ? showError : showInfo;
+    show(payload.message, {
+      title: payload.title,
+      countdownExpiresAt: payload.countdownExpiresAt,
+      duration: isError ? 6000 : 5000,
+    });
+  };
+
   const canModifyBlog = () => {
     if (!user || !article) return false;
-    
-    // Admin can modify any blog
-    if (user.role === 'admin' || userProfile?.role === 'admin') {
-      return true;
-    }
-    
-    // Owner can modify their own blog
+    if (user.role === 'admin' || userProfile?.role === 'admin') return true;
     const currentUserId = user._id || user.id || userProfile?._id || userProfile?.id;
     const authorId = article.authorId;
-    
     return currentUserId && authorId && currentUserId.toString() === authorId.toString();
   };
 
-  const handleEdit = () => {
-    navigate(`/edit-blog/${id}`);
-  };
+  const handleEdit = () => navigate(`/edit-blog/${article.id}`);
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this blog? This action cannot be undone.')) {
-      return;
-    }
-
+    if (!window.confirm('Are you sure you want to delete this blog? This action cannot be undone.')) return;
     setDeleting(true);
     try {
-      await blogService.deleteBlog(id);
+      await blogService.deleteBlog(article.id);
       alert('Blog deleted successfully!');
       navigate('/blogs');
     } catch (error) {
@@ -173,14 +208,22 @@ export default function ArticleView() {
   };
 
   const regenerateSummary = async () => {
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true);
+      return;
+    }
     try {
       setSummaryLoading(true);
       setSummaryError(null);
-      const res = await blogService.regenerateSummary(id, { maxLength: 250 });
+      const res = await blogService.regenerateSummary(article.id, { maxLength: 250 });
       const newSummary = res?.data?.summary || res?.summary || 'Summary updated';
+      const usage = res?.usage || res?.data?.usage;
+      handleQuotaToast(usage, 'summary');
       setArticle(prev => ({ ...prev, summary: newSummary }));
     } catch (error) {
       console.error('Error regenerating summary:', error);
+      const usage = error?.response?.data?.usage;
+      if (usage) handleQuotaToast(usage, 'summary', error?.response?.status === 429);
       setSummaryError(error?.response?.data?.message || 'Failed to regenerate summary');
     } finally {
       setSummaryLoading(false);
@@ -209,139 +252,242 @@ export default function ArticleView() {
     );
   }
 
-  const date = article.createdAt ? new Date(article.createdAt) : new Date();
-  const formattedDate = date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedDate = article.createdAt ? new Date(article.createdAt).toLocaleDateString("en-US", {
+    year: "numeric", month: "long", day: "numeric"
+  }) : '';
 
   return (
-    <div className="m-5.5 mb-0 flex justify-center ">
-      <div className="w-full max-w-[780px] flex flex-col gap-3 ">
-        <h1
-          className="text-3xl md:text-4xl font-bold leading-tight mb-2 p-4 pb-0 pt-0 mt-4 "
-          style={{ color: "var(--headings-color)" }}
-        >
-          {article.title}
-        </h1>
-        <div className="px-4">
-          <span
-            className="text-sm"
-            style={{ color: "var( --sub-heading-text)" }}
-          >
-            By{" "}
-            <button
-              onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}
-              style={{ color: "var( --links-color)" }}
-              className="font-medium hover:underline cursor-pointer bg-transparent border-none"
-              disabled={!article.authorId}
-            >
-              {article.author || 'Anonymous'}
-            </button>{" "}
-            . Published on {formattedDate}
-          </span>
-        </div>
-        
-        {/* Edit/Delete Actions for Owner and Admin */}
-        {canModifyBlog() && (
-          <div className="px-4 flex items-center gap-2 mt-2">
-            <button
-              onClick={handleEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-transparent border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500 transition-colors"
-            >
-              <Edit className="w-3.5 h-3.5" />
-              Edit
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-transparent border border-red-600 text-red-500 hover:bg-red-900/20 hover:border-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {deleting ? 'Deleting...' : 'Delete'}
-            </button>
-          </div>
-        )}
-        {/* Engagement Buttons */}
-        <div className="px-4 py-3 mt-3">
-          <EngagementButtons
-            blogId={id}
-            initialLikes={article.likes || 0}
-            initialComments={article.commentCount || 0}
-            initialBookmarks={article.bookmarks || 0}
-            isLiked={article.isLiked || false}
-            isBookmarked={article.isBookmarked || false}
-            onCommentClick={handleCommentClick}
-          />
-        </div>
+    <div className="min-h-screen bg-background pb-20">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
-        {/* AI Summary Controls */}
-        <div className="px-4 py-2 flex items-center gap-3">
-          <div className="flex-1 text-sm text-text-secondary">
-            {article.summary}
-          </div>
-          <button
-            onClick={regenerateSummary}
-            disabled={summaryLoading}
-            className="px-3 py-1.5 text-sm rounded-md border border-[var(--border-color)] bg-transparent hover:bg-surface disabled:opacity-50"
-            aria-label="Regenerate AI summary"
-          >
-            {summaryLoading ? 'Updating…' : 'Regenerate Summary'}
-          </button>
-        </div>
-        {summaryError && (
-          <div className="px-4 text-sm text-red-500">{summaryError}</div>
-        )}
+          {/* Main Content Column */}
+          <div className="lg:col-span-8">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-6 text-text-primary">
+                {article.title}
+              </h1>
 
-        {/* Audio Player */}
-        <div className="px-4 py-3">
-          <AudioPlayer
-            blogId={id}
-            blogTitle={article.title}
-            initialAudioUrl={audioUrl}
-            onAudioGenerated={setAudioUrl}
-          />
-        </div>
+              {/* Mobile Author Info (visible only on small screens) */}
+              <div className="lg:hidden flex items-center gap-3 mb-6 pb-6 border-b border-[var(--border-color)]">
+                <div className="w-10 h-10 rounded-full bg-surface-hover overflow-hidden">
+                  {article.authorAvatar ? (
+                    <img src={resolveAssetUrl(article.authorAvatar)} alt={article.author} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-primary-500/10 text-primary-500">
+                      <User className="w-5 h-5" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="font-medium text-text-primary">{article.author}</div>
+                  <div className="text-sm text-text-secondary">{formattedDate}</div>
+                </div>
+              </div>
+            </div>
 
-        {/* Cover Image */}
-        {article.coverImage && (
-          <figure className="my-7">
-            <img
-              src={article.coverImage}
-              alt={article.title}
-              className="w-full h-fit rounded-xl shadow-md"
+            {/* Cover Image */}
+            {article.coverImage && (
+              <figure className="mb-8 rounded-2xl overflow-hidden shadow-lg">
+                <img
+                  src={resolveAssetUrl(article.coverImage)}
+                  alt={article.title}
+                  className="w-full h-auto object-cover"
+                />
+              </figure>
+            )}
+
+            {/* AI Summary */}
+            <div className="mb-8 relative overflow-hidden rounded-xl border border-primary-500/20 bg-primary-500/5 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-primary-500">
+                  <Sparkles className="w-5 h-5" />
+                  <span className="text-sm font-bold uppercase tracking-wider">AI Summary</span>
+                </div>
+                <button
+                  onClick={regenerateSummary}
+                  disabled={summaryLoading}
+                  className="group flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-primary-500 bg-primary-500/5 hover:bg-primary-500/10 active:bg-primary-500/20 active:scale-95 transition-all duration-200 rounded-lg border border-primary-500/20 hover:border-primary-500/40 cursor-pointer shadow-sm hover:shadow"
+                  title="Regenerate Summary"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-500 ${summaryLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+                  <span>{summaryLoading ? 'Regenerating...' : 'Regenerate'}</span>
+                </button>
+              </div>
+              <div
+                className="text-text-secondary leading-relaxed [&>h2]:text-lg [&>h2]:font-semibold [&>h2]:text-text-primary [&>h2]:mb-2 [&>p]:mb-3 [&>*:last-child]:mb-0"
+                dangerouslySetInnerHTML={{ __html: normalizeArticleContent(article.summary || '') }}
+              />
+              {summaryError && <div className="mt-2 text-sm text-red-500">{summaryError}</div>}
+            </div>
+
+            {/* Audio Player */}
+            <div className="mb-8">
+              <AudioPlayer
+                blogId={article.id}
+                blogTitle={article.title}
+                initialAudioUrl={audioUrl}
+                onAudioGenerated={setAudioUrl}
+              />
+            </div>
+
+            {/* Blog Content with Read More */}
+            <div className="relative mb-12">
+              <div
+                className={`article-content prose prose-lg max-w-none dark:prose-invert prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-primary-500 hover:prose-a:text-primary-600 prose-strong:text-text-primary prose-code:text-primary-500 ${!isExpanded ? 'max-h-[600px] overflow-hidden' : ''}`}
+                dangerouslySetInnerHTML={{ __html: normalizeArticleContent(article.content || '') }}
+              />
+
+              {!isExpanded && (
+                <div className="absolute bottom-0 left-0 right-0 h-80 bg-gradient-to-t from-[rgb(var(--color-background))] via-[rgba(var(--color-background),0.9)] to-transparent flex items-end justify-center pb-8 pointer-events-none">
+                  <button
+                    onClick={() => setIsExpanded(true)}
+                    className="pointer-events-auto flex items-center gap-2 px-8 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-full font-medium shadow-lg hover:shadow-primary-500/25 transition-all transform hover:-translate-y-1 active:translate-y-0"
+                  >
+                    <span>Read Full Article</span>
+                    <ChevronDown className="w-5 h-5 animate-bounce" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Engagement & Actions */}
+            <div className="flex items-center justify-between py-6 border-t border-b border-[var(--border-color)] mb-12">
+              <EngagementButtons
+                blogId={article.id}
+                initialLikes={article.likes || 0}
+                initialComments={article.commentCount || 0}
+                initialBookmarks={article.bookmarks || 0}
+                isLiked={article.isLiked || false}
+                isBookmarked={article.isBookmarked || false}
+                onCommentClick={handleCommentClick}
+              />
+
+              {canModifyBlog() && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleEdit}
+                    className="p-2 text-text-secondary hover:text-primary-500 transition-colors"
+                    title="Edit Article"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="p-2 text-text-secondary hover:text-red-500 transition-colors disabled:opacity-50"
+                    title="Delete Article"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Comments */}
+            <div ref={commentsSectionRef} id="comments" className="scroll-mt-24">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-text-primary">Comments</h3>
+                <button
+                  onClick={() => setShowComments(!showComments)}
+                  className="text-primary-500 hover:text-primary-600 font-medium"
+                >
+                  {showComments ? 'Hide Comments' : 'Show Comments'}
+                </button>
+              </div>
+              {showComments && (
+                <CommentList blogId={article.id} blogTitle={article.title} />
+              )}
+            </div>
+
+            {/* Related Blogs */}
+            <RelatedBlogs
+              currentBlogId={article.id}
+              tags={article.tags}
+              category={article.mood}
             />
-          </figure>
-        )}
-
-        {/* Blog Content - Render HTML */}
-        <div
-          style={{ color: "var(--paragraph-text-color)" }}
-          className="p-4 pt-0 leading-loose prose prose-lg max-w-none"
-          dangerouslySetInnerHTML={{ __html: article.content }}
-        />
-
-        {/* Comments Section */}
-        <div ref={commentsSectionRef} id="comments" className="mt-8 scroll-mt-20">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-text-primary">Comments</h3>
-            <button
-              onClick={() => setShowComments(!showComments)}
-              className="text-primary-500 hover:text-primary-600 font-medium"
-            >
-              {showComments ? 'Hide Comments' : 'Show Comments'}
-            </button>
           </div>
-          
-          {showComments && (
-            <CommentList
-              blogId={id}
-              blogTitle={article.title}
-            />
-          )}
+
+          {/* Sidebar Column */}
+          <div className="hidden lg:block lg:col-span-4">
+            <div className="sticky top-24 space-y-8">
+
+              {/* Author Profile Card */}
+              <div className="bg-surface rounded-2xl p-6 border border-[var(--border-color)] shadow-sm">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-24 h-24 rounded-full bg-surface-hover overflow-hidden mb-4 ring-4 ring-surface shadow-md">
+                    {article.authorAvatar ? (
+                      <img src={resolveAssetUrl(article.authorAvatar)} alt={article.author} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary-500/10 text-primary-500">
+                        <User className="w-10 h-10" />
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-text-primary mb-1">{article.author}</h3>
+                  <p className="text-sm text-text-secondary mb-6 line-clamp-3 leading-relaxed">
+                    {article.authorBio || `Writer at VocalInk. Passionate about sharing stories and insights.`}
+                  </p>
+                  <div className="flex gap-3 w-full">
+                    <button
+                      onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}
+                      className="flex-1 py-2.5 px-4 bg-surface-hover hover:bg-surface-active text-text-primary rounded-xl font-medium transition-colors text-sm border border-[var(--border-color)]"
+                    >
+                      View Profile
+                    </button>
+                    <button className="flex-1 py-2.5 px-4 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors text-sm shadow-lg shadow-primary-500/20">
+                      Chat
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of Contents */}
+              {toc.length > 0 && (
+                <div className="bg-surface rounded-2xl p-6 border border-[var(--border-color)] shadow-sm">
+                  <h3 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+                    Table of Contents
+                  </h3>
+                  <nav>
+                    <ol className="flex flex-col gap-3 list-decimal pl-4 marker:text-primary-500 marker:font-medium">
+                      {toc.map((item, index) => (
+                        <li key={index} className={`text-sm ${item.level === 'h3' ? 'ml-4' : ''}`}>
+                          <a
+                            href={`#${item.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const elements = Array.from(document.querySelectorAll(item.level));
+                              const target = elements.find(el => el.textContent === item.text);
+                              if (target) {
+                                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            }}
+                            className="text-text-secondary hover:text-primary-500 transition-colors block leading-relaxed"
+                          >
+                            {item.text}
+                          </a>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                </div>
+              )}
+
+            </div>
+          </div>
+
         </div>
       </div>
+
+      {showLoginPrompt && (
+        <LoginPromptModal
+          action="summary"
+          title="Sign in to regenerate summaries"
+          message="Sign in or create an account to keep generating AI summaries."
+          onClose={() => setShowLoginPrompt(false)}
+        />
+      )}
     </div>
   );
 }

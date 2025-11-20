@@ -5,7 +5,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Badge from "../components/ui/Badge";
 import DropDown from "../components/ui/DropDown";
-import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
+import BlogPageSkeleton from "../components/skeletons/BlogPageSkeleton";
 import blogService from "../services/blogService";
 import {
   Search,
@@ -200,6 +200,14 @@ const BlogPage = () => {
     selectedCategory !== "all",
     sortBy !== "recent",
   ].filter(Boolean).length;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8 px-3 sm:px-6">
+        <BlogPageSkeleton viewMode={viewMode} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8 px-3 sm:px-6">
@@ -512,21 +520,6 @@ const BlogPage = () => {
           >
             Retry
           </Button>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <div
-          className={`grid gap-4 sm:gap-6 ${
-            viewMode === "grid"
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-              : "grid-cols-1"
-          }`}
-        >
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <BlogCardSkeleton key={idx} />
-          ))}
         </div>
       )}
 

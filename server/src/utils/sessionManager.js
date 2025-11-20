@@ -1,5 +1,6 @@
 const UAParser = require('ua-parser-js');
 const axios = require('axios');
+const { validateLocation } = require('../utils/secureParser');
 
 class SessionManager {
   /**
@@ -114,6 +115,90 @@ class SessionManager {
     return privateRanges.some(range => range.test(ip));
   }
 
+  static getClientIP(req) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      const first = forwarded.split(',')[0].trim();
+      if (first) {
+        return first;
+      }
+    }
+    return req.headers['x-real-ip'] || req.ip || (req.connection && req.connection.remoteAddress) || 'unknown';
+  }
+
+  static async reverseGeocodeCoordinates(latitude, longitude) {
+    if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+      return {};
+    }
+
+    try {
+      const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+        params: {
+          format: 'jsonv2',
+          lat: latitude,
+          lon: longitude,
+          zoom: 10,
+          addressdetails: 1
+        },
+        timeout: 5000,
+        headers: {
+          'User-Agent': 'VocalInk-SessionManager/1.0'
+        }
+      });
+
+      const address = response.data?.address || {};
+      return {
+        city: address.city || address.town || address.village || address.hamlet || '',
+        region: address.state || address.region || address.county || '',
+        country: address.country || '',
+        countryCode: address.country_code ? address.country_code.toUpperCase() : ''
+      };
+    } catch (error) {
+      console.warn('Reverse geocoding failed:', error.message);
+      return {};
+    }
+  }
+
+  static async buildLocationFromCoords(coords) {
+    const base = {
+      city: coords.city || '',
+      region: coords.region || '',
+      country: coords.country || '',
+      countryCode: coords.countryCode || '',
+      latitude: coords.latitude ?? null,
+      longitude: coords.longitude ?? null
+    };
+
+    if ((!base.city || !base.country) && base.latitude !== null && base.longitude !== null) {
+      const geo = await this.reverseGeocodeCoordinates(base.latitude, base.longitude);
+      return {
+        ...base,
+        ...geo,
+        latitude: base.latitude,
+        longitude: base.longitude
+      };
+    }
+
+    return base;
+  }
+
+  static async resolveLocation(req) {
+    const headerPayload = validateLocation(req.headers['x-user-location']);
+
+    if (headerPayload) {
+      const normalized = await this.buildLocationFromCoords(headerPayload);
+      if (normalized.city || normalized.region || normalized.country) {
+        return normalized;
+      }
+      if (normalized.latitude && normalized.longitude) {
+        return normalized;
+      }
+    }
+
+    const ip = this.getClientIP(req);
+    return this.getLocationFromIP(ip);
+  }
+
   /**
    * Generate unique session ID
    */
@@ -128,13 +213,13 @@ class SessionManager {
    */
   static async createSessionData(req) {
     const userAgent = req.headers['user-agent'] || '';
-    const ip = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = this.getClientIP(req);
     
     // Parse user agent
     const deviceInfo = this.parseUserAgent(userAgent);
     
     // Get location data
-    const location = await this.getLocationFromIP(ip);
+    const location = await this.resolveLocation(req);
     
     // Generate session ID
     const sessionId = this.generateSessionId();

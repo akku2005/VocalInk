@@ -7,6 +7,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import { ToastProvider } from "./components/ui/ToastContainer.jsx";
 import ErrorBoundary from "./components/error/ErrorBoundary.jsx";
 import AuthCheck from "./components/auth/AuthCheck.jsx";
+import RateLimitListener from "./components/notifications/RateLimitListener.jsx";
 
 const App = () => {
   return (
@@ -17,7 +18,10 @@ const App = () => {
             <ToastProvider>
               <Router>
                 <AuthCheck>
-                  <AppRoutes />
+                  <>
+                    <RateLimitListener />
+                    <AppRoutes />
+                  </>
                 </AuthCheck>
               </Router>
             </ToastProvider>

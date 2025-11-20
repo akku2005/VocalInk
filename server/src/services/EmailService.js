@@ -8,7 +8,7 @@ class EmailService {
     if (EmailService.instance) {
       return EmailService.instance;
     }
-    
+
     this.initialized = false;
     this.initializeTransporter();
     EmailService.instance = this;
@@ -26,7 +26,7 @@ class EmailService {
         logger.warn(
           'Email configuration is missing. Please set SMTP_USER and SMTP_PASS environment variables.'
         );
-        
+
         // In development mode, create a more informative dummy transporter
         if (process.env.NODE_ENV === 'development') {
           this.transporter = {
@@ -36,13 +36,13 @@ class EmailService {
                 subject: mailOptions.subject,
                 code: mailOptions.html?.includes('verification code') ? 'Check HTML for code' : 'No code found'
               });
-              
+
               // Extract verification code from HTML for development
               const codeMatch = mailOptions.html?.match(/>(\d{6})</);
               if (codeMatch) {
                 logger.info(`📧 DEVELOPMENT MODE: Verification code for ${mailOptions.to}: ${codeMatch[1]}`);
               }
-              
+
               return { messageId: 'dev-mode-' + Date.now() };
             },
             verify: async () => {
@@ -54,7 +54,7 @@ class EmailService {
           // In production, throw error if email is not configured
           throw new Error('Email service not configured. SMTP_USER and SMTP_PASS are required in production.');
         }
-        
+
         this.initialized = true;
         return;
       }
@@ -78,7 +78,9 @@ class EmailService {
       this.initialized = true;
     } catch (error) {
       logger.error('Failed to initialize email service:', error);
-      throw error;
+      // Do not throw error to prevent server crash on startup
+      // throw error; 
+      this.initialized = false;
     }
   }
 

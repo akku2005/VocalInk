@@ -18,6 +18,9 @@ router.get('/top-blogs', dashboardController.getTopBlogs);
 // Analytics over time
 router.get('/analytics', dashboardController.getAnalytics);
 
+// Personalized analytics summary
+router.get('/personal-analytics', dashboardController.getPersonalAnalytics);
+
 // Recent activity feed
 router.get('/activity', dashboardController.getRecentActivity);
 

@@ -1,5 +1,8 @@
 import axios from 'axios';
 import API_CONFIG from '../constants/apiConfig';
+import locationService from './locationService';
+import { storage, sessionStorageHelper } from '../utils/storage';
+import rateLimitNotifier from './rateLimitNotifier';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -13,15 +16,20 @@ const api = axios.create({
 // Request interceptor for authentication
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorageHelper.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
     // Add device fingerprint for JWT validation
-    const deviceFingerprint = localStorage.getItem('deviceFingerprint');
+    const deviceFingerprint = sessionStorageHelper.getItem('deviceFingerprint');
     if (deviceFingerprint) {
       config.headers['X-Device-Fingerprint'] = deviceFingerprint;
+    }
+
+    const locationHeader = locationService.getLocationHeader();
+    if (locationHeader) {
+      config.headers['X-User-Location'] = locationHeader;
     }
     
     return config;
@@ -51,7 +59,7 @@ api.interceptors.response.use(
       
       // Try to refresh the token
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = sessionStorageHelper.getItem('refreshToken');
         if (refreshToken) {
           console.log('Attempting automatic token refresh...');
           
@@ -64,8 +72,9 @@ api.interceptors.response.use(
             const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data;
             
             // Update stored tokens
-            localStorage.setItem('accessToken', accessToken);
-            localStorage.setItem('refreshToken', newRefreshToken);
+            sessionStorageHelper.setItem('accessToken', accessToken);
+            sessionStorageHelper.setItem('refreshToken', newRefreshToken);
+            api.defaults.headers.Authorization = `Bearer ${accessToken}`;
             
             // Update the current request's authorization header
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -80,8 +89,8 @@ api.interceptors.response.use(
       }
       
       // If refresh failed, clear tokens and redirect to login
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      sessionStorageHelper.removeItem('accessToken');
+      sessionStorageHelper.removeItem('refreshToken');
       
       // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
@@ -102,8 +111,12 @@ api.interceptors.response.use(
 
     // Handle 429 Rate limit errors
     if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'] || 60;
+      const retryAfter = Number(error.response.headers['retry-after'] || 60);
       console.warn(`Rate limited. Retry after ${retryAfter} seconds`);
+      rateLimitNotifier.notify({
+        retryAfterSeconds: retryAfter,
+        message: error.response.data?.message,
+      });
     }
 
     return Promise.reject(error);

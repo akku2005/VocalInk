@@ -151,6 +151,29 @@ export const highlightText = (text, searchTerm) => {
   return text.replace(regex, '<mark>$1</mark>');
 };
 
+/**
+ * Format a duration in milliseconds into a short human-readable string
+ * @param {number} milliseconds - Duration in milliseconds
+ * @returns {string} Formatted duration like "1h 5m" or "30s"
+ */
+export const formatDuration = (milliseconds) => {
+  if (typeof milliseconds !== 'number' || milliseconds <= 0) {
+    return '0s';
+  }
+
+  const totalSeconds = Math.ceil(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (!hours && !minutes && seconds >= 0) parts.push(`${seconds}s`);
+
+  return parts.join(' ');
+};
+
 export default {
   stripHtml,
   truncateText,
@@ -160,4 +183,5 @@ export default {
   formatRelativeTime,
   slugify,
   highlightText,
+  formatDuration
 };

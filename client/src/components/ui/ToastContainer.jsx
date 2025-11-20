@@ -29,7 +29,8 @@ export const ToastProvider = ({ children }) => {
       message,
       title: options.title || 'Success',
       duration: options.duration || 4000,
-      action: options.action
+      action: options.action,
+      countdownExpiresAt: options.countdownExpiresAt
     });
   }, [addToast]);
 
@@ -39,7 +40,8 @@ export const ToastProvider = ({ children }) => {
       message,
       title: options.title || 'Error',
       duration: options.duration || 6000,
-      action: options.action
+      action: options.action,
+      countdownExpiresAt: options.countdownExpiresAt
     });
   }, [addToast]);
 
@@ -49,7 +51,8 @@ export const ToastProvider = ({ children }) => {
       message,
       title: options.title || 'Warning',
       duration: options.duration || 5000,
-      action: options.action
+      action: options.action,
+      countdownExpiresAt: options.countdownExpiresAt
     });
   }, [addToast]);
 
@@ -59,7 +62,8 @@ export const ToastProvider = ({ children }) => {
       message,
       title: options.title || 'Information',
       duration: options.duration || 4000,
-      action: options.action
+      action: options.action,
+      countdownExpiresAt: options.countdownExpiresAt
     });
   }, [addToast]);
 

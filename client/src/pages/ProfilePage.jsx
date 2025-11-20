@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/useToast";
 import { userService } from "../services/userService";
 import { settingsService } from "../services/settingsService";
 import { imageService } from "../services/imageService";
@@ -35,7 +36,8 @@ import { getCleanExcerpt } from "../utils/textUtils";
 
 const ProfilePage = () => {
   const { username, id } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { showError } = useToast();
   const navigate = useNavigate();
   
   const [profile, setProfile] = useState(null);
@@ -44,6 +46,10 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState("posts");
   const [userBlogs, setUserBlogs] = useState([]);
   const [blogsLoading, setBlogsLoading] = useState(false);
+  const [likedPosts, setLikedPosts] = useState([]);
+  const [likedLoading, setLikedLoading] = useState(false);
+  const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(false);
   const [userSeries, setUserSeries] = useState([]);
   const [seriesLoading, setSeriesLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -54,7 +60,9 @@ const ProfilePage = () => {
   const coverInputRef = useRef(null);
 
   // Determine if this is the current user's profile or another user's profile
-  const isOwnProfile = !id && !username;
+  const isOwnProfile = profile
+    ? user && (user._id === profile._id || user.id === profile._id)
+    : username === 'me' || (!id && !username);
   const targetUserId = id || (profile?._id);
 
   useEffect(() => {
@@ -123,11 +131,47 @@ const ProfilePage = () => {
     };
 
     fetchUserSeries();
+
+    const fetchLikedPosts = async () => {
+      if (!targetUserId || activeTab !== 'likes') return;
+      try {
+        setLikedLoading(true);
+        const response = await userService.getUserLikedBlogs(targetUserId);
+        setLikedPosts(response.data?.blogs || []);
+      } catch (err) {
+        console.error('Failed to fetch liked posts:', err);
+        setLikedPosts([]);
+      } finally {
+        setLikedLoading(false);
+      }
+    };
+
+    const fetchBookmarkedPosts = async () => {
+      if (!targetUserId || activeTab !== 'bookmarks') return;
+      try {
+        setBookmarksLoading(true);
+        const response = await userService.getUserBookmarkedBlogs(targetUserId);
+        setBookmarkedPosts(response.data?.blogs || []);
+      } catch (err) {
+        console.error('Failed to fetch bookmarked posts:', err);
+        setBookmarkedPosts([]);
+      } finally {
+        setBookmarksLoading(false);
+      }
+    };
+
+    fetchLikedPosts();
+    fetchBookmarkedPosts();
   }, [targetUserId, activeTab]);
 
   const handleFollow = async () => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
+    }
+
+    if (isOwnProfile) {
+      showError('You cannot follow yourself');
       return;
     }
 
@@ -139,9 +183,13 @@ const ProfilePage = () => {
         await userService.followUser(targetUserId);
         setProfile(prev => ({ ...prev, isFollowing: true, followerCount: prev.followerCount + 1 }));
       }
-    } catch (err) {
-      console.error('Error following/unfollowing user:', err);
-    }
+   } catch (err) {
+     console.error('Error following/unfollowing user:', err);
+   }
+ };
+
+  const handleMessage = () => {
+    showError('Messaging is not implemented yet');
   };
 
   const handleEditProfile = () => {
@@ -487,7 +535,12 @@ const ProfilePage = () => {
                 <Bell className="w-4 h-4 mr-2" />
                 {profile.isFollowing ? 'Unfollow' : 'Follow'}
               </Button>
-              <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/90 backdrop-blur-sm"
+                onClick={handleMessage}
+              >
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Message
               </Button>
@@ -761,14 +814,14 @@ const ProfilePage = () => {
 
         {activeTab === "likes" && (
           <div className="space-y-6">
-            {blogsLoading ? (
+            {likedLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 <p className="mt-2 text-text-secondary">Loading liked posts...</p>
               </div>
-            ) : userBlogs.length > 0 ? (
+            ) : likedPosts.length > 0 ? (
               <div className="grid gap-6">
-                {userBlogs.filter(blog => blog.isLiked).map((post) => (
+                {likedPosts.map((post) => (
                   <Card key={post._id} className="hover:shadow-lg transition-shadow cursor-pointer">
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start mb-4">
@@ -788,7 +841,7 @@ const ProfilePage = () => {
                           </span>
                           <span className="flex items-center gap-1">
                             <Heart className="w-4 h-4" />
-                            {post.likes?.length || 0}
+                            {post.likes || post.likes?.length || 0}
                           </span>
                         </div>
                         <span className="flex items-center gap-1">
@@ -815,14 +868,57 @@ const ProfilePage = () => {
         )}
 
         {activeTab === "bookmarks" && (
-          <div className="text-center py-12">
-            <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-text-primary mb-2">
-              No bookmarks
-            </h3>
-            <p className="text-text-secondary">
-              Posts you bookmark will appear here.
-            </p>
+          <div className="space-y-6">
+            {bookmarksLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-2 text-text-secondary">Loading bookmarked posts...</p>
+              </div>
+            ) : bookmarkedPosts.length > 0 ? (
+              <div className="grid gap-6">
+                {bookmarkedPosts.map((post) => (
+                  <Card key={post._id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-text-primary mb-2">{post.title}</h3>
+                          <p className="text-text-secondary mb-3">{post.summary?.substring(0, 150)}...</p>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {formatDate(post.publishedAt || post.createdAt)}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-text-secondary">
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="w-4 h-4" />
+                            {post.readTime || Math.ceil((post.content?.length || 0) / 200)} min read
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-4 h-4" />
+                            {post.likes || post.likes?.length || 0}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-1">
+                          <User className="w-4 h-4" />
+                          {post.views?.toLocaleString() || 0} views
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  No bookmarks
+                </h3>
+                <p className="text-text-secondary">
+                  Posts you bookmark will appear here.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

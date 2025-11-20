@@ -17,7 +17,9 @@ import Modal from "../components/ui/Modal";
 import BlockEditor from "../components/editor/BlockEditor";
 import ImageUploader from "../components/editor/ImageUploader";
 import { apiService } from "../services/api";
+import { resolveAssetUrl } from "../constants/apiConfig";
 import { useToast } from "../hooks/useToast";
+import { storage } from "../utils/storage";
 
 const CreateBlogPageNew = () => {
   const navigate = useNavigate();
@@ -42,8 +44,8 @@ const CreateBlogPageNew = () => {
   // Auto-save draft to localStorage
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (formData.title || formData.content) {
-        localStorage.setItem("blog_draft", JSON.stringify(formData));
+      if (storage.available && (formData.title || formData.content)) {
+        storage.setItem("blog_draft", JSON.stringify(formData));
       }
     }, 1000);
     return () => clearTimeout(timer);
@@ -51,7 +53,8 @@ const CreateBlogPageNew = () => {
 
   // Load draft on mount
   useEffect(() => {
-    const draft = localStorage.getItem("blog_draft");
+    if (!storage.available) return;
+    const draft = storage.getItem("blog_draft");
     if (draft) {
       try {
         setFormData(JSON.parse(draft));
@@ -68,10 +71,8 @@ const CreateBlogPageNew = () => {
       const formData = new FormData();
       formData.append("image", file);
       
-      const response = await apiService.upload("/uploads/image", file);
-      const imageUrl = response.data.url.startsWith("http")
-        ? response.data.url
-        : `/api${response.data.url}`;
+      const response = await apiService.upload("/images/upload", file);
+      const imageUrl = resolveAssetUrl(response.data.url || response.data.data?.url);
       
       addToast({ type: "success", message: "Image uploaded" });
       return imageUrl;
@@ -87,8 +88,15 @@ const CreateBlogPageNew = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
+    input.onchange = async (event) => {
+      if (event.preventDefault) {
+        event.preventDefault();
+      }
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+      const file = target.files?.[0];
       if (file) {
         const url = await handleImageUpload(file);
         if (url) {
@@ -142,7 +150,9 @@ const CreateBlogPageNew = () => {
       setLoading(true);
       const response = await apiService.post("/blogs", formData);
       addToast({ type: "success", message: "Blog published successfully!" });
-      localStorage.removeItem("blog_draft");
+      if (storage.available) {
+        storage.removeItem("blog_draft");
+      }
       navigate(`/blog/${response.data.data._id}`);
     } catch (error) {
       addToast({ type: "error", message: error.response?.data?.message || "Failed to publish" });

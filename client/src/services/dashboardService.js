@@ -107,6 +107,16 @@ const dashboardService = {
       throw error;
     }
   },
+
+  async getPersonalAnalytics(period = '30d') {
+    try {
+      const response = await api.get(`/dashboard/personal-analytics?period=${period}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching personalized analytics:', error);
+      throw error;
+    }
+  },
 };
 
 export default dashboardService;

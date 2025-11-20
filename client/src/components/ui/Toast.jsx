@@ -8,6 +8,7 @@ import {
   X,
   AlertTriangle
 } from 'lucide-react';
+import { formatDuration } from '../../utils/textUtils';
 
 const toastTypes = {
   success: {
@@ -43,10 +44,15 @@ const Toast = ({
   message, 
   duration = 5000, 
   onClose, 
-  action 
+  action,
+  countdownExpiresAt
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [isExiting, setIsExiting] = useState(false);
+  const [remainingMs, setRemainingMs] = useState(() => {
+    if (!countdownExpiresAt) return 0;
+    return Math.max(new Date(countdownExpiresAt).getTime() - Date.now(), 0);
+  });
 
   useEffect(() => {
     if (duration > 0) {
@@ -57,6 +63,27 @@ const Toast = ({
       return () => clearTimeout(timer);
     }
   }, [duration]);
+
+  useEffect(() => {
+    if (!countdownExpiresAt) {
+      setRemainingMs(0);
+      return;
+    }
+
+    let intervalId;
+    const updateRemaining = () => {
+      const next = Math.max(new Date(countdownExpiresAt).getTime() - Date.now(), 0);
+      setRemainingMs(next);
+      if (next <= 0 && intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+
+    updateRemaining();
+    intervalId = setInterval(updateRemaining, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [countdownExpiresAt]);
 
   const handleClose = () => {
     setIsExiting(true);
@@ -101,6 +128,11 @@ const Toast = ({
           )}
           {message && (
             <p className="text-sm text-text-primary">{message}</p>
+          )}
+          {countdownExpiresAt && (
+            <p className="text-xs text-text-secondary mt-1">
+              Resets in {formatDuration(remainingMs)}
+            </p>
           )}
           
           {action && (

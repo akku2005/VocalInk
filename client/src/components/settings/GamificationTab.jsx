@@ -1,15 +1,62 @@
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
-import { Badge, Trophy, Star, Target, Zap, Award } from 'lucide-react';
+import {
+  Trophy,
+  Star,
+  Award,
+  Target,
+  Users,
+  Bell,
+  Zap,
+  ShieldCheck,
+  PenSquare,
+  Repeat,
+  CheckCircle,
+  Flag,
+  Sparkles
+} from 'lucide-react';
 import settingsService from '../../services/settingsService';
 
-const GamificationTab = ({ 
-  settings, 
-  setSettings, 
-  loading, 
-  setLoading, 
-  showToast, 
-  loadSettings 
+const preferenceOptions = [
+  {
+    id: 'showXP',
+    title: 'Show XP',
+    description: 'Display your experience points on your public profile.',
+    icon: Trophy
+  },
+  {
+    id: 'showLevel',
+    title: 'Show Level',
+    description: 'Let other creators see your current level.',
+    icon: Star
+  },
+  {
+    id: 'showBadges',
+    title: 'Show Badges',
+    description: 'Display the badges you have earned.',
+    icon: ShieldCheck
+  },
+  {
+    id: 'showLeaderboard',
+    title: 'Appear in Leaderboard',
+    description: 'Allow your stats to appear in community leaderboards.',
+    icon: Users
+  },
+  {
+    id: 'notifications',
+    title: 'Gamification Notifications',
+    description: 'Receive alerts for level ups and badge milestones.',
+    icon: Bell
+  }
+];
+
+const GamificationTab = ({
+  settings,
+  setSettings,
+  loading,
+  setLoading,
+  showToast,
+  loadSettings
 }) => {
   const gamification = settings?.gamification || {};
 
@@ -18,21 +65,22 @@ const GamificationTab = ({
       ...prev,
       gamification: {
         ...prev.gamification,
-        [field]: value,
-      },
+        [field]: value
+      }
     }));
+  };
+
+  const togglePreference = (field) => {
+    const currentValue = gamification[field];
+    const resolvedCurrent = currentValue === undefined ? true : currentValue;
+    handleInputChange(field, !resolvedCurrent);
   };
 
   const handleSaveGamification = async () => {
     setLoading(true);
     try {
-      console.log('Saving Gamification settings:', settings.gamification);
-      
-      await settingsService.updateGamificationSection(settings.gamification);
-      
-      // Force refresh to get updated data
+      await settingsService.updateGamificationSection(settings.gamification || {});
       await loadSettings(true);
-      
       showToast('Gamification settings saved successfully', 'success');
     } catch (error) {
       console.error('Error saving gamification settings:', error);
@@ -42,20 +90,13 @@ const GamificationTab = ({
     }
   };
 
-  const difficultyLevels = [
-    { value: 'easy', label: 'Easy', description: 'Lower thresholds, more frequent rewards' },
-    { value: 'medium', label: 'Medium', description: 'Balanced challenge and rewards' },
-    { value: 'hard', label: 'Hard', description: 'Higher thresholds, exclusive rewards' },
-    { value: 'expert', label: 'Expert', description: 'Maximum challenge for dedicated users' }
-  ];
-
   const badgeCategories = [
-    { id: 'writing', name: 'Writing', icon: '✍️', count: gamification.writingBadges || 0 },
-    { id: 'social', name: 'Social', icon: '👥', count: gamification.socialBadges || 0 },
-    { id: 'consistency', name: 'Consistency', icon: '🔥', count: gamification.consistencyBadges || 0 },
-    { id: 'quality', name: 'Quality', icon: '⭐', count: gamification.qualityBadges || 0 },
-    { id: 'milestone', name: 'Milestones', icon: '🏆', count: gamification.milestoneBadges || 0 },
-    { id: 'special', name: 'Special', icon: '🎖️', count: gamification.specialBadges || 0 }
+    { id: 'writing', name: 'Writing', icon: PenSquare, count: gamification.writingBadges || 0 },
+    { id: 'social', name: 'Social', icon: Users, count: gamification.socialBadges || 0 },
+    { id: 'consistency', name: 'Consistency', icon: Repeat, count: gamification.consistencyBadges || 0 },
+    { id: 'quality', name: 'Quality', icon: CheckCircle, count: gamification.qualityBadges || 0 },
+    { id: 'milestone', name: 'Milestones', icon: Flag, count: gamification.milestoneBadges || 0 },
+    { id: 'special', name: 'Special', icon: Sparkles, count: gamification.specialBadges || 0 }
   ];
 
   const achievements = [
@@ -66,14 +107,31 @@ const GamificationTab = ({
     { id: 'month_active', name: 'Dedicated User', description: 'Active for 30 days', completed: true }
   ];
 
+  const visibilityCards = [
+    {
+      label: 'XP Visibility',
+      value: gamification.showXP !== false ? 'Visible' : 'Hidden',
+      detail: 'Control if XP is displayed to others'
+    },
+    {
+      label: 'Leaderboard Participation',
+      value: gamification.showLeaderboard !== false ? 'Enabled' : 'Disabled',
+      detail: 'Determine if you appear in rankings'
+    },
+    {
+      label: 'Gamification Alerts',
+      value: gamification.notifications !== false ? 'On' : 'Off',
+      detail: 'Notifications for wins and milestones'
+    }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Gamification Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="font-medium flex items-center gap-2">
             <Trophy className="w-5 h-5" />
-            Your Progress
+            Engagement Snapshot
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
@@ -92,151 +150,97 @@ const GamificationTab = ({
             </div>
           </div>
 
-          {/* Progress Bar */}
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-text-primary">Progress to Level {(gamification.level || 1) + 1}</span>
-              <span className="text-sm text-text-secondary">{gamification.currentLevelXP || 0} / {gamification.nextLevelXP || 100} XP</span>
+              <span className="text-sm font-medium text-text-primary">
+                Progress to Level {(gamification.level || 1) + 1}
+              </span>
+              <span className="text-sm text-text-secondary">
+                {gamification.currentLevelXP || 0} / {gamification.nextLevelXP || 100} XP
+              </span>
             </div>
-            <div className="w-full bg-secondary-200 rounded-full h-2">
-              <div 
-                className="bg-primary-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${((gamification.currentLevelXP || 0) / (gamification.nextLevelXP || 100)) * 100}%` }}
+            <div className="w-full bg-secondary-200 rounded-full h-3">
+              <div
+                className="bg-primary-500 h-3 rounded-full transition-all"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    ((gamification.currentLevelXP || 0) / (gamification.nextLevelXP || 100)) * 100
+                  )}%`
+                }}
               ></div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Gamification Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="font-medium flex items-center gap-2">
             <Target className="w-5 h-5" />
-            Gamification Settings
+            Visibility Preferences
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6 space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-text-primary">Enable Gamification</h4>
-                <p className="text-sm text-text-secondary">Show badges, levels, and achievements</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={gamification.enabled !== undefined ? gamification.enabled : true}
-                  onChange={(e) => handleInputChange('enabled', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-text-primary">Show Progress Notifications</h4>
-                <p className="text-sm text-text-secondary">Get notified when you earn badges or level up</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={gamification.showNotifications !== undefined ? gamification.showNotifications : true}
-                  onChange={(e) => handleInputChange('showNotifications', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-text-primary">Public Profile Badges</h4>
-                <p className="text-sm text-text-secondary">Display your badges on your public profile</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={gamification.publicBadges !== undefined ? gamification.publicBadges : true}
-                  onChange={(e) => handleInputChange('publicBadges', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium text-text-primary">Leaderboard Participation</h4>
-                <p className="text-sm text-text-secondary">Participate in community leaderboards</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={gamification.leaderboard !== undefined ? gamification.leaderboard : false}
-                  onChange={(e) => handleInputChange('leaderboard', e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-500"></div>
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-3">
-              Challenge Difficulty
-            </label>
-            <div className="space-y-3">
-              {difficultyLevels.map((level) => (
-                <label
-                  key={level.value}
-                  className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-secondary-50"
-                >
-                  <input
-                    type="radio"
-                    name="difficulty"
-                    value={level.value}
-                    checked={gamification.difficulty === level.value}
-                    onChange={(e) => handleInputChange('difficulty', e.target.value)}
-                    className="w-4 h-4 text-primary-500 border-border focus:ring-primary-500"
-                  />
-                  <div>
-                    <div className="font-medium text-text-primary">{level.label}</div>
-                    <div className="text-sm text-text-secondary">{level.description}</div>
+        <CardContent className="p-6 space-y-4">
+          {preferenceOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <div
+                key={option.id}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-border rounded-lg p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-full bg-secondary-100 text-primary-600">
+                    <Icon className="w-4 h-4" />
                   </div>
+                  <div>
+                    <h4 className="font-medium text-text-primary">{option.title}</h4>
+                    <p className="text-sm text-text-secondary">{option.description}</p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
+                  <input
+                    type="checkbox"
+                    checked={gamification?.[option.id] !== false}
+                    onChange={() => togglePreference(option.id)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-secondary-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary-500 peer-checked:bg-primary-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
                 </label>
-              ))}
-            </div>
-          </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
-      {/* Badge Collection */}
       <Card>
         <CardHeader>
           <CardTitle className="font-medium flex items-center gap-2">
-            <Badge className="w-5 h-5" />
+            <Award className="w-5 h-5" />
             Badge Collection
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {badgeCategories.map((category) => (
-              <div
-                key={category.id}
-                className="p-4 border rounded-lg text-center hover:bg-secondary-50 transition-colors"
-              >
-                <div className="text-2xl mb-2">{category.icon}</div>
-                <div className="font-medium text-text-primary">{category.name}</div>
-                <div className="text-sm text-text-secondary">{category.count} earned</div>
-              </div>
-            ))}
+            {badgeCategories.map((category) => {
+              const Icon = category.icon;
+              return (
+                <div
+                  key={category.id}
+                  className="p-4 border rounded-lg text-center hover:bg-secondary-50 transition-colors"
+                >
+                  <div className="flex justify-center mb-2">
+                    <Icon className="w-6 h-6 text-primary-500" />
+                  </div>
+                  <div className="font-medium text-text-primary">{category.name}</div>
+                  <div className="text-sm text-text-secondary">{category.count} earned</div>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Achievements */}
       <Card>
         <CardHeader>
           <CardTitle className="font-medium flex items-center gap-2">
@@ -250,21 +254,15 @@ const GamificationTab = ({
               <div
                 key={achievement.id}
                 className={`flex items-center gap-4 p-3 rounded-lg border ${
-                  achievement.completed
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-secondary-50 border-border'
+                  achievement.completed ? 'bg-green-50 border-green-200' : 'bg-secondary-50 border-border'
                 }`}
               >
-                <div className={`p-2 rounded-full ${
-                  achievement.completed
-                    ? 'bg-green-100 text-green-600'
-                    : 'bg-secondary-200 text-secondary-500'
-                }`}>
-                  {achievement.completed ? (
-                    <Trophy className="w-5 h-5" />
-                  ) : (
-                    <Target className="w-5 h-5" />
-                  )}
+                <div
+                  className={`p-2 rounded-full ${
+                    achievement.completed ? 'bg-green-100 text-green-600' : 'bg-secondary-200 text-secondary-500'
+                  }`}
+                >
+                  {achievement.completed ? <Trophy className="w-5 h-5" /> : <Target className="w-5 h-5" />}
                 </div>
                 <div className="flex-1">
                   <div className="font-medium text-text-primary">{achievement.name}</div>
@@ -279,7 +277,6 @@ const GamificationTab = ({
         </CardContent>
       </Card>
 
-      {/* XP Multipliers */}
       <Card>
         <CardHeader>
           <CardTitle className="font-medium flex items-center gap-2">
@@ -288,26 +285,14 @@ const GamificationTab = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-blue-900">Daily Streak</div>
-                  <div className="text-sm text-blue-700">+{gamification.streakMultiplier || 1.0}x XP</div>
-                </div>
-                <div className="text-2xl">🔥</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {visibilityCards.map((card) => (
+              <div key={card.label} className="p-4 bg-secondary-50 border border-border rounded-lg">
+                <div className="text-sm text-text-secondary">{card.label}</div>
+                <div className="text-xl font-semibold text-text-primary">{card.value}</div>
+                <div className="text-xs text-text-secondary mt-1">{card.detail}</div>
               </div>
-            </div>
-            
-            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-purple-900">Premium Bonus</div>
-                  <div className="text-sm text-purple-700">+{gamification.premiumMultiplier || 1.0}x XP</div>
-                </div>
-                <div className="text-2xl">⭐</div>
-              </div>
-            </div>
+            ))}
           </div>
 
           <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
@@ -316,13 +301,12 @@ const GamificationTab = ({
                 <div className="font-medium text-orange-900">Weekend Boost</div>
                 <div className="text-sm text-orange-700">Double XP on weekends</div>
               </div>
-              <div className="text-2xl">🎉</div>
+              <Zap className="w-6 h-6 text-orange-600" />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Save Button */}
       <div className="flex justify-end pt-4 border-t">
         <Button
           onClick={handleSaveGamification}
