@@ -523,3 +523,27 @@ button:focus {
   box-shadow: 0 4px 6px -1px rgba(var(--color-primary), 0.25), 0 2px 4px -1px rgba(var(--color-primary), 0.125);
 }
 
+/* TTS Highlighting Styles - Visible in both light and dark themes */
+[data-tts-segment] {
+  transition: all 0.3s ease-in-out;
+}
+
+/* For inline spans (sentence-level highlighting) */
+span[data-tts-segment].tts-highlighted {
+  background-color: rgb(59, 130, 246);
+  color: white;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+}
+
+/* For block-level paragraphs */
+[data-tts-segment].tts-highlighted {
+  background-color: rgb(59, 130, 246);
+  color: white;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+}

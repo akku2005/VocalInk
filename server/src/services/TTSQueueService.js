@@ -1,4 +1,5 @@
 const Bull = require('bull');
+const Redis = require('ioredis');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const config = require('../config');
@@ -8,6 +9,7 @@ class TTSQueueService {
     this.queue = null;
     this.processingQueue = null;
     this.deadLetterQueue = null;
+    this.publisher = null;
     this.circuitBreakers = new Map();
     this.healthChecks = new Map();
     // Don't call initialize() in constructor - it will be called explicitly
@@ -55,6 +57,9 @@ class TTSQueueService {
         redis: redisConfig,
       });
 
+      // Initialize Redis publisher for cancellation events
+      this.publisher = new Redis(redisConfig);
+
       // Initialize circuit breakers for each provider
       this.initializeCircuitBreakers();
 
@@ -73,7 +78,7 @@ class TTSQueueService {
    */
   initializeCircuitBreakers() {
     const providers = ['elevenlabs', 'googlecloud', 'espeak', 'gtts', 'responsivevoice'];
-    
+
     providers.forEach(provider => {
       this.circuitBreakers.set(provider, {
         failures: 0,
@@ -91,7 +96,7 @@ class TTSQueueService {
    */
   initializeHealthChecks() {
     const providers = ['elevenlabs', 'googlecloud', 'espeak', 'gtts', 'responsivevoice'];
-    
+
     providers.forEach(provider => {
       this.healthChecks.set(provider, {
         lastCheck: null,
@@ -120,7 +125,7 @@ class TTSQueueService {
       userId,
       timestamp: Math.floor(Date.now() / (5 * 60 * 1000)) * (5 * 60 * 1000), // 5-minute window
     });
-    
+
     return crypto.createHash('sha256').update(data).digest('hex');
   }
 
@@ -130,18 +135,18 @@ class TTSQueueService {
   sanitizeOptions(options) {
     const sanitized = {};
     const allowedKeys = [
-      'provider', 'voice', 'voiceId', 'voiceName', 'languageCode', 
-      'ssmlGender', 'speed', 'speakingRate', 'language', 'stability', 
-      'similarityBoost', 'style', 'useSpeakerBoost', 'pitch', 
+      'provider', 'voice', 'voiceId', 'voiceName', 'languageCode',
+      'ssmlGender', 'speed', 'speakingRate', 'language', 'stability',
+      'similarityBoost', 'style', 'useSpeakerBoost', 'pitch',
       'volumeGainDb', 'effectsProfileId'
     ];
-    
+
     allowedKeys.forEach(key => {
       if (options[key] !== undefined) {
         sanitized[key] = options[key];
       }
     });
-    
+
     return sanitized;
   }
 
@@ -151,7 +156,7 @@ class TTSQueueService {
   async addTTSJob(text, options, userId, requestInfo = {}) {
     try {
       const idempotencyKey = this.generateIdempotencyKey(text, options, userId);
-      
+
       // Check if job with same idempotency key already exists
       const existingJob = await this.queue.getJob(idempotencyKey);
       if (existingJob) {
@@ -160,7 +165,7 @@ class TTSQueueService {
           userId,
           jobId: existingJob.id,
         });
-        
+
         return {
           jobId: existingJob.id,
           idempotencyKey,
@@ -228,7 +233,7 @@ class TTSQueueService {
       gtts: 4,
       responsivevoice: 3,
     };
-    
+
     return priorityMap[options.provider] || 5;
   }
 
@@ -244,7 +249,7 @@ class TTSQueueService {
       gtts: 2000,       // 2 seconds
       responsivevoice: 0,
     };
-    
+
     return delayMap[options.provider] || 0;
   }
 
@@ -256,7 +261,7 @@ class TTSQueueService {
       const waiting = await this.queue.getWaiting();
       const active = await this.queue.getActive();
       const totalJobs = waiting.length + active.length;
-      
+
       // Estimate 30 seconds per job
       return totalJobs * 30;
     } catch (error) {
@@ -329,11 +334,16 @@ class TTSQueueService {
       }
 
       await job.remove();
-      
+
       logger.info('TTS job cancelled', {
         jobId,
         userId,
       });
+
+      // Publish cancellation event for worker to pick up if job is active
+      if (this.publisher) {
+        await this.publisher.publish('tts:cancellation', jobId);
+      }
 
       return { success: true, message: 'Job cancelled successfully' };
     } catch (error) {
@@ -358,7 +368,7 @@ class TTSQueueService {
       }
 
       await job.retry();
-      
+
       logger.info('TTS job retried', {
         jobId,
         userId,
@@ -453,7 +463,7 @@ class TTSQueueService {
    */
   async runHealthChecks() {
     logger.info('Running TTS provider health checks');
-    
+
     // This would implement actual health checks for each provider
     // For now, we'll just log the check
     this.healthChecks.forEach((health, provider) => {
@@ -478,7 +488,7 @@ class TTSQueueService {
     } else {
       breaker.failures++;
       breaker.lastFailureTime = new Date();
-      
+
       if (breaker.failures >= breaker.threshold && breaker.state === 'CLOSED') {
         breaker.state = 'OPEN';
         logger.warn(`Circuit breaker for ${provider} opened`);
@@ -526,7 +536,7 @@ class TTSQueueService {
     try {
       const completed = await this.queue.getCompleted();
       const failed = await this.queue.getFailed();
-      
+
       const cutoffTime = Date.now() - maxAge;
       let cleanedCount = 0;
 
@@ -569,7 +579,10 @@ class TTSQueueService {
       if (this.deadLetterQueue) {
         await this.deadLetterQueue.close();
       }
-      
+      if (this.publisher) {
+        await this.publisher.quit();
+      }
+
       logger.info('TTS Queue Service shutdown completed');
     } catch (error) {
       logger.error('Error during TTS Queue Service shutdown:', error);

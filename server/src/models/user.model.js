@@ -562,14 +562,14 @@ userSchema.index({ createdAt: -1 });
 userSchema.index({ lastLoginAt: -1 });
 userSchema.index({ isVerified: 1 });
 userSchema.index({ isActive: 1 });
-userSchema.index({ 'socialLinks.platform': 1 });
-userSchema.index({ 'badges': 1 });
-userSchema.index({ 'followers': 1 });
-userSchema.index({ 'following': 1 });
+
+
+
+
 
 // Additional performance indexes
 userSchema.index({ email: 1, isVerified: 1 }); // Email verification queries
-userSchema.index({ username: 1 }, { unique: true, sparse: true }); // Username uniqueness queries
+
 userSchema.index({ 'aiPreferences.language': 1 }); // Language preference filtering
 userSchema.index({ 'aiPreferences.preferredVoice': 1 }); // Voice preference filtering
 userSchema.index({ 'privacySettings.profileVisibility': 1 }); // Privacy-based queries
@@ -583,7 +583,7 @@ userSchema.index({ 'dailyActions.shares': 1 }); // Daily shares tracking
 userSchema.index({ 'dailyActions.bookmarks': 1 }); // Daily bookmarks tracking
 userSchema.index({ 'dailyActions.follows': 1 }); // Daily follows tracking
 userSchema.index({ 'dailyActions.invites': 1 }); // Daily invites tracking
-userSchema.index({ 'unlockedFeatures.feature': 1 }); // Feature unlock queries
+
 userSchema.index({ 'unlockedFeatures.level': 1 }); // Level-based feature queries
 userSchema.index({ 'xpMultipliers.newUser': 1 }); // New user multiplier queries
 userSchema.index({ 'xpMultipliers.mentor': 1 }); // Mentor multiplier queries
@@ -593,7 +593,7 @@ userSchema.index({ 'xpMultipliers.seasonal': 1 }); // Seasonal multiplier querie
 userSchema.index({ 'aiUsage.ttsGenerated': 1 }); // TTS usage tracking
 userSchema.index({ 'aiUsage.summariesGenerated': 1 }); // Summary usage tracking
 userSchema.index({ 'aiUsage.transcriptionsCreated': 1 }); // Transcription usage tracking
-userSchema.index({ 'aiUsage.lastAIFeature': 1 }); // Last AI feature usage
+
 userSchema.index({ 'streaks.login.lastLogin': 1 }); // Login streak tracking
 userSchema.index({ 'streaks.publishing.lastPublish': 1 }); // Publishing streak tracking
 userSchema.index({ 'streaks.reading.lastRead': 1 }); // Reading streak tracking
@@ -654,30 +654,7 @@ userSchema.index({
   'gamificationSettings.showBadges': 1
 }); // Gamification settings combination
 
-// Partial indexes for better performance
-userSchema.index({
-  createdAt: -1
-}, {
-  partialFilterExpression: { isVerified: true }
-}); // Only verified users by date
 
-userSchema.index({
-  xp: -1
-}, {
-  partialFilterExpression: { isVerified: true }
-}); // Only verified users by XP
-
-userSchema.index({
-  engagementScore: -1
-}, {
-  partialFilterExpression: { isVerified: true }
-}); // Only verified users by engagement
-
-userSchema.index({
-  totalBlogs: -1
-}, {
-  partialFilterExpression: { isVerified: true }
-}); // Only verified users by blog count
 
 // Sparse indexes for optional fields
 userSchema.index({

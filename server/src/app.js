@@ -31,6 +31,7 @@ const {
 const { setupErrorHandlers } = require('./middleware/errorHandler');
 const apiRouter = require('./routes');
 const securityRouter = require('./routes/security');
+const sitemapRouter = require('./routes/sitemap.routes');
 const { cleanupExpiredBlacklistedTokens } = require('./utils/cleanupTokens');
 
 // Optional: Use logger if available
@@ -376,6 +377,9 @@ app.use('/api/uploads', express.static(path.join(__dirname, '../public/uploads')
 if (process.env.NODE_ENV !== 'production') {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 }
+
+// Sitemap and robots.txt (must be before API routes)
+app.use('/', sitemapRouter);
 
 // API routes
 app.use('/api', apiRouter);

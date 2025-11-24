@@ -543,17 +543,140 @@ exports.generateTTS = async (req, res) => {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
-    await UsageService.ensureWithinLimit(req.user._id, usageType);
+    await UsageService.ensureWithinLimit(req.user._id, usageType, req.user.role);
 
-    // Any authenticated user can generate TTS for any blog
     logger.debug(`TTS generation requested`, {
       userId: req.user._id.toString(),
       blogId: blog._id.toString(),
       userRole: req.user.role
     });
-    // Generate via unified TTS service (uses provider selection and fallbacks)
-    const content = blog.content || '';
-    const result = await ttsService.generateSpeech(content, {
+
+    // 1. Parse content and extract segments
+    let content = blog.content || '';
+    const segments = [];
+    let segmentIndex = 0;
+
+    // Helper function to split text into sentences (improved)
+    const splitIntoSentences = (text) => {
+      // Remove HTML tags for splitting
+      let cleanText = text.replace(/<[^>]+>/g, '').trim();
+      if (!cleanText) return [];
+
+      // Simple sentence split by . ! ? followed by space or end of string
+      const sentences = [];
+      const parts = cleanText.split(/([.!?]+\s+|[.!?]+$)/);
+
+      let currentSentence = '';
+      for (let i = 0; i < parts.length; i++) {
+        currentSentence += parts[i];
+        // If this part ends with punctuation, it's end of sentence
+        if (/[.!?]+\s*$/.test(parts[i])) {
+          const trimmed = currentSentence.trim();
+          if (trimmed.length > 0) {
+            sentences.push(trimmed);
+          }
+          currentSentence = '';
+        }
+      }
+
+      // Add any remaining text
+      if (currentSentence.trim().length > 0) {
+        sentences.push(currentSentence.trim());
+      }
+
+      return sentences.filter(s => s.length > 0);
+    };
+
+    // Extract text from ALL block elements (p, h1-h6, li, div, blockquote, etc.)
+    const extractTextBlocks = (html) => {
+      const blocks = [];
+
+      // Match all block-level elements
+      const blockRegex = /<(p|h[1-6]|li|div|blockquote)([^>]*)>([\s\S]*?)<\/\1>/gi;
+      let match;
+
+      while ((match = blockRegex.exec(html)) !== null) {
+        const tag = match[1];
+        const attributes = match[2];
+        const content = match[3];
+
+        blocks.push({
+          tag,
+          attributes,
+          content,
+          fullMatch: match[0]
+        });
+      }
+
+      return blocks;
+    };
+
+    // Process all blocks and create segments + wrap content with IDs
+    const blocks = extractTextBlocks(content);
+
+    logger.info(`TTS: Found ${blocks.length} content blocks to process`);
+
+    // Create segment map for ID injection
+    const segmentMap = new Map();
+
+    blocks.forEach((block) => {
+      const sentences = splitIntoSentences(block.content);
+
+      sentences.forEach((sentence) => {
+        const id = `tts-seg-${segmentIndex}`;
+        segments.push({
+          id,
+          text: sentence,
+          index: segmentIndex,
+          blockTag: block.tag
+        });
+
+        // Store mapping for content replacement
+        segmentMap.set(sentence, id);
+        segmentIndex++;
+      });
+    });
+
+    logger.info(`TTS: Created ${segments.length} sentence segments from ${blocks.length} blocks`);
+
+    // Wrap content with sentence IDs for highlighting
+    let updatedContent = content;
+
+    // For each block, wrap sentences with span IDs
+    blocks.forEach((block) => {
+      const sentences = splitIntoSentences(block.content);
+      let wrappedContent = block.content;
+
+      sentences.forEach((sentence) => {
+        const id = segmentMap.get(sentence);
+        if (id) {
+          // Escape special regex characters in sentence
+          const escapedSentence = sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+          // Wrap sentence with span (preserving existing HTML)
+          wrappedContent = wrappedContent.replace(
+            new RegExp(escapedSentence, 'i'),
+            `<span id="${id}" data-tts-segment="${id}">${sentence}</span>`
+          );
+        }
+      });
+
+      // Replace the block content in the full HTML
+      updatedContent = updatedContent.replace(block.fullMatch,
+        `<${block.tag}${block.attributes}>${wrappedContent}</${block.tag}>`
+      );
+    });
+
+    if (segments.length === 0) {
+      logger.error('TTS: No segments created from blog content', {
+        contentLength: content.length,
+        blocksFound: blocks.length
+      });
+      return res.status(400).json({ message: 'No valid text content found to generate audio' });
+    }
+
+    // 2. Generate Audio for Segments
+    const audioSegments = await ttsService.generateSegmentedSpeech(segments, {
       provider: req.body?.provider || 'elevenlabs',
       voice: req.body?.voice,
       voiceId: req.body?.voiceId,
@@ -572,45 +695,55 @@ exports.generateTTS = async (req, res) => {
       effectsProfileId: req.body?.effectsProfileId
     });
 
-    blog.ttsUrl = result.url;
+    // 3. Update Blog
+    blog.content = updatedContent; // Save content with injected IDs
+
+    // Map results to schema - use 'id' field for TTS segment highlighting
+    blog.audioSegments = audioSegments.map(seg => ({
+      url: seg.url,
+      path: seg.path,
+      text: seg.text,
+      duration: seg.duration,
+      id: seg.id, // This is the tts-seg-X ID created above
+      paragraphId: seg.id, // Also include for backward compatibility
+      order: seg.order
+    }));
+
+    // Set legacy fields for backward compatibility
+    blog.audioUrl = audioSegments[0]?.url;
+    blog.audioGeneratedAt = new Date();
+    blog.audioVoiceId = req.body?.voiceId;
+
+    // Calculate total duration
+    blog.audioDuration = audioSegments.reduce((total, seg) => total + (seg.duration || 0), 0);
+
     blog.ttsOptions = {
-      provider: result.provider,
-      voice: req.body?.voice,
+      provider: audioSegments[0]?.provider || 'elevenlabs',
       voiceId: req.body?.voiceId,
-      voiceName: req.body?.voiceName,
-      languageCode: req.body?.languageCode,
-      ssmlGender: req.body?.ssmlGender,
-      speed: req.body?.speed,
-      speakingRate: req.body?.speakingRate,
-      language: req.body?.language,
-      stability: req.body?.stability,
-      similarityBoost: req.body?.similarityBoost,
-      style: req.body?.style,
-      useSpeakerBoost: req.body?.useSpeakerBoost,
-      pitch: req.body?.pitch,
-      volumeGainDb: req.body?.volumeGainDb,
-      effectsProfileId: req.body?.effectsProfileId
+      // ... store other options if needed
     };
-    blog.audioDuration = result.duration;
+
     await blog.save();
     await invalidateAnalyticsCache(blog.author);
 
     const usage = await UsageService.recordUsage(req.user._id, usageType);
 
-    logger.info(`TTS generated`, {
+    logger.info(`TTS generated successfully`, {
       user: req.user._id.toString(),
       blog: blog._id,
-      ttsUrl: blog.ttsUrl,
-      provider: result.provider,
-      resultUrl: result.url,
-      resultPath: result.path,
-      fullResult: JSON.stringify(result),
+      segments: audioSegments.length
+    });
+
+    res.json({
+      message: 'TTS generated successfully',
+      audioSegments: blog.audioSegments,
+      audioUrl: blog.audioUrl,
       usage
     });
-    res.json({ success: true, ttsUrl: blog.ttsUrl, provider: result.provider, duration: result.duration, metadata: result.metadata, usage });
+
   } catch (err) {
     if (err instanceof UsageLimitError) {
-      logger.warn('Daily audio generation limit reached', {
+      logger.debug('Audio generation limit reached', {
         user: req.user._id.toString(),
         blog: req.params.id,
         usage: err.usage
@@ -631,6 +764,40 @@ exports.generateTTS = async (req, res) => {
     res.status(status).json({ success: false, message });
   }
 };
+
+exports.cancelTTS = async (req, res) => {
+  try {
+    const { id: blogId, jobId } = req.params;
+
+    // Verify blog exists and user has permission
+    const blog = await Blog.findById(blogId);
+    if (!blog) {
+      logger.warn(`Blog not found for TTS cancellation`, { user: req.user._id.toString(), blog: blogId });
+      return res.status(404).json({ success: false, message: 'Blog not found' });
+    }
+
+    // Check authorization: only author or admin can cancel
+    if (blog.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      logger.warn(`Unauthorized TTS cancellation attempt`, { user: req.user._id.toString(), blog: blogId });
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    // Call TTSService to cancel the job (publishes Redis event and aborts if still processing)
+    const result = await ttsService.cancelJob(jobId);
+
+    logger.info(`TTS job cancelled`, { user: req.user._id.toString(), blog: blogId, jobId });
+    res.status(200).json({
+      success: true,
+      message: 'TTS generation cancelled',
+      jobId
+    });
+  } catch (error) {
+    const message = error?.message || 'Failed to cancel TTS generation';
+    logger.error(`TTS cancellation error`, { user: req.user._id.toString(), blog: req.params.id, error: message });
+    res.status(500).json({ success: false, message });
+  }
+};
+
 exports.translateBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getBlogUrl } from '../utils/blogUrlHelper';
 import {
   Card,
   CardHeader,
@@ -419,7 +420,7 @@ const Dashboard = () => {
                 recentBlogs.map((blog) => (
                   <Link
                     key={blog._id}
-                    to={`/article/${blog.slug || blog._id}`}
+                    to={getBlogUrl(blog)}
                     className="block p-3 rounded-lg border border-border-color hover:border-primary-500 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between">
@@ -478,7 +479,7 @@ const Dashboard = () => {
                 topBlogs.map((blog, index) => (
                   <Link
                     key={blog._id}
-                    to={`/article/${blog.slug || blog._id}`}
+                    to={getBlogUrl(blog)}
                     className="block p-3 rounded-lg border border-border-color hover:border-green-500 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start gap-3">

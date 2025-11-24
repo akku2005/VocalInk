@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getBlogUrl } from "../utils/blogUrlHelper";
 import {
   Card,
   CardHeader,
@@ -30,6 +31,7 @@ import Modal from "../components/ui/Modal";
 import CustomDropdown from "../components/ui/CustomDropdown";
 import { useToast } from '../hooks/useToast';
 import AdvancedRichTextEditor from '../components/ui/AdvancedRichTextEditor';
+import AIWritingAssistant from '../components/editor/AIWritingAssistant';
 import { storage } from '../utils/storage';
 
 // Debounce function to limit how often an expensive function is called
@@ -70,6 +72,7 @@ const CreateBlogPage = () => {
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [tagQuery, setTagQuery] = useState("");
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   const suggestedTags = [
     "Technology",
@@ -218,12 +221,12 @@ const CreateBlogPage = () => {
         addToast({ type: 'success', message: 'Blog published successfully!' });
 
         // Navigate to the article page after successful publish
-        if (res.data && res.data.data && (res.data.data.slug || res.data.data._id)) {
-          navigate(`/article/${res.data.data.slug || res.data.data._id}`);
-        } else if (res.data && (res.data.slug || res.data._id)) {
-          navigate(`/article/${res.data.slug || res.data._id}`);
+        if (res.data && res.data.data) {
+          navigate(getBlogUrl(res.data.data));
+        } else if (res.data) {
+          navigate(getBlogUrl(res.data));
         } else {
-          // Fallback to blogs page if no ID returned
+          // Fallback to blogs page if no data returned
           navigate('/blogs');
         }
       } else {
@@ -381,6 +384,15 @@ const CreateBlogPage = () => {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAIAssistant(true)}
+                  className="flex items-center gap-2 text-sm bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border-purple-500/30"
+                  size="sm"
+                >
+                  <Sparkles className="w-4 h-4 text-purple-500" />
+                  <span className="hidden sm:inline">AI Assistant</span>
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setPreviewMode(!previewMode)}
@@ -825,6 +837,16 @@ const CreateBlogPage = () => {
           </div>
         </div>
       )}
+
+      {/* AI Writing Assistant Modal */}
+      <AIWritingAssistant
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+        onInsertContent={(content) => {
+          handleInputChange('content', content);
+          addToast({ type: 'success', message: 'AI content inserted! You can now edit it.' });
+        }}
+      />
     </>
   );
 };

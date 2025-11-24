@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Helmet } from "react-helmet-async";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -87,14 +88,7 @@ const SearchPage = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const moods = [
-    { id: "motivational", name: "Motivational", Icon: Sparkles, accent: "from-amber-500/90 to-orange-500/80" },
-    { id: "thoughtful", name: "Thoughtful", Icon: Feather, accent: "from-sky-500/90 to-blue-500/80" },
-    { id: "humorous", name: "Playful", Icon: Smile, accent: "from-yellow-500/90 to-orange-400/80" },
-    { id: "educational", name: "Educational", Icon: BookOpen, accent: "from-emerald-500/90 to-green-500/80" },
-    { id: "inspirational", name: "Inspirational", Icon: Flame, accent: "from-pink-500/90 to-rose-500/80" },
-    { id: "technical", name: "Technical", Icon: Cpu, accent: "from-purple-500/90 to-indigo-500/80" },
-  ];
+  
 
   const sortOptions = [
     { value: "relevance", label: "Relevance" },
@@ -121,35 +115,7 @@ const SearchPage = () => {
   ];
 
 
-  const featuredCollections = [
-    {
-      title: "AI StoryLab",
-      description: "Deep-dives on agents, prompts, and narrative tooling.",
-      count: 18,
-      accent: "from-indigo-500/90 to-blue-500/80",
-    },
-    {
-      title: "Creator Playbooks",
-      description: "Frameworks to grow your audience and craft.",
-      count: 12,
-      accent: "from-rose-500/90 to-orange-500/80",
-    },
-    {
-      title: "Wellness & Focus",
-      description: "Mindful routines for makers and knowledge workers.",
-      count: 9,
-      accent: "from-emerald-500/90 to-teal-500/80",
-    },
-  ];
-
-  const dateRangeOptions = [
-    { value: "", label: "Any time" },
-    { value: "today", label: "Today" },
-    { value: "week", label: "This week" },
-    { value: "month", label: "This month" },
-    { value: "year", label: "This year" },
-  ];
-
+  
   const languages = [
     { code: "", name: "All languages" },
     { code: "en", name: "English" },
@@ -184,13 +150,6 @@ const SearchPage = () => {
     "Sports",
   ];
 
-  const trendingTopics = [
-    { topic: "AI Content Creation", trend: "+45%" },
-    { topic: "Voice Technology", trend: "+32%" },
-    { topic: "Sustainable Living", trend: "+28%" },
-    { topic: "Remote Work", trend: "+23%" },
-    { topic: "Mental Health", trend: "+19%" },
-  ];
 
   useEffect(() => {
     // Simulate search suggestions
@@ -312,12 +271,7 @@ const SearchPage = () => {
     }, 0);
   }, [filters]);
 
-  const moodLookup = useMemo(() => {
-    return moods.reduce((acc, mood) => {
-      acc[mood.id] = mood;
-      return acc;
-    }, {});
-  }, [moods]);
+  
 
   const quickStats = [
     { label: "Matches", value: searchResults.length || 0 },
@@ -339,15 +293,19 @@ const SearchPage = () => {
     }));
   };
 
-  const toggleMoodFilter = (moodId) => {
-    setFilters((prev) => ({
-      ...prev,
-      mood: prev.mood === moodId ? "" : moodId,
-    }));
-  };
-
   return (
     <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
+      <Helmet>
+        <title>{searchQuery ? `${searchQuery} - VocalInk Search` : "VocalInk Search"}</title>
+        <meta name="description" content={`Search for articles, authors, and more on VocalInk. Find exactly what you're looking for.`} />
+        <meta property="og:title" content={searchQuery ? `${searchQuery} - VocalInk Search` : "VocalInk Search"} />
+        <meta property="og:description" content={`Search for articles, authors, and more on VocalInk. Find exactly what you're looking for.`} />
+        <meta property="og:url" content={`https://vocalink.com/search${searchQuery ? `?q=${searchQuery}`: ""}`} />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={searchQuery ? `${searchQuery} - VocalInk Search` : "VocalInk Search"} />
+        <meta name="twitter:description" content={`Search for articles, authors, and more on VocalInk. Find exactly what you're looking for.`} />
+      </Helmet>
       <section className="relative rounded-3xl border border-border bg-surface/50 backdrop-blur-sm shadow-lg mb-6">
         <div className="p-6 sm:p-8 lg:p-10 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center gap-6">
@@ -663,12 +621,7 @@ const SearchPage = () => {
                   {popularTags.slice(0, 8).map((tag) => (
                     <button
                       key={tag}
-                      onClick={() => {
-                        const newTags = filters.tags.includes(tag)
-                          ? filters.tags.filter((t) => t !== tag)
-                          : [...filters.tags, tag];
-                        setFilters((prev) => ({ ...prev, tags: newTags }));
-                      }}
+                      onClick={() => handleTagClick(tag)}
                       className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${filters.tags.includes(tag)
                         ? "bg-primary-500 text-white"
                         : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"
@@ -773,12 +726,7 @@ const SearchPage = () => {
                   {popularTags.slice(0, 8).map((tag) => (
                     <button
                       key={tag}
-                      onClick={() => {
-                        const newTags = filters.tags.includes(tag)
-                          ? filters.tags.filter((t) => t !== tag)
-                          : [...filters.tags, tag];
-                        setFilters((prev) => ({ ...prev, tags: newTags }));
-                      }}
+                      onClick={() => handleTagClick(tag)}
                       className={`px-2 py-1 text-xs rounded-full transition-colors cursor-pointer ${filters.tags.includes(tag)
                         ? "bg-primary-500 text-white"
                         : "bg-secondary-100 text-text-secondary hover:bg-secondary-200"

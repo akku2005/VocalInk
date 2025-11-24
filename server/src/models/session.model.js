@@ -12,7 +12,7 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true,
+
     },
     refreshToken: {
       type: String,
@@ -47,7 +47,6 @@ const sessionSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
     },
     revokedAt: {
       type: Date,
@@ -70,7 +69,7 @@ sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 sessionSchema.index({ userId: 1, isActive: 1, expiresAt: 1 });
 
 // Static method to cleanup expired sessions
-sessionSchema.statics.cleanupExpiredSessions = async function() {
+sessionSchema.statics.cleanupExpiredSessions = async function () {
   try {
     const result = await this.deleteMany({
       $or: [
@@ -86,14 +85,14 @@ sessionSchema.statics.cleanupExpiredSessions = async function() {
 };
 
 // Instance method to extend session
-sessionSchema.methods.extend = function(duration = 24 * 60 * 60 * 1000) {
+sessionSchema.methods.extend = function (duration = 24 * 60 * 60 * 1000) {
   this.expiresAt = new Date(Date.now() + duration);
   this.lastActivity = new Date();
   return this.save();
 };
 
 // Instance method to revoke session
-sessionSchema.methods.revoke = function() {
+sessionSchema.methods.revoke = function () {
   this.isActive = false;
   this.revokedAt = new Date();
   return this.save();

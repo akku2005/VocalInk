@@ -10,14 +10,13 @@ const usageLogSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['summary', 'audio'],
+      enum: ['summary', 'audio', 'ai_blog_generation'],
       required: true,
       index: true,
     },
     createdAt: {
       type: Date,
       default: () => new Date(),
-      index: true,
     },
   },
   {

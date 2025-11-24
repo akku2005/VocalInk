@@ -244,7 +244,7 @@ seriesSchema.index({ 'analytics.totalViews': -1 });
 seriesSchema.index({ createdAt: -1 });
 seriesSchema.index({ 'timeline.startDate': 1 });
 seriesSchema.index({ visibility: 1, status: 1 });
-seriesSchema.index({ slug: 1 });
+
 
 // Virtuals
 seriesSchema.virtual('episodeCount').get(function () {

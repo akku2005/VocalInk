@@ -169,7 +169,7 @@ class AuthController {
           errors: errors.array(),
         });
       }
-      
+
       const {
         email,
         password,
@@ -226,16 +226,27 @@ class AuthController {
         );
       }
 
-      // For admin role creation, check if it's allowed
+      // Admin Account Creation Logic
+      // ------------------------------
+      // First Admin: Can be created without authentication (bootstrap scenario)
+      // Subsequent Admins: Require an existing admin to be authenticated (req.user.role === 'admin')
+      // 
+      // This allows initial system setup while preventing unauthorized admin creation.
+      // For production deployments, consider:
+      // 1. Using environment variables to control first admin creation
+      // 2. Implementing a private API endpoint for admin creation
+      // 3. Adding additional verification (e.g., secret tokens) for first admin
       if (role === 'admin') {
         const existingAdmin = await User.findOne({ role: 'admin' });
         if (existingAdmin) {
+          // Subsequent admin creation - requires existing admin authentication
           if (!req.user || req.user.role !== 'admin') {
             throw new UnauthorizedError(
               'Only existing admins can create new admin accounts'
             );
           }
         } else {
+          // First admin creation - log for security audit
           logger.warn('First admin account being created', {
             email: sanitizedEmail,
             ip: req.ip,
@@ -257,7 +268,9 @@ class AuthController {
         lockoutUntil: null,
       });
 
-      // For admin users, automatically verify and provide tokens
+      // Auto-verify admin accounts and provide immediate access
+      // This bypasses the email verification flow for admin users
+      // In development mode with skipVerification flag, regular users are also auto-verified
       if (user.role === 'admin' || (skipVerification && process.env.NODE_ENV === 'development')) {
         user.isVerified = true;
         user.verifiedAt = new Date();
@@ -272,20 +285,21 @@ class AuthController {
           autoVerified: true,
         });
 
+        // Send admin creation notification email
         if (user.role === 'admin') {
-            try {
-              const creatorEmail = req.user ? req.user.email : 'system';
-              await emailService.sendAdminCreationNotification(
-                user.email,
-                user.name,
-                creatorEmail
-              );
-            } catch (error) {
-              logger.error('Error sending admin creation notification:', {
-                error: error.message,
-                userId: user._id,
-              });
-            }
+          try {
+            const creatorEmail = req.user ? req.user.email : 'system';
+            await emailService.sendAdminCreationNotification(
+              user.email,
+              user.name,
+              creatorEmail
+            );
+          } catch (error) {
+            logger.error('Error sending admin creation notification:', {
+              error: error.message,
+              userId: user._id,
+            });
+          }
         }
 
         return res.status(201).json({
@@ -305,10 +319,10 @@ class AuthController {
 
       // For regular users, proceed with secure email verification
       const verificationCode = generateNumericalCode(6);
-      
+
       // Generate verification token with enhanced security
       const { token: verificationToken } = await Token.generateVerificationToken(
-        user, 
+        user,
         verificationCode
       );
 
@@ -325,7 +339,7 @@ class AuthController {
           userId: user._id,
           email: user.email,
         });
-        
+
         // If email fails, still create user but mark as unverified
         // User can request resend later
       }
@@ -372,7 +386,7 @@ class AuthController {
 
       const response = {
         success: true,
-        message: process.env.NODE_ENV === 'test' 
+        message: process.env.NODE_ENV === 'test'
           ? 'Registration successful. User auto-verified in test environment.'
           : 'Registration successful. Please check your email for verification code.',
         userId: user._id,
@@ -380,10 +394,10 @@ class AuthController {
         isVerified: user.isVerified,
         // Never include verification code or token in response for security
       };
-      
+
       res.status(201).json(response);
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -503,7 +517,7 @@ class AuthController {
           errors: errors.array(),
         });
       }
-      
+
       const { email, password, twoFactorToken } = req.body;
 
       // Sanitize email
@@ -517,9 +531,9 @@ class AuthController {
           ip: req.ip,
           userAgent: req.get('user-agent'),
         });
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Invalid credentials' 
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
         });
       }
 
@@ -544,7 +558,7 @@ class AuthController {
       if (!isPasswordValid) {
         // Increment failed attempts
         user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-        
+
         // Progressive lockout system
         let lockoutSet = false;
         if (user.failedLoginAttempts >= 10) {
@@ -557,9 +571,9 @@ class AuthController {
           user.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
           lockoutSet = true;
         }
-        
+
         await user.save();
-        
+
         if (lockoutSet) {
           // Log lockout event
           await logAuthActivity(req, 'AUTH_ACCOUNT_LOCKOUT', {
@@ -570,7 +584,7 @@ class AuthController {
             ipAddress: req.ip,
             userAgent: req.get('user-agent'),
           });
-          
+
           // Send security alert email
           try {
             await emailService.sendAccountLockoutNotification(
@@ -584,17 +598,17 @@ class AuthController {
             });
           }
         }
-        
+
         logger.warn('Failed login attempt', {
           userId: user._id,
           email: user.email,
           ip: req.ip,
           failedAttempts: user.failedLoginAttempts,
         });
-        
-        return res.status(401).json({ 
-          success: false, 
-          message: 'Invalid credentials' 
+
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
         });
       }
 
@@ -631,25 +645,26 @@ class AuthController {
             twoFactorRequired: true,
           });
         }
-        
+
         const verified = speakeasy.totp.verify({
           secret: user.twoFactorSecret,
           encoding: 'base32',
           token: twoFactorToken,
           window: 1, // Allow 30 seconds before/after
         });
-        
+
         if (!verified) {
           logger.warn('Invalid 2FA code provided', {
             userId: user._id,
             email: user.email,
             ip: req.ip,
           });
-          
+
           return res.status(401).json({
             success: false,
-            message: 'Invalid two-factor authentication code',
+            message: 'Invalid two-factor authentication code. Please check your authenticator app and try again.',
             twoFactorRequired: true,
+            twoFactorRetry: true, // Flag to indicate this is a retry, not initial requirement
           });
         }
       }
@@ -669,10 +684,10 @@ class AuthController {
       // Create session with real geolocation data
       const sessionData = await SessionManager.createSessionData(req);
       const sessionId = await SessionManager.addSession(user, sessionData);
-      
+
       // Update user's login streak
       await user.updateStreak('login', 'increment');
-      
+
       // Store session ID in token for future reference
       tokens.sessionId = sessionId;
 
@@ -693,7 +708,7 @@ class AuthController {
           id: user._id,
           email: user.email,
           firstName: user.firstName,
-            lastName: user.lastName,
+          lastName: user.lastName,
           role: user.role,
           isVerified: user.isVerified,
           twoFactorEnabled: user.twoFactorEnabled,
@@ -702,7 +717,7 @@ class AuthController {
         ...tokens,
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -803,7 +818,7 @@ class AuthController {
       // Send verification success email
       try {
         await emailService.sendVerificationSuccessEmail(user.email, user.name);
-        logger.info('Verification success email sent', { 
+        logger.info('Verification success email sent', {
           userId: user._id,
           email: user.email,
         });
@@ -831,7 +846,7 @@ class AuthController {
           id: user._id,
           email: user.email,
           firstName: user.firstName,
-            lastName: user.lastName,
+          lastName: user.lastName,
           role: user.role,
           isVerified: user.isVerified,
         },
@@ -839,18 +854,18 @@ class AuthController {
         ...tokens,
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
   static async resendVerification(req, res, next) {
     try {
       const { email } = req.body;
-      
+
       if (!email) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Email is required' 
+        return res.status(400).json({
+          success: false,
+          message: 'Email is required'
         });
       }
 
@@ -861,17 +876,17 @@ class AuthController {
 
       if (!user) {
         logger.warn(`Resend verification attempted for non-existent user: ${sanitizedEmail}`);
-        return res.status(404).json({ 
-          success: false, 
-          message: 'User not found' 
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
         });
       }
 
       // Check if user is already verified
       if (user.isVerified) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Email is already verified' 
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already verified'
         });
       }
 
@@ -881,7 +896,7 @@ class AuthController {
         user.verifiedAt = new Date();
         await user.save();
         logger.info(`Auto-verified user for resend verification in test: ${sanitizedEmail}`);
-        
+
         return res.status(200).json({
           success: true,
           message: 'Verification code resent successfully (test environment)',
@@ -891,20 +906,20 @@ class AuthController {
 
       // Revoke any existing verification tokens for this user
       await Token.updateMany(
-        { 
-          user: user._id, 
+        {
+          user: user._id,
           type: 'verification',
-          revoked: false 
+          revoked: false
         },
         { revoked: true }
       );
 
       // Generate new verification code
       const verificationCode = generateNumericalCode(6);
-      
+
       // Generate a new verification token
       const { token: verificationToken } = await Token.generateVerificationToken(
-        user, 
+        user,
         verificationCode
       );
 
@@ -921,7 +936,7 @@ class AuthController {
           userId: user._id,
           email: user.email,
         });
-        
+
         return res.status(500).json({
           success: false,
           message: 'Failed to send verification email. Please try again later.',
@@ -943,7 +958,7 @@ class AuthController {
         email: user.email,
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -986,15 +1001,15 @@ class AuthController {
       }
       const { email } = req.body;
       const user = await User.findOne({ email });
-      
+
       if (!user) {
         logger.info('Password reset requested for non-existent email', {
           email,
         });
-        
+
         // Add a small delay to prevent timing attacks
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         return res.status(200).json({
           success: true,
           message: 'Password reset instructions have been sent to your email if an account exists with that address',
@@ -1043,7 +1058,7 @@ class AuthController {
       };
       return res.status(200).json(response);
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1123,7 +1138,7 @@ class AuthController {
         message: 'Password has been reset successfully',
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1158,13 +1173,13 @@ class AuthController {
       const { currentPassword, newPassword } = req.body;
 
       const passwordValidation = validatePassword(newPassword);
-        if (!passwordValidation.isValid) {
-            return res.status(400).json({
-                success: false,
-                message: 'Password does not meet security requirements',
-                details: passwordValidation.errors
-            });
-        }
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password does not meet security requirements',
+          details: passwordValidation.errors
+        });
+      }
 
       // Fetch user with password for comparison
       const user = await User.findById(req.user.id).select('+password');
@@ -1206,7 +1221,7 @@ class AuthController {
         message: 'Password changed successfully. Please log in again.',
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1217,7 +1232,7 @@ class AuthController {
         // Blacklist the access token
         const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
         await Token.blacklistAccessToken(tokenHash, req.user._id);
-        
+
         logger.info('User logged out and token blacklisted', {
           userId: req.user._id,
           email: req.user.email,
@@ -1229,7 +1244,7 @@ class AuthController {
         message: 'Logged out successfully',
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1264,7 +1279,7 @@ class AuthController {
         message: 'Logged out from all devices successfully',
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1281,7 +1296,7 @@ class AuthController {
         data: userObj,
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1293,10 +1308,10 @@ class AuthController {
           .status(400)
           .json({ success: false, message: 'Refresh token is required' });
       }
-      
+
       // Verify refresh token using JWT service
       const decoded = await JWTService.verifyRefreshToken(refreshToken);
-      
+
       // Get user
       const user = await User.findById(decoded.userId);
       if (!user) {
@@ -1304,20 +1319,20 @@ class AuthController {
           .status(401)
           .json({ success: false, message: 'User not found' });
       }
-      
+
       // Revoke the used refresh token
       await JWTService.revokeRefreshToken(refreshToken);
-      
+
       // Generate new tokens with request context for device/IP binding
       const tokens = JWTService.generateTokenPair(user, req);
-      
+
       res.status(200).json({
         success: true,
         message: 'Tokens refreshed successfully',
         ...tokens,
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 
@@ -1337,7 +1352,7 @@ class AuthController {
         },
       });
     } catch (error) {
-        next(error);
+      next(error);
     }
   }
 }

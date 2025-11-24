@@ -20,7 +20,7 @@ const getCachedUserProfile = () => {
     if (!storage.available) return null;
     const cached = storage.getItem(CACHE_KEYS.USER_PROFILE);
     const timestamp = storage.getItem(CACHE_KEYS.USER_PROFILE_TIMESTAMP);
-    
+
     if (cached && timestamp) {
       const age = Date.now() - parseInt(timestamp);
       if (age < CACHE_DURATION) {
@@ -122,7 +122,11 @@ const authReducer = (state, action) => {
         ...state,
         loading: false,
         error: action.payload,
-        pending2FACredentials: { email: null, password: null },
+        // Only clear pending2FACredentials if NOT a 2FA retry scenario
+        // This allows users to retry 2FA codes without re-entering credentials
+        pending2FACredentials: action.preserve2FACredentials
+          ? state.pending2FACredentials
+          : { email: null, password: null },
       };
     case AUTH_ACTIONS.LOGOUT:
       // Clear cached user profile on logout
@@ -250,32 +254,32 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
-        
+
         // Store current route before authentication check
         const currentPath = window.location.pathname;
         if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/' && sessionStorageHelper.available) {
           sessionStorageHelper.setItem('intendedRoute', currentPath);
         }
-        
+
         // Check for cached user profile first
         const cachedProfile = getCachedUserProfile();
         if (cachedProfile) {
           dispatch({ type: AUTH_ACTIONS.SET_USER_PROFILE, payload: cachedProfile });
         }
-        
+
         const tokens = authService.getStoredTokens();
-        
+
         if (tokens.accessToken && tokens.refreshToken) {
           // Set the auth header first
           authService.setAuthHeader(tokens.accessToken);
-          
+
           // Immediately set authenticated state to prevent redirect during token verification
           dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user: null, ...tokens } });
-          
+
           try {
             // Verify token and get user data
             const user = await authService.getCurrentUser();
-            
+
             if (user) {
               // Token is valid, update with user data
               dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user, ...tokens } });
@@ -292,11 +296,13 @@ export const AuthProvider = ({ children }) => {
               if (refreshResult.success) {
                 const user = await authService.getCurrentUser();
                 if (user) {
-                  dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { 
-                    user, 
-                    accessToken: refreshResult.accessToken, 
-                    refreshToken: refreshResult.refreshToken 
-                  } });
+                  dispatch({
+                    type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: {
+                      user,
+                      accessToken: refreshResult.accessToken,
+                      refreshToken: refreshResult.refreshToken
+                    }
+                  });
                 } else {
                   authService.clearTokens();
                   clearCachedUserProfile();
@@ -332,56 +338,63 @@ export const AuthProvider = ({ children }) => {
       try {
         dispatch({ type: AUTH_ACTIONS.LOGIN_START });
         const response = await authService.login(email, password, twoFactorToken);
-        
+
         if (response.twoFactorRequired) {
           dispatch({ type: AUTH_ACTIONS.SET_TWO_FACTOR_REQUIRED, payload: true });
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
           return { success: true, twoFactorRequired: true };
         }
-        
+
         dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: response });
-        
+
         return { success: true };
       } catch (error) {
         // Handle specific error types
         if (error.accountLocked) {
-          dispatch({ 
-            type: AUTH_ACTIONS.SET_ACCOUNT_LOCKED, 
-            payload: { 
-              locked: true, 
+          dispatch({
+            type: AUTH_ACTIONS.SET_ACCOUNT_LOCKED,
+            payload: {
+              locked: true,
               lockoutUntil: error.lockoutUntil,
               message: error.message
-            } 
+            }
           });
           return { success: false, accountLocked: true, error: error.message };
         }
-        
+
         if (error.requiresVerification) {
-          dispatch({ 
-            type: AUTH_ACTIONS.SET_REQUIRES_VERIFICATION, 
-            payload: { 
-              required: true, 
-              message: error.message 
-            } 
+          dispatch({
+            type: AUTH_ACTIONS.SET_REQUIRES_VERIFICATION,
+            payload: {
+              required: true,
+              message: error.message
+            }
           });
           return { success: false, requiresVerification: true, error: error.message };
         }
-        
+
         if (error.twoFactorRequired) {
           dispatch({ type: AUTH_ACTIONS.SET_TWO_FACTOR_REQUIRED, payload: true });
           dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
           return { success: true, twoFactorRequired: true };
         }
-        
+
         // Provide user-friendly error messages
         let errorMessage = error.message || 'Login failed';
-        
+
         // Check if it's a non-existent email error
         if (errorMessage.includes('Invalid credentials')) {
           errorMessage = 'The email address or password you entered is incorrect. Please check your credentials and try again.';
         }
-        
-        dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: errorMessage });
+
+        // Check if this is a 2FA error - preserve credentials for retry
+        const preserve2FACredentials = twoFactorToken !== null && twoFactorToken !== undefined;
+
+        dispatch({
+          type: AUTH_ACTIONS.LOGIN_FAILURE,
+          payload: errorMessage,
+          preserve2FACredentials // Pass flag to preserve credentials during 2FA retry
+        });
         return { success: false, error: errorMessage };
       }
     },
@@ -391,11 +404,11 @@ export const AuthProvider = ({ children }) => {
       try {
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
         dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-        
+
         const response = await authService.register(userData);
-        
+
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
-        
+
         // AuthService.register returns the server response directly if successful
         // Server response format: { success: true, message: "...", userId: "...", email: "...", isVerified: false }
         if (response && response.success) {
@@ -417,9 +430,9 @@ export const AuthProvider = ({ children }) => {
       try {
         dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
         dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-        
+
         const response = await authService.verifyEmail(email, code);
-        
+
         if (response && response.success) {
           dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: response });
           return { success: true, data: response };
@@ -630,9 +643,9 @@ export const AuthProvider = ({ children }) => {
 
     // Store 2FA credentials
     store2FACredentials: (email, password) => {
-      dispatch({ 
-        type: AUTH_ACTIONS.STORE_2FA_CREDENTIALS, 
-        payload: { email, password } 
+      dispatch({
+        type: AUTH_ACTIONS.STORE_2FA_CREDENTIALS,
+        payload: { email, password }
       });
     },
 
@@ -660,7 +673,7 @@ export const AuthProvider = ({ children }) => {
             return { success: true, profile: cachedProfile, fromCache: true };
           }
         }
-        
+
         const profile = await userService.getMyProfile();
         dispatch({ type: AUTH_ACTIONS.SET_USER_PROFILE, payload: profile });
         return { success: true, profile, fromCache: false };

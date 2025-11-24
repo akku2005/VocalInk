@@ -5,34 +5,42 @@ import Button from '../ui/Button';
 import api from '../../services/api';
 import { useContext } from 'react';
 import { AudioContext } from '../../context/AudioContext';
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Download, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Download,
   Settings,
   Loader2,
   AlertCircle,
   Volume1,
   ChevronDown,
-  Mic2
+  Mic2,
+  X
 } from 'lucide-react';
 import { buildQuotaToastPayload } from '../../utils/quotaToast';
 
-const AudioPlayer = ({ 
-  blogId, 
-  blogTitle, 
+const AudioPlayer = ({
+  blogId,
+  blogTitle,
   initialAudioUrl = null,
-  onAudioGenerated 
+  initialAudioSegments = [], // New prop for segments
+  onAudioGenerated,
+  onSegmentChange // Callback for highlighting
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0); // Total across all segments
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl);
+  const [segments, setSegments] = useState(initialAudioSegments || []);
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+
   const [isGenerating, setIsGenerating] = useState(false);
+  const [ttsJobId, setTtsJobId] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -47,10 +55,58 @@ const AudioPlayer = ({
   const [previewSrc, setPreviewSrc] = useState(null);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState(null);
-  
+
   const audioRef = useRef(null);
   const { isAuthenticated } = useAuth();
   const { showInfo, showError } = useToast();
+
+  const resolveAudioUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('blob:')) return url;
+
+    // Get base URL from API config or default to localhost:3000
+    const apiBaseUrl = api.defaults.baseURL || 'http://localhost:3000/api';
+    const serverBaseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
+
+    // Ensure url starts with /
+    const normalizedPath = url.startsWith('/') ? url : `/${url}`;
+    return `${serverBaseUrl}${normalizedPath}`;
+  };
+
+  // Initialize segments if provided
+  useEffect(() => {
+    if (initialAudioSegments && initialAudioSegments.length > 0) {
+      console.log('AudioPlayer: Initializing segments', { count: initialAudioSegments.length, segments: initialAudioSegments });
+      setSegments(initialAudioSegments);
+
+      // Calculate total duration across all segments
+      const total = initialAudioSegments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
+      setTotalDuration(total);
+
+      // If we have segments but no current URL, set the first one
+      if (!audioUrl) {
+        setAudioUrl(resolveAudioUrl(initialAudioSegments[0].url));
+        setCurrentSegmentIndex(0);
+        // Don't highlight on load - only when playing
+      }
+    }
+  }, [initialAudioSegments]);
+
+  // Notify parent of segment change - only when playing
+  useEffect(() => {
+    if (segments.length > 0 && onSegmentChange && isPlaying) {
+      const currentSeg = segments[currentSegmentIndex];
+      if (currentSeg) {
+        // Use id field which contains tts-seg-X for highlighting
+        const segmentId = currentSeg.id || currentSeg.paragraphId;
+        console.log('AudioPlayer: Segment changed', { index: currentSegmentIndex, segmentId, segment: currentSeg });
+        onSegmentChange(segmentId);
+      }
+    } else if (!isPlaying && onSegmentChange) {
+      // Clear highlighting when not playing
+      onSegmentChange(null);
+    }
+  }, [currentSegmentIndex, segments, onSegmentChange, isPlaying]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -58,16 +114,45 @@ const AudioPlayer = ({
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration || 0);
+      if (isPlaying) {
+        audio.play().catch(e => console.error("Auto-play failed:", e));
+      }
     };
 
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime || 0);
+      // Calculate cumulative time across all segments
+      let cumulativeTime = 0;
+
+      // Add duration of all previous segments
+      for (let i = 0; i < currentSegmentIndex; i++) {
+        cumulativeTime += segments[i]?.duration || 0;
+      }
+
+      // Add current time in current segment
+      cumulativeTime += audio.currentTime || 0;
+
+      setCurrentTime(cumulativeTime);
     };
 
     const handleEnded = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-      audio.currentTime = 0;
+      // Playlist logic
+      if (segments.length > 0 && currentSegmentIndex < segments.length - 1) {
+        // Move to next segment
+        const nextIndex = currentSegmentIndex + 1;
+        setCurrentSegmentIndex(nextIndex);
+        setAudioUrl(resolveAudioUrl(segments[nextIndex].url));
+        // isPlaying remains true, so handleLoadedMetadata will trigger play
+      } else {
+        // End of playlist or single file
+        setIsPlaying(false);
+        setCurrentTime(0);
+        audio.currentTime = 0;
+        // Reset to start
+        if (segments.length > 0) {
+          setCurrentSegmentIndex(0);
+          setAudioUrl(resolveAudioUrl(segments[0].url));
+        }
+      }
     };
 
     const handleError = (event) => {
@@ -80,8 +165,11 @@ const AudioPlayer = ({
       };
       const errorMsg = errorMessages[errorCode] || 'Failed to load audio';
       console.error('Audio error:', { errorCode, errorMsg, audioUrl });
-      setError(errorMsg);
-      setIsPlaying(false);
+      // Don't show error for empty src (initial state)
+      if (audioUrl) {
+        setError(errorMsg);
+        setIsPlaying(false);
+      }
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -94,28 +182,21 @@ const AudioPlayer = ({
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
-      audio.removeEventListener('canplay', () => {});
-      audio.removeEventListener('play', () => {});
-      audio.removeEventListener('pause', () => {});
     };
-  }, [audioUrl]);
+  }, [audioUrl, segments, currentSegmentIndex]); // Removed isPlaying from deps to avoid re-binding
 
-  // Handle initial audio URL from props
+  // Handle initial audio URL from props (Legacy support)
   useEffect(() => {
-    if (initialAudioUrl) {
+    if (initialAudioUrl && segments.length === 0) {
       let finalUrl = initialAudioUrl;
-      
-      // If URL is relative, make it absolute using the API base URL
       if (finalUrl && !finalUrl.startsWith('http')) {
         const apiBaseUrl = api.defaults.baseURL || 'http://localhost:3000/api';
         const serverBaseUrl = apiBaseUrl.replace('/api', '');
         finalUrl = `${serverBaseUrl}${finalUrl}`;
       }
-      
-      console.log('Loading cached audio URL:', { initialAudioUrl, finalUrl });
       setAudioUrl(finalUrl);
     }
-  }, [initialAudioUrl]);
+  }, [initialAudioUrl, segments]);
 
   useEffect(() => {
     const loadVoices = async () => {
@@ -137,39 +218,11 @@ const AudioPlayer = ({
     loadVoices();
   }, []);
 
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-    }
-  };
-
-  const handleError = (event) => {
-    const errorCode = audioRef.current?.error?.code;
-    const errorMessages = {
-      1: 'Audio loading aborted',
-      2: 'Network error loading audio',
-      3: 'Audio decoding failed',
-      4: 'Audio format not supported'
-    };
-    const errorMsg = errorMessages[errorCode] || 'Failed to load audio';
-    console.error('Audio error:', { errorCode, errorMsg, audioUrl, event });
-    setError(errorMsg);
-    setIsPlaying(false);
-  };
+  // ... (keep existing handlers: handleLoadedMetadata, handleTimeUpdate, handleEnded, handleError)
+  // Note: We redefined handleEnded inside useEffect, but we might need to keep the external one or remove it.
+  // To avoid conflicts, I will remove the external definitions since they are now inside the effect.
+  // But wait, the original code had them outside. 
+  // The best practice is to keep them inside useEffect if they depend on state (like segments/index).
 
   const togglePlayPause = () => {
     if (!audioRef.current) return;
@@ -185,16 +238,15 @@ const AudioPlayer = ({
 
   const handleSeek = (e) => {
     if (!audioRef.current || !duration) return;
-    
+
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, clickX / rect.width));
     const newTime = percentage * duration;
-    
+
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
-    
-    // Resume playing if it was playing
+
     if (isPlaying) {
       audioRef.current.play().catch(err => console.error('Play error:', err));
     }
@@ -203,11 +255,11 @@ const AudioPlayer = ({
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
-    
+
     if (audioRef.current) {
       audioRef.current.volume = newVolume;
     }
-    
+
     if (newVolume === 0) {
       setIsMuted(true);
     } else if (isMuted) {
@@ -242,9 +294,10 @@ const AudioPlayer = ({
     if (!isAuthenticated) return;
     setIsGenerating(true);
     setError(null);
+    setTtsJobId(null);
     try {
       const response = await api.post(`/blogs/${blogId}/tts`, {
-        provider: 'elevenlabs',
+        provider: 'auto',
         voiceId: voiceSettings.voice,
         language: voiceSettings.language,
         stability: 0.62,
@@ -252,46 +305,33 @@ const AudioPlayer = ({
         style: 0.2,
         useSpeakerBoost: true
       });
-      if (response?.data?.success) {
-        const payload = response.data.result || response.data;
-        const audioUrl = payload?.url || payload?.ttsUrl || payload?.audioUrl;
-        const segments = payload?.segments || [];
-        
-        // Log for debugging
-        console.log('TTS Response:', { payload, audioUrl, segments });
-        
-        if (segments.length > 0) {
-          segments.forEach(seg => {
-            addTrack({ url: seg.url, title: blogTitle, blogId, provider: payload.provider || 'gtts', language: voiceSettings.language });
-          });
+
+      if (response?.data) {
+        const { audioUrl, audioSegments, jobId, message } = response.data;
+
+        // Store job ID for potential cancellation
+        if (jobId) {
+          setTtsJobId(jobId);
         }
-        
-        // Ensure URL is absolute or relative to backend API
-        let finalUrl = audioUrl || segments[0]?.url || null;
-        
-        // If URL is relative, make it absolute using the API base URL
-        if (finalUrl && !finalUrl.startsWith('http')) {
-          // Get the API base URL from the api service
-          const apiBaseUrl = api.defaults.baseURL || 'http://localhost:3000/api';
-          // Remove /api from the end to get the server base URL
-          const serverBaseUrl = apiBaseUrl.replace('/api', '');
-          finalUrl = `${serverBaseUrl}${finalUrl}`;
+
+        console.log('TTS Generated:', { audioUrl, audioSegments, jobId });
+
+        if (audioSegments && audioSegments.length > 0) {
+          setSegments(audioSegments);
+          setAudioUrl(resolveAudioUrl(audioSegments[0].url));
+          setCurrentSegmentIndex(0);
+        } else if (audioUrl) {
+          // Legacy fallback
+          setAudioUrl(resolveAudioUrl(audioUrl));
+          setSegments([]);
         }
-        
-        console.log('Final audio URL:', finalUrl);
-        console.log('Audio URL details:', { 
-          originalUrl: audioUrl,
-          finalUrl,
-          apiBaseUrl: api.defaults.baseURL,
-          isRelative: audioUrl && !audioUrl.startsWith('http')
-        });
-        
-        setAudioUrl(finalUrl);
-        if (onAudioGenerated) onAudioGenerated(finalUrl);
-        const usage = response?.data?.usage;
+
+        if (onAudioGenerated) {
+          onAudioGenerated(audioSegments || audioUrl);
+        }
+
+        const usage = response.data.usage;
         handleQuotaToast(usage);
-      } else {
-        setError(response?.data?.message || 'Failed to generate audio');
       }
     } catch (error) {
       console.error('Error generating TTS:', error);
@@ -302,33 +342,47 @@ const AudioPlayer = ({
       setError(error?.response?.data?.message || 'Failed to generate audio');
     } finally {
       setIsGenerating(false);
+      setTtsJobId(null);
+    }
+  };
+
+  const cancelTTS = async () => {
+    if (!ttsJobId || !blogId) return;
+    try {
+      await api.post(`/blogs/${blogId}/tts/cancel/${ttsJobId}`);
+      setIsGenerating(false);
+      setTtsJobId(null);
+      showInfo({ message: 'TTS generation cancelled.' });
+    } catch (error) {
+      console.error('Error cancelling TTS:', error);
+      showError({ message: 'Failed to cancel TTS generation.' });
     }
   };
 
   const downloadAudio = async () => {
     if (!audioUrl) return;
-    
+
     try {
       // Use fetch to download with proper headers
       const response = await fetch(audioUrl);
-      
+
       if (!response.ok) {
         throw new Error(`Download failed: ${response.statusText}`);
       }
-      
+
       // Check if response is actually audio
       const contentType = response.headers.get('content-type');
       console.log('Download content-type:', contentType);
-      
+
       if (!contentType || !contentType.includes('audio')) {
         console.error('Invalid content type:', contentType);
         const text = await response.text();
         console.error('Response body:', text.substring(0, 200));
         throw new Error('Server returned invalid audio format');
       }
-      
+
       const blob = await response.blob();
-      
+
       // Create download link
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -337,7 +391,7 @@ const AudioPlayer = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Clean up
       URL.revokeObjectURL(blobUrl);
       console.log('Download completed successfully');
@@ -380,7 +434,7 @@ const AudioPlayer = ({
       <div className="relative rounded-2xl overflow-hidden group">
         {/* Glow effect */}
         <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-primary/50 to-primary opacity-0 group-hover:opacity-20 blur-xl transition-all duration-500"></div>
-        
+
         {/* Neomorphism background */}
         <div className="relative rounded-2xl bg-gradient-to-br from-white/80 to-white/60 dark:from-slate-900/80 dark:to-slate-800/60 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-2xl dark:shadow-2xl/50 p-6 text-center">
           <Mic2 className="w-8 h-8 text-text-secondary mx-auto mb-3 opacity-60" />
@@ -395,10 +449,10 @@ const AudioPlayer = ({
       {/* Continuously running animated glow border */}
       <div className="absolute -inset-1 bg-gradient-to-r from-primary via-primary/50 to-primary blur-2xl opacity-20 dark:opacity-30 animate-[spin_8s_linear_infinite]"></div>
       <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 via-transparent to-primary/40 blur-lg opacity-40 dark:opacity-50 animate-[spin_10s_linear_infinite]"></div>
-      
+
       {/* Main neomorphism container */}
       <div className="relative rounded-2xl bg-gradient-to-br from-white/95 to-white/85 dark:from-slate-900/90 dark:to-slate-800/70 backdrop-blur-2xl border border-primary/10 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-2xl/50 overflow-hidden">
-        
+
         {/* Header with VocalInk branding */}
         <div className="flex items-center justify-between p-5 border-b border-white/20 dark:border-white/5 bg-gradient-to-r from-white/50 to-transparent dark:from-white/5 dark:to-transparent">
           <div className="flex items-center gap-4">
@@ -409,36 +463,25 @@ const AudioPlayer = ({
                 <Mic2 className="w-5 h-5 text-white" />
               </div>
             </div>
-            
+
             <div>
               <h3 className="text-sm font-bold text-text-primary">VocalInk</h3>
               <p className="text-xs text-text-secondary font-medium">AI Voice Narration</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-1.5">
-            {audioUrl && (
-              <button
-                onClick={downloadAudio}
-                className="p-2.5 rounded-lg bg-gray-200 dark:bg-white/10 hover:bg-primary/20 dark:hover:bg-primary/20 text-text-secondary hover:text-primary transition-all duration-300 shadow-md hover:shadow-lg"
-                title="Download"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-            )}
-            
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`p-2.5 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg ${
-                showSettings 
-                  ? 'bg-primary/20 dark:bg-primary/20 text-primary' 
-                  : 'bg-gray-200 dark:bg-white/10 hover:bg-primary/20 dark:hover:bg-primary/20 text-text-secondary hover:text-primary'
-              }`}
+              className={`p-2.5 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg ${showSettings
+                ? 'bg-primary/20 dark:bg-primary/20 text-primary'
+                : 'bg-gray-200 dark:bg-white/10 hover:bg-primary/20 dark:hover:bg-primary/20 text-text-secondary hover:text-primary'
+                }`}
               title="Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
-            
+
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-2.5 rounded-lg bg-gray-200 dark:bg-white/10 hover:bg-primary/20 dark:hover:bg-primary/20 text-text-secondary hover:text-primary transition-all duration-300 shadow-md hover:shadow-lg"
@@ -465,30 +508,30 @@ const AudioPlayer = ({
               <div className="space-y-5">
                 {/* Progress Bar with smooth animation */}
                 <div className="space-y-2.5">
-                  <div 
+                  <div
                     className="relative w-full h-3 bg-gray-300 dark:bg-white/10 rounded-full cursor-pointer hover:h-4 transition-all shadow-inner overflow-hidden group/progress"
                     onClick={handleSeek}
                   >
                     {/* Background track - light gray */}
                     <div className="absolute inset-0 bg-gray-200 dark:bg-white/8 rounded-full"></div>
-                    
+
                     {/* Played portion - smooth fill animation */}
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-primary via-primary to-primary/80 rounded-full shadow-lg shadow-primary/50 group-hover/progress:shadow-primary/70 relative flex items-center justify-end pr-1"
-                      style={{ 
-                        width: `${duration ? (currentTime / duration) * 100 : 0}%`,
+                      style={{
+                        width: `${totalDuration ? (currentTime / totalDuration) * 100 : 0}%`,
                         transition: 'width 0.1s linear'
                       }}
                     >
                       {/* Glowing dot at end of progress */}
-                      {duration && currentTime > 0 && (
+                      {totalDuration && currentTime > 0 && (
                         <div className="w-4 h-4 bg-white rounded-full shadow-lg shadow-primary/80 opacity-100 group-hover/progress:opacity-100 transition-opacity flex-shrink-0"></div>
                       )}
                     </div>
                   </div>
                   <div className="flex justify-between text-xs text-text-secondary font-semibold">
                     <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
+                    <span>{formatTime(totalDuration)}</span>
                   </div>
                 </div>
 
@@ -503,7 +546,7 @@ const AudioPlayer = ({
                       <div className="absolute inset-0 rounded-xl bg-primary opacity-0 group-hover:opacity-20 blur-lg transition-all"></div>
                       {isPlaying ? <Pause className="w-5 h-5 relative" /> : <Play className="w-5 h-5 ml-0.5 relative" />}
                     </button>
-                    
+
                     {/* Volume Control */}
                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-200 dark:bg-white/10 backdrop-blur-sm shadow-md">
                       <button
@@ -557,16 +600,31 @@ const AudioPlayer = ({
                 <p className="text-text-secondary text-sm mb-6 font-medium">
                   Create an AI-narrated version of this post
                 </p>
-                <Button
-                  onClick={generateTTS}
-                  disabled={isGenerating}
-                  loading={isGenerating}
-                  variant="primary"
-                  size="md"
-                  className="shadow-lg hover:shadow-xl hover:shadow-primary/50"
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Audio'}
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  {isGenerating ? (
+                    <Button
+                      onClick={cancelTTS}
+                      disabled={!ttsJobId}
+                      variant="destructive"
+                      size="md"
+                      className="shadow-lg hover:shadow-xl hover:shadow-red-500/50"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel TTS
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={generateTTS}
+                      disabled={isGenerating}
+                      loading={isGenerating}
+                      variant="primary"
+                      size="md"
+                      className="shadow-lg hover:shadow-xl hover:shadow-primary/50"
+                    >
+                      {isGenerating ? 'Generating...' : 'Generate Audio'}
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
