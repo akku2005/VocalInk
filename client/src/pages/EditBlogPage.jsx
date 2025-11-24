@@ -33,7 +33,8 @@ import {
   History,
   Share,
   MessageCircle,
-  Share2
+  Share2,
+  X
 } from 'lucide-react';
 
 const EditBlogPage = () => {
@@ -44,6 +45,7 @@ const EditBlogPage = () => {
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [ttsGenerating, setTtsGenerating] = useState(false);
+  const [ttsJobId, setTtsJobId] = useState(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [currentTag, setCurrentTag] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -212,14 +214,39 @@ const EditBlogPage = () => {
     }
 
     setTtsGenerating(true);
+    setTtsJobId(null);
     try {
-      await blogService.generateTTS(id, { provider: 'elevenlabs' });
+      const result = await blogService.generateTTS(id, { provider: 'elevenlabs' });
+      
+      // Store job ID for cancellation if available
+      const jobId = result?.jobId || result?.result?.jobId;
+      if (jobId) {
+        setTtsJobId(jobId);
+      }
+      
       addToast({ type: 'success', message: 'Audio regeneration started. Refresh the article to listen once ready.' });
     } catch (error) {
       console.error('Error generating TTS:', error);
-      addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate TTS audio.' });
+      
+      // Don't show error if it was cancelled
+      if (error.message !== 'TTS generation was cancelled') {
+        addToast({ type: 'error', message: error?.response?.data?.message || 'Failed to generate TTS audio.' });
+      } else {
+        addToast({ type: 'warning', message: 'TTS generation was cancelled.' });
+      }
     } finally {
       setTtsGenerating(false);
+      setTtsJobId(null);
+    }
+  };
+
+  const cancelTTS = async () => {
+    try {
+      await blogService.cancelTTSGeneration(id, ttsJobId);
+      addToast({ type: 'info', message: 'TTS generation cancelled.' });
+    } catch (error) {
+      console.error('Error cancelling TTS:', error);
+      addToast({ type: 'error', message: 'Failed to cancel TTS generation.' });
     }
   };
 
@@ -524,16 +551,28 @@ const EditBlogPage = () => {
                         <Sparkles className="w-4 h-4" />
                         AI Summary
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={generateTTS}
-                        loading={ttsGenerating}
-                        className="flex items-center gap-1"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                        Generate TTS
-                      </Button>
+                      {ttsGenerating ? (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={cancelTTS}
+                          className="flex items-center gap-1"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel TTS
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={generateTTS}
+                          loading={ttsGenerating}
+                          className="flex items-center gap-1"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                          Generate TTS
+                        </Button>
+                      )}
                     </div>
                   </CardTitle>
                 </CardHeader>

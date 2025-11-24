@@ -4,6 +4,10 @@ import api from './api';
  * Blog Service
  * Handles all blog-related API calls
  */
+
+// Store AbortControllers for ongoing TTS requests
+const ttsAbortControllers = new Map();
+
 const blogService = {
   /**
    * Get all blogs with optional filters
@@ -244,14 +248,90 @@ const blogService = {
    * Generate TTS for a blog
    * @param {string} id - Blog ID
    * @param {Object} ttsOptions - TTS options
-   * @returns {Promise<Object>} TTS result with URL
+   * @returns {Promise<Object>} TTS result with URL and jobId for cancellation
    */
   async generateTTS(id, ttsOptions = {}) {
     try {
-      const response = await api.post(`/blogs/${id}/tts`, ttsOptions);
+      // Create an AbortController for this request
+      const controller = new AbortController();
+      ttsAbortControllers.set(id, controller);
+
+      const response = await api.post(`/blogs/${id}/tts`, ttsOptions, {
+        signal: controller.signal
+      });
+      
+      // Store jobId for potential cancellation
+      const jobId = response.data?.jobId || response.data?.result?.jobId;
+      if (jobId) {
+        ttsAbortControllers.set(`${id}-job-${jobId}`, controller);
+      }
+
       return response.data;
     } catch (error) {
+      // Remove controller on error
+      ttsAbortControllers.delete(id);
+      
+      // Check if error was due to abort
+      if (error.name === 'AbortError') {
+        console.log('TTS generation cancelled');
+        throw new Error('TTS generation was cancelled');
+      }
+      
       console.error('Error generating TTS:', error);
+      throw error;
+    } finally {
+      // Clean up after a delay to allow UI updates
+      setTimeout(() => {
+        ttsAbortControllers.delete(id);
+      }, 500);
+    }
+  },
+
+  /**
+   * Cancel ongoing TTS generation
+   * @param {string} id - Blog ID
+   * @param {string} jobId - Optional job ID for server-side cancellation
+   * @returns {Promise<Object>} Cancellation result
+   */
+  async cancelTTSGeneration(id, jobId = null) {
+    try {
+      // Abort the client-side request
+      const controller = ttsAbortControllers.get(id);
+      if (controller) {
+        controller.abort();
+        ttsAbortControllers.delete(id);
+      }
+
+      // Also cancel on server if jobId is available
+      if (jobId) {
+        try {
+          const response = await api.post(`/blogs/${id}/tts/cancel/${jobId}`);
+          return response.data;
+        } catch (error) {
+          console.error('Error cancelling job on server:', error);
+          // Don't throw - client-side abort is still valid
+        }
+      }
+
+      return { success: true, message: 'TTS generation cancelled' };
+    } catch (error) {
+      console.error('Error cancelling TTS:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get TTS job status
+   * @param {string} id - Blog ID
+   * @param {string} jobId - Job ID
+   * @returns {Promise<Object>} Job status
+   */
+  async getTTSJobStatus(id, jobId) {
+    try {
+      const response = await api.get(`/blogs/${id}/tts/status/${jobId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting TTS job status:', error);
       throw error;
     }
   },

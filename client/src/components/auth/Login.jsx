@@ -54,7 +54,7 @@ const Login = () => {
 
   // Get the intended destination from location state, or default to dashboard
   const from = location.state?.from?.pathname || "/dashboard";
-  
+
   // Get message from location state (e.g., from registration)
   const message = location.state?.message;
 
@@ -66,6 +66,7 @@ const Login = () => {
     formState: { errors },
     setError: setFormError,
     setValue,
+    getValues,
   } = useForm({
     resolver: yupResolver(loginSchema),
   });
@@ -81,16 +82,19 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     clearError();
-    setIs2faRequired(false); // NEW LINE: Reset local 2FA state on new login attempt
-    
+    setIs2faRequired(false); // Reset local 2FA state on new login attempt
+
+    // Store email for preservation on error
+    const userEmail = data.email;
+
     try {
       const result = await login(data.email, data.password);
-      
+
       if (result.success) {
         if (result.twoFactorRequired) {
           // 2FA required - store credentials for 2FA submission
           store2FACredentials(data.email, data.password);
-          setIs2faRequired(true); // NEW LINE: Set local 2FA state
+          setIs2faRequired(true); // Set local 2FA state
         } else {
           // Login successful, redirect
           navigate(from, { replace: true });
@@ -102,78 +106,97 @@ const Login = () => {
         }
         if (result.requiresVerification) {
           // Email verification required - redirect to verification page
-          navigate("/verify-email", { 
-            state: { 
-              email: data.email, 
+          navigate("/verify-email", {
+            state: {
+              email: data.email,
               from: from,
-              message: result.error 
-            } 
+              message: result.error
+            }
           });
           return;
         }
+        // Set error but preserve email - clear password for security
         setFormError("root", { message: result.error });
+        // Explicitly preserve email value after error
+        setValue("email", userEmail, { shouldValidate: false });
+        setValue("password", "", { shouldValidate: false }); // Clear password for security
       }
     } catch (error) {
       // Check if this is a 2FA requirement error
       if (error.twoFactorRequired) {
         store2FACredentials(data.email, data.password);
-        setIs2faRequired(true); // MODIFIED LINE
+        setIs2faRequired(true);
         return;
       }
-      
+
       // Check if this is a verification requirement error
       if (error.requiresVerification) {
-        navigate("/verify-email", { 
-          state: { 
-            email: data.email, 
+        navigate("/verify-email", {
+          state: {
+            email: data.email,
             from: from,
-            message: error.message 
-          } 
+            message: error.message
+          }
         });
         return;
       }
-      
+
       // Check if this is an account lockout error
       if (error.accountLocked) {
         // Account is locked - error is already set in context
         return;
       }
-      
-      // Handle other errors
+
+      // Handle other errors - preserve email, clear password
       setFormError("root", { message: error.message || "An unexpected error occurred" });
+      // Explicitly preserve email value after error
+      setValue("email", userEmail, { shouldValidate: false });
+      setValue("password", "", { shouldValidate: false }); // Clear password for security
     }
   };
 
   const onSubmit2FA = async (data) => {
     clearError();
-    
+
     try {
       // Validate that we have the required credentials
       if (!pending2FACredentials?.email || !pending2FACredentials?.password) {
-        setFormError2FA("root", { message: "Missing login credentials. Please try logging in again." });
+        setFormError2FA("root", { message: "Session expired. Please log in again." });
+        // Reset to login screen
+        handleBackToLogin();
         return;
       }
-      
+
       // Call login again with 2FA token - this is the correct approach
       // as the backend expects 2FA token during login
       const result = await login(pending2FACredentials.email, pending2FACredentials.password, data.twoFactorToken);
-      
+
       if (result.success) {
         // 2FA successful, clear credentials and redirect
         clear2FACredentials();
-        setIs2faRequired(false); // NEW LINE: Reset local 2FA state on success
+        setIs2faRequired(false); // Reset local 2FA state on success
         navigate(from, { replace: true });
       } else {
-        setFormError2FA("root", { message: result.error });
+        // Show error but KEEP user on 2FA screen to retry
+        // Do NOT clear credentials - they can try again
+        setFormError2FA("root", {
+          message: result.error || "Invalid 2FA code. Please check your authenticator app and try again."
+        });
+        // User stays on 2FA screen, credentials are preserved
       }
     } catch (error) {
-      setFormError2FA("root", { message: error.message || "2FA verification failed" });
+      // Only show error, don't force re-authentication
+      const errorMsg = error.message || "Invalid 2FA code. Please check your authenticator app and try again.";
+      setFormError2FA("root", { message: errorMsg });
+      // User can retry immediately without re-entering email/password
     }
   };
 
   const handleBackToLogin = () => {
+    // Clear all 2FA state and return to login screen
     resetLoginAttempt();
-    setIs2faRequired(false); // NEW LINE
+    setIs2faRequired(false);
+    // This clears errors, 2FA flags, and credentials
   };
 
   // Format lockout time
@@ -183,7 +206,7 @@ const Login = () => {
     const now = new Date();
     const diffMs = lockoutDate - now;
     const diffMins = Math.ceil(diffMs / 60000);
-    
+
     if (diffMins <= 0) return "Account is now unlocked";
     if (diffMins < 60) return `${diffMins} minute(s)`;
     const diffHours = Math.ceil(diffMins / 60);
@@ -234,7 +257,7 @@ const Login = () => {
                   >
                     Try Again Later
                   </Button>
-                  
+
                   <div className="text-center">
                     <p className="text-sm text-text-secondary">
                       Forgot your password?{" "}
@@ -363,7 +386,7 @@ const Login = () => {
                   {message}
                 </div>
               )}
-              
+
               {errors.root && (
                 <div className="p-3 text-sm text-error bg-error/10 rounded-md">
                   {errors.root.message}

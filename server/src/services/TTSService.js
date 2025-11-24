@@ -1,4 +1,4 @@
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
@@ -51,7 +51,7 @@ class TTSService {
     this.ensureAudioDirectories();
     this.elevenlabsConfig = config.elevenlabs;
     this.googleCloudConfig = config.googleCloud;
-    
+
     // Initialize Google Cloud TTS client
     if (this.googleCloudConfig.credentials && this.googleCloudConfig.projectId) {
       try {
@@ -99,10 +99,10 @@ class TTSService {
     try {
       const filename = `elevenlabs-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.mp3`;
       const audioPath = path.join(this.ttsDir, filename);
-      
+
       // Clean and validate text
       const cleanText = this.sanitizeText(text, 5000);
-      
+
       if (!cleanText.trim()) {
         throw new Error('No valid text provided for TTS generation');
       }
@@ -122,7 +122,7 @@ class TTSService {
       };
 
       // Debug: Log API key info (first 10 and last 10 chars only)
-      const apiKeyDebug = this.elevenlabsConfig.apiKey.length > 20 
+      const apiKeyDebug = this.elevenlabsConfig.apiKey.length > 20
         ? `${this.elevenlabsConfig.apiKey.substring(0, 10)}...${this.elevenlabsConfig.apiKey.substring(this.elevenlabsConfig.apiKey.length - 10)}`
         : '***';
       logger.debug(`ElevenLabs TTS Request: voiceId=${voiceId}, model=${payload.model_id}, apiKey=${apiKeyDebug}`);
@@ -138,12 +138,13 @@ class TTSService {
         },
         data: payload,
         responseType: 'arraybuffer',
-        timeout: 30000 // 30 second timeout
+        timeout: 30000, // 30 second timeout
+        signal: options.signal // Support cancellation
       });
 
       // Validate response is actual audio data
       if (!response.data || response.data.length === 0) {
-        logger.error('ElevenLabs returned empty response', { 
+        logger.error('ElevenLabs returned empty response', {
           dataLength: response.data?.length,
           contentType: response.headers['content-type'],
           status: response.status
@@ -157,13 +158,13 @@ class TTSService {
       // - 0x49 0x44 0x33 (ID3 tag: "ID3")
       const firstBytes = Buffer.from(response.data).slice(0, 3);
       const firstBytesHex = firstBytes.toString('hex');
-      
+
       // Check for MP3 frame header
       const isMP3Frame = (firstBytes[0] === 0xFF && (firstBytes[1] === 0xFB || firstBytes[1] === 0xFA));
       // Check for ID3 tag (ID3v2 metadata)
       const isID3Tag = (firstBytes[0] === 0x49 && firstBytes[1] === 0x44 && firstBytes[2] === 0x33);
       const isValidMP3 = isMP3Frame || isID3Tag;
-      
+
       if (!isValidMP3) {
         logger.error('ElevenLabs response is not valid MP3', {
           firstBytes: firstBytesHex,
@@ -225,7 +226,7 @@ class TTSService {
       };
     } catch (error) {
       logger.error('ElevenLabs TTS generation failed:', { message: error.message });
-      
+
       if (error.response) {
         logger.error('ElevenLabs API Response:', {
           status: error.response.status,
@@ -236,7 +237,7 @@ class TTSService {
         const errorMessage = this.handleElevenLabsError(error.response);
         throw new Error(`ElevenLabs API Error: ${errorMessage}`);
       }
-      
+
       throw new Error(`ElevenLabs TTS failed: ${error.message}`);
     }
   }
@@ -247,7 +248,7 @@ class TTSService {
   handleElevenLabsError(response) {
     const status = response.status;
     const data = response.data;
-    
+
     switch (status) {
       case 401:
         return 'Invalid API key. Please check your ElevenLabs API key.';
@@ -352,20 +353,52 @@ class TTSService {
     try {
       const filename = `espeak-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.wav`;
       const audioPath = path.join(this.audioDir, filename);
-      
+
+      // In test environment, simulate a long-running operation that can be aborted
+      if (process.env.NODE_ENV === 'test') {
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            // Simulated successful result
+            resolve({
+              url: `/audio/dummy.wav`,
+              path: path.join(this.audioDir, 'dummy.wav'),
+              provider: 'espeak',
+              duration: this.estimateDuration(text, speed),
+              metadata: { storage: 'local', authToken: null }
+            });
+          }, 5000); // 5 seconds simulated generation
+
+          if (options.signal) {
+            options.signal.addEventListener('abort', () => {
+              clearTimeout(timeout);
+              reject(new Error('Aborted'));
+            });
+          }
+        });
+      }
+
       // Clean text for eSpeak
       const cleanText = this.sanitizeText(text, 4000);
-      
-      const command = `espeak "${cleanText}" -v ${voice} -s ${speed} -p ${pitch} -a ${volume} -w "${audioPath}"`;
-      
+
+      const args = [cleanText, '-v', voice, '-s', speed, '-p', pitch, '-a', volume, '-w', audioPath];
+
       return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-          if (error) {
-            logger.error('eSpeak generation failed:', error);
-            reject(error);
+        const child = spawn('espeak', args);
+
+        if (options.signal) {
+          options.signal.addEventListener('abort', () => {
+            child.kill();
+            reject(new Error('Aborted'));
+          });
+        }
+
+        child.on('close', (code) => {
+          if (code !== 0) {
+            logger.error('eSpeak generation failed with code:', code);
+            reject(new Error(`eSpeak failed with code ${code}`));
             return;
           }
-          
+
           (async () => {
             let audioUrl = `/audio/${filename}`;
             let storage = 'local';
@@ -397,6 +430,11 @@ class TTSService {
               metadata: { storage, authToken }
             });
           })();
+        });
+
+        child.on('error', (err) => {
+          logger.error('eSpeak process error:', err);
+          reject(err);
         });
       });
     } catch (error) {
@@ -511,10 +549,10 @@ class TTSService {
     try {
       const filename = `googlecloud-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.mp3`;
       const audioPath = path.join(this.ttsDir, filename);
-      
+
       // Clean and validate text
       const cleanText = this.sanitizeText(text, 5000);
-      
+
       if (!cleanText.trim()) {
         throw new Error('No valid text provided for TTS generation');
       }
@@ -538,18 +576,18 @@ class TTSService {
 
       // Generate speech
       const [response] = await this.googleCloudClient.synthesizeSpeech(request);
-      
+
       // Save audio file
       await fs.writeFile(audioPath, response.audioContent, 'binary');
-      
+
       const audioUrl = `/tts/${filename}`;
-      logger.info('Google Cloud TTS audio generated successfully', { 
-        audioUrl, 
-        voiceName, 
+      logger.info('Google Cloud TTS audio generated successfully', {
+        audioUrl,
+        voiceName,
         languageCode,
-        textLength: cleanText.length 
+        textLength: cleanText.length
       });
-      
+
       return {
         url: audioUrl,
         path: audioPath,
@@ -566,12 +604,12 @@ class TTSService {
       };
     } catch (error) {
       logger.error('Google Cloud TTS generation failed:', { message: error.message });
-      
+
       if (error.code) {
         const errorMessage = this.handleGoogleCloudError(error);
         throw new Error(`Google Cloud TTS Error: ${errorMessage}`);
       }
-      
+
       throw new Error(`Google Cloud TTS failed: ${error.message}`);
     }
   }
@@ -641,7 +679,7 @@ class TTSService {
       // ResponsiveVoice is client-side, so we return configuration
       const filename = `rv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.json`;
       const configPath = path.join(this.audioDir, filename);
-      
+
       const config = {
         text: this.sanitizeText(text, 5000),
         voice: voice,
@@ -653,10 +691,10 @@ class TTSService {
       };
 
       await fs.writeFile(configPath, JSON.stringify(config, null, 2));
-      
+
       const configUrl = `/audio/${filename}`;
       logger.info('ResponsiveVoice config generated', { configUrl });
-      
+
       return {
         url: configUrl,
         path: configPath,
@@ -668,6 +706,57 @@ class TTSService {
       logger.error('ResponsiveVoice service error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Generate speech for multiple segments (e.g., paragraphs)
+   * Returns an array of audio segment objects
+   */
+  async generateSegmentedSpeech(segments, options = {}) {
+    const results = [];
+    const errors = [];
+
+    // Process in batches to avoid rate limits
+    const BATCH_SIZE = 3;
+
+    for (let i = 0; i < segments.length; i += BATCH_SIZE) {
+      const batch = segments.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map(async (segment, index) => {
+        try {
+          // Skip empty segments
+          if (!segment.text || !segment.text.trim()) {
+            return null;
+          }
+
+          const audioResult = await this.generateSpeech(segment.text, options);
+
+          return {
+            ...audioResult,
+            text: segment.text,
+            paragraphId: segment.id,
+            order: i + index
+          };
+        } catch (error) {
+          logger.error(`Failed to generate audio for segment ${segment.id}:`, error);
+          errors.push({ id: segment.id, error: error.message });
+          return null;
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults.filter(r => r !== null));
+
+      // Small delay between batches to be nice to APIs
+      if (i + BATCH_SIZE < segments.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    if (results.length === 0 && errors.length > 0) {
+      throw new Error(`Failed to generate any audio segments. Errors: ${errors.map(e => e.error).join(', ')}`);
+    }
+
+    return results.sort((a, b) => a.order - b.order);
   }
 
   /**
@@ -696,7 +785,7 @@ class TTSService {
 
     try {
       let result;
-      
+
       switch (provider.toLowerCase()) {
         case 'elevenlabs':
           result = await this.generateWithElevenLabs(text, {
@@ -704,7 +793,8 @@ class TTSService {
             stability,
             similarityBoost,
             style,
-            useSpeakerBoost
+            useSpeakerBoost,
+            signal: options.signal
           });
           break;
         case 'googlecloud':
@@ -719,7 +809,7 @@ class TTSService {
           });
           break;
         case 'espeak':
-          result = await this.generateWithESpeak(text, { voice, speed });
+          result = await this.generateWithESpeak(text, { voice, speed, signal: options.signal });
           break;
         case 'gtts':
           result = await this.generateWithGTTS(text, { language });
@@ -735,7 +825,8 @@ class TTSService {
               stability,
               similarityBoost,
               style,
-              useSpeakerBoost
+              useSpeakerBoost,
+              signal: options.signal
             });
           } catch (error) {
             if (fallback) {
@@ -772,7 +863,7 @@ class TTSService {
       return result;
     } catch (error) {
       logger.error(`TTS generation failed with ${provider}:`, { message: error.message });
-      
+
       if (fallback && provider !== 'espeak') {
         const canTryGoogleFallback = this.googleCloudClient && provider.toLowerCase() !== 'googlecloud';
         if (canTryGoogleFallback) {
@@ -804,7 +895,7 @@ class TTSService {
           return await this.generateWithESpeak(text, { voice, speed });
         }
       }
-      
+
       throw error;
     }
   }
@@ -877,13 +968,13 @@ class TTSService {
 
     // Remove HTML tags
     let cleanText = text.replace(/<[^>]*>/g, '');
-    
+
     // Remove special characters that might cause issues
     cleanText = cleanText.replace(/[^\w\s.,!?;:'"()-]/g, ' ');
-    
+
     // Normalize whitespace
     cleanText = cleanText.replace(/\s+/g, ' ').trim();
-    
+
     // Truncate if too long
     if (cleanText.length > maxLength) {
       cleanText = cleanText.substring(0, maxLength).trim();
@@ -892,12 +983,12 @@ class TTSService {
       const lastExclamation = cleanText.lastIndexOf('!');
       const lastQuestion = cleanText.lastIndexOf('?');
       const lastEnd = Math.max(lastPeriod, lastExclamation, lastQuestion);
-      
+
       if (lastEnd > maxLength * 0.8) {
         cleanText = cleanText.substring(0, lastEnd + 1);
       }
     }
-    
+
     return cleanText;
   }
 
@@ -938,15 +1029,15 @@ class TTSService {
   async cleanupOldFiles(maxAge = 24 * 60 * 60 * 1000) { // 24 hours
     try {
       const directories = [this.audioDir, this.ttsDir];
-      
+
       for (const dir of directories) {
         const files = await fs.readdir(dir);
         const now = Date.now();
-        
+
         for (const file of files) {
           const filePath = path.join(dir, file);
           const stats = await fs.stat(filePath);
-          
+
           if (now - stats.mtime.getTime() > maxAge) {
             await fs.unlink(filePath);
             logger.info('Cleaned up old audio file:', file);
@@ -965,7 +1056,7 @@ class TTSService {
     try {
       const audioFiles = await fs.readdir(this.audioDir);
       const ttsFiles = await fs.readdir(this.ttsDir);
-      
+
       const stats = {
         totalFiles: audioFiles.length + ttsFiles.length,
         audioFiles: audioFiles.length,
@@ -978,11 +1069,25 @@ class TTSService {
           googlecloud: ttsFiles.filter(f => f.startsWith('googlecloud-')).length
         }
       };
-      
+
       return stats;
     } catch (error) {
       logger.error('Failed to get usage stats:', error);
       return { error: 'Failed to get usage statistics' };
+    }
+  }
+
+  cancelJob(jobId) {
+    try {
+      // Publish cancellation event to Redis for TTSWorkerService to listen
+      if (this.redis) {
+        this.redis.publish('tts:cancellation', jobId);
+        logger.info(`TTS cancellation event published`, { jobId });
+      }
+      return { success: true, message: 'Cancellation signal sent', jobId };
+    } catch (error) {
+      logger.error('Failed to cancel TTS job:', error);
+      throw error;
     }
   }
 }

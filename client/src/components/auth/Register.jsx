@@ -73,7 +73,7 @@ const Register = () => {
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const [forceRender, setForceRender] = useState(0);
-  
+
   const { register: registerUser, error, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -133,7 +133,7 @@ const Register = () => {
     return { score, feedback };
   };
 
-    const passwordStrength = watchedPassword ? checkPasswordStrength(watchedPassword) : { score: 0, feedback: [] };
+  const passwordStrength = watchedPassword ? checkPasswordStrength(watchedPassword) : { score: 0, feedback: [] };
 
   useEffect(() => {
     if (registrationSuccess) {
@@ -155,7 +155,7 @@ const Register = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     clearError();
-    
+
     try {
       const result = await registerUser({
         firstName: data.firstName,
@@ -165,20 +165,20 @@ const Register = () => {
         role: data.role,
       });
 
-      
+
       if (result && result.success) {
-        
+
         setLoading(false);
-        
+
         // Directly navigate to verify-email page with success message
-        navigate('/verify-email', { 
-          state: { 
-            email: data.email, 
+        navigate('/verify-email', {
+          state: {
+            email: data.email,
             from: from,
             message: 'Registration successful! Please check your email for verification code.'
-          } 
+          }
         });
-        
+
         return; // Exit early to avoid the finally block
       } else {
         setFormError("root", { message: result?.error || "An unexpected error occurred." });
@@ -186,16 +186,16 @@ const Register = () => {
     } catch (error) {
       setFormError("root", { message: error.message || "Registration failed" });
     }
-    
+
     // Only set loading to false if we didn't have success
     setLoading(false);
   };
 
   const handleContinueToLogin = () => {
-    navigate("/login", { 
-      state: { 
-        message: "Registration successful! Please check your email for verification." 
-      } 
+    navigate("/login", {
+      state: {
+        message: "Registration successful! Please check your email for verification."
+      }
     });
   };
 
@@ -237,14 +237,14 @@ const Register = () => {
 
                 <div className="space-y-4">
                   <Button
-                    onClick={() => navigate("/verify-email", { 
-                      state: { email: registeredEmail, from: from } 
+                    onClick={() => navigate("/verify-email", {
+                      state: { email: registeredEmail, from: from }
                     })}
                     className="w-full"
                   >
                     Verify Email Now
                   </Button>
-                  
+
                   <Button
                     onClick={handleContinueToLogin}
                     variant="outline"
@@ -258,8 +258,8 @@ const Register = () => {
                   <p className="text-xs text-text-secondary">
                     Didn't receive the email?{" "}
                     <button
-                      onClick={() => navigate("/verify-email", { 
-                        state: { email: registeredEmail, resend: true } 
+                      onClick={() => navigate("/verify-email", {
+                        state: { email: registeredEmail, resend: true }
                       })}
                       className="text-primary hover:text-primary/80 font-medium"
                     >
@@ -391,15 +391,19 @@ const Register = () => {
                   className="w-full px-3 py-2 border border-border rounded-md bg-background text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   {...register("role")}
                 >
-                  <option value="reader">Reader</option>
-                  <option value="writer">Writer</option>
-                  <option value="admin">Admin</option>
+                  <option value="reader">Reader - Browse and read blogs</option>
+                  <option value="writer">Writer - Create and publish content</option>
+                  <option value="admin">Admin - Full system access (auto-verified)</option>
                 </select>
                 {errors.role && (
                   <p className="text-sm text-error">
                     {errors.role.message}
                   </p>
                 )}
+                <p className="text-xs text-text-secondary">
+                  <strong>Note:</strong> Admin accounts are automatically verified and require no email confirmation.
+                  First admin can self-register; subsequent admins require existing admin approval.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -447,11 +451,10 @@ const Register = () => {
                         {[1, 2, 3, 4, 5].map((level) => (
                           <div
                             key={level}
-                            className={`h-2 w-8 rounded-full ${
-                              level <= passwordStrength.score
+                            className={`h-2 w-8 rounded-full ${level <= passwordStrength.score
                                 ? "bg-green-500"
                                 : "bg-gray-200"
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>

@@ -47,6 +47,11 @@ export default function AppRoutes() {
           <Route index element={<Home />} />
           <Route path="blogs" element={<BlogPage />} />
           <Route path="series" element={<SeriesPage />} />
+
+          {/* Category-based blog URLs: /{category}/{slug} */}
+          <Route path=":category/:slug" element={<ArticlePage />} />
+
+          {/* Backward compatibility - old article URLs */}
           <Route path="article/:slug" element={<ArticlePage />} />
           <Route path="blog/:slug" element={<ArticlePage />} />
           <Route path="article" element={<Navigate to="/blogs" replace />} />

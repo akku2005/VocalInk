@@ -6,6 +6,40 @@ const Blog = require('../models/blog.model');
 const logger = require('../utils/logger');
 const { UsageService, UsageLimitError, USAGE_TYPES } = require('../services/usageService');
 
+// Helper function: Build prompt for blog generation
+function buildBlogPrompt(topic, tone, targetWords, language) {
+  const toneInstructions = {
+    professional: 'Write in a professional, authoritative tone suitable for business readers.',
+    casual: 'Write in a friendly, conversational tone that\'s easy to read and relatable.',
+    technical: 'Write in a technical, detailed tone with precise terminology and explanations.',
+    creative: 'Write in a creative, engaging tone that captivates readers with storytelling.',
+    educational: 'Write in a clear, educational tone that teaches concepts step-by-step with examples.'
+  };
+
+  const languageInstructions = {
+    en: 'Write in clear, professional English.',
+    es: 'Write in clear, professional Spanish.',
+    fr: 'Write in clear, professional French.',
+    de: 'Write in clear, professional German.',
+    hi: 'Write in clear, professional Hindi.'
+  };
+
+  return `Create a comprehensive, engaging blog post about: "${topic}"
+
+Requirements:
+- Target length: approximately ${targetWords} words
+- Tone: ${toneInstructions[tone] || toneInstructions.professional}
+- Language: ${languageInstructions[language] || languageInstructions.en}
+- Format: Clean HTML with proper structure
+- Structure: Include a compelling introduction, well-organized main sections with clear headings (<h2>, <h3>), and a strong conclusion
+- Include relevant examples, insights, or data where appropriate
+- Make it engaging, valuable, and ready to publish
+- Use proper HTML tags: <h2> for main sections, <h3> for subsections, <p> for paragraphs, <ul>/<ol> for lists, <strong>/<em> for emphasis
+- DO NOT include the blog title as an <h1> tag - start directly with the introduction
+
+Generate the complete blog post content now:`;
+}
+
 class AIController {
   constructor() {
     this.ttsService = new TTSService();
@@ -18,20 +52,20 @@ class AIController {
   async generateTTS(req, res) {
     const usageType = USAGE_TYPES.AUDIO;
     try {
-      const { 
-        text, 
-        provider, 
-        voice, 
-        voiceId, 
+      const {
+        text,
+        provider,
+        voice,
+        voiceId,
         voiceName,
         languageCode,
         ssmlGender,
-        speed, 
+        speed,
         speakingRate,
-        language, 
-        stability, 
-        similarityBoost, 
-        style, 
+        language,
+        stability,
+        similarityBoost,
+        style,
         useSpeakerBoost,
         pitch,
         volumeGainDb,
@@ -40,8 +74,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!text && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either text or blogId is required' 
+        return res.status(400).json({
+          message: 'Either text or blogId is required'
         });
       }
 
@@ -63,7 +97,7 @@ class AIController {
         content = blog.content;
       }
 
-      await UsageService.ensureWithinLimit(req.user.id, usageType);
+      await UsageService.ensureWithinLimit(req.user.id, usageType, req.user.role);
 
       // Generate TTS
       const ttsResult = await this.ttsService.generateSpeech(content, {
@@ -135,7 +169,7 @@ class AIController {
 
     } catch (error) {
       if (error instanceof UsageLimitError) {
-        logger.warn('Daily audio generation limit reached', {
+        logger.debug('Audio generation limit reached', {
           userId: req.user.id,
           usage: error.usage
         });
@@ -147,9 +181,9 @@ class AIController {
       }
 
       logger.error('TTS generation failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'TTS generation failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -168,9 +202,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get available voices:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get available voices',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -188,9 +222,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get ElevenLabs voices:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get ElevenLabs voices',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -207,9 +241,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get ElevenLabs voice details:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get voice details',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -227,9 +261,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get Google Cloud voices:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get Google Cloud voices',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -253,9 +287,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get Google Cloud voice details:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get voice details',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -271,9 +305,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get TTS stats:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get TTS statistics',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -317,9 +351,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Voice customization failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Voice customization failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -331,17 +365,17 @@ class AIController {
       const audioBuffer = req.file?.buffer;
 
       if (!audioBuffer) {
-        return res.status(400).json({ 
-          message: 'Audio file is required' 
+        return res.status(400).json({
+          message: 'Audio file is required'
         });
       }
 
       // Validate audio file
       const validation = this.sttService.validateAudioFile(audioBuffer);
       if (!validation.isValid) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: 'Invalid audio file',
-          errors: validation.errors 
+          errors: validation.errors
         });
       }
 
@@ -368,9 +402,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Audio transcription failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Audio transcription failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -381,8 +415,8 @@ class AIController {
       const audioBuffer = req.file?.buffer;
 
       if (!audioBuffer) {
-        return res.status(400).json({ 
-          message: 'Audio file is required' 
+        return res.status(400).json({
+          message: 'Audio file is required'
         });
       }
 
@@ -410,9 +444,9 @@ class AIController {
 
     } catch (error) {
       logger.error('File transcription failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'File transcription failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -429,9 +463,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get transcription:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get transcription',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -440,7 +474,7 @@ class AIController {
     try {
       const { limit = 50 } = req.query;
       const transcriptions = await this.sttService.getUserTranscriptions(
-        req.user.id, 
+        req.user.id,
         parseInt(limit)
       );
 
@@ -452,9 +486,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get user transcriptions:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get user transcriptions',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -471,9 +505,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Failed to get available languages:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Failed to get available languages',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -483,22 +517,22 @@ class AIController {
     const usageType = USAGE_TYPES.SUMMARY;
 
     try {
-              // If blogId is provided, get content from blog
-            if (blogId) {
-              blog = await Blog.findById(blogId);
-              if (!blog) {
-                return res.status(404).json({ message: 'Blog not found' });
-              }
-  
-              // User must be authenticated to generate a summary for a blog
-              if (!req.user) {
-                return res.status(401).json({ message: 'Unauthorized' });
-              }
-  
-              blogContent = blog.content;
-            }
+      // If blogId is provided, get content from blog
+      if (blogId) {
+        blog = await Blog.findById(blogId);
+        if (!blog) {
+          return res.status(404).json({ message: 'Blog not found' });
+        }
 
-      await UsageService.ensureWithinLimit(req.user.id, usageType);
+        // User must be authenticated to generate a summary for a blog
+        if (!req.user) {
+          return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        blogContent = blog.content;
+      }
+
+      await UsageService.ensureWithinLimit(req.user.id, usageType, req.user.role);
 
       // Generate summary
       const summary = await this.summaryService.generateSummary(blogContent, {
@@ -549,9 +583,9 @@ class AIController {
       }
 
       logger.error('AI summary generation failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'AI summary generation failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -562,8 +596,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
+        return res.status(400).json({
+          message: 'Either content or blogId is required'
         });
       }
 
@@ -597,9 +631,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Key points generation failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Key points generation failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -610,8 +644,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
+        return res.status(400).json({
+          message: 'Either content or blogId is required'
         });
       }
 
@@ -648,9 +682,131 @@ class AIController {
 
     } catch (error) {
       logger.error('TL;DR generation failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'TL;DR generation failed',
-        error: error.message 
+        error: error.message
+      });
+    }
+  }
+
+  // Blog Content Generation Endpoint
+  async generateBlogContent(req, res) {
+    const usageType = USAGE_TYPES.AI_BLOG_GENERATION;
+
+    try {
+      const { topic, tone = 'professional', length = 'medium', language = 'en' } = req.body;
+
+      // Validation
+      if (!topic || !topic.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Topic is required'
+        });
+      }
+
+      // Check usage limits
+      await UsageService.ensureWithinLimit(req.user.id, usageType, req.user.role);
+
+      const OpenAIService = require('../services/OpenAIService');
+      const openAIService = new OpenAIService();
+
+      if (!openAIService.isAvailable()) {
+        return res.status(503).json({
+          success: false,
+          message: 'AI service is currently unavailable. Please try again later.'
+        });
+      }
+
+      // Define word counts for different lengths
+      const wordCounts = {
+        short: 500,
+        medium: 1000,
+        long: 1500,
+      };
+      const targetWords = wordCounts[length] || 1000;
+
+      // Build prompt - inline to avoid context issues
+      const prompt = buildBlogPrompt(topic, tone, targetWords, language);
+
+      // Call OpenAI
+      const response = await openAIService.openai.chat.completions.create({
+        model: 'gpt-3.5-turbo-16k',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional blog writer who creates engaging, well-structured content. Format your response in clean HTML with proper headings (<h2>, <h3>), paragraphs (<p>), lists (<ul>, <ol>), and formatting (<strong>, <em>). Make it ready to publish.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: targetWords * 2,
+        temperature: 0.7,
+        top_p: 0.9,
+        frequency_penalty: 0.2,
+        presence_penalty: 0.1
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+
+      if (!content) {
+        throw new Error('No content generated from AI');
+      }
+
+      // Record usage
+      const usage = await UsageService.recordUsage(req.user.id, usageType);
+
+      logger.info('AI blog content generated', {
+        userId: req.user.id,
+        topic: topic.substring(0, 50),
+        tone,
+        length,
+        wordCount: content.split(/\s+/).length,
+        characterCount: content.length
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          content,
+          metadata: {
+            topic,
+            tone,
+            length,
+            targetWords,
+            actualWords: content.split(/\s+/).length,
+            characterCount: content.length,
+            generatedAt: new Date().toISOString()
+          }
+        },
+        usage
+      });
+
+    } catch (error) {
+      if (error instanceof UsageLimitError) {
+        logger.warn('AI blog generation limit reached', {
+          userId: req.user.id,
+          usage: error.usage
+        });
+        return res.status(429).json({
+          success: false,
+          message: 'Daily AI blog generation limit reached. Try again tomorrow.',
+          usage: error.usage
+        });
+      }
+
+      logger.error('AI blog generation failed:', {
+        error: error.message,
+        stack: error.stack,
+        userId: req.user.id,
+        topic: req.body?.topic
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate blog content. Please try again.',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
   }
@@ -662,8 +818,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
+        return res.status(400).json({
+          message: 'Either content or blogId is required'
         });
       }
 
@@ -697,7 +853,7 @@ class AIController {
       logger.info('Content analysis completed', {
         userId: req.user.id,
         blogId: blog?._id,
-        analysisTypes: Object.keys(analysis).filter(key => 
+        analysisTypes: Object.keys(analysis).filter(key =>
           key !== 'timestamp' && key !== 'contentLength' && key !== 'wordCount'
         )
       });
@@ -709,9 +865,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Content analysis failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Content analysis failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -722,8 +878,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
+        return res.status(400).json({
+          message: 'Either content or blogId is required'
         });
       }
 
@@ -754,9 +910,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Sentiment analysis failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Sentiment analysis failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -767,8 +923,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
+        return res.status(400).json({
+          message: 'Either content or blogId is required'
         });
       }
 
@@ -799,9 +955,9 @@ class AIController {
 
     } catch (error) {
       logger.error('SEO analysis failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'SEO analysis failed',
-        error: error.message 
+        error: error.message
       });
     }
   }
@@ -813,8 +969,8 @@ class AIController {
       const { blogId } = req.params;
 
       if (!content && !blogId) {
-        return res.status(400).json({ 
-          message: 'Either content or blogId is required' 
+        return res.status(400).json({
+          message: 'Either content or blogId is required'
         });
       }
 
@@ -840,9 +996,9 @@ class AIController {
 
     } catch (error) {
       logger.error('Content stats failed:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'Content stats failed',
-        error: error.message 
+        error: error.message
       });
     }
   }

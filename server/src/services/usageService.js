@@ -3,6 +3,7 @@ const UsageLog = require('../models/usageLog.model');
 const USAGE_TYPES = {
   SUMMARY: 'summary',
   AUDIO: 'audio',
+  AI_BLOG_GENERATION: 'ai_blog_generation',
 };
 
 const USAGE_LIMITS = {
@@ -11,7 +12,27 @@ const USAGE_LIMITS = {
     windowMs: 24 * 60 * 60 * 1000,
   },
   [USAGE_TYPES.AUDIO]: {
-    limit: 3,
+    limit: 10,
+    windowMs: 24 * 60 * 60 * 1000,
+  },
+  [USAGE_TYPES.AI_BLOG_GENERATION]: {
+    limit: 2,
+    windowMs: 24 * 60 * 60 * 1000,
+  },
+};
+
+// Higher limits for premium users
+const PREMIUM_USAGE_LIMITS = {
+  [USAGE_TYPES.SUMMARY]: {
+    limit: 50,
+    windowMs: 24 * 60 * 60 * 1000,
+  },
+  [USAGE_TYPES.AUDIO]: {
+    limit: 50,
+    windowMs: 24 * 60 * 60 * 1000,
+  },
+  [USAGE_TYPES.AI_BLOG_GENERATION]: {
+    limit: 25,
     windowMs: 24 * 60 * 60 * 1000,
   },
 };
@@ -33,9 +54,20 @@ const getLimitConfig = (type) => {
   return config;
 };
 
+const getPremiumLimitConfig = (type) => {
+  const config = PREMIUM_USAGE_LIMITS[type];
+  if (!config) {
+    throw new Error(`Unknown usage type: ${type}`);
+  }
+  return config;
+};
+
 class UsageService {
-  static async getUsageStatus(userId, type) {
-    const config = getLimitConfig(type);
+  static async getUsageStatus(userId, type, userRole = null) {
+    // Use premium limits for admin, author, and premium users
+    const isPremiumUser = userRole && ['admin', 'author', 'premium'].includes(userRole);
+    const config = isPremiumUser ? getPremiumLimitConfig(type) : getLimitConfig(type);
+
     const windowStart = new Date(Date.now() - config.windowMs);
     const query = {
       user: userId,
@@ -57,11 +89,12 @@ class UsageService {
       used,
       remaining: Math.max(config.limit - used, 0),
       nextReset: nextReset ? nextReset.toISOString() : null,
+      isPremium: isPremiumUser,
     };
   }
 
-  static async ensureWithinLimit(userId, type) {
-    const usage = await this.getUsageStatus(userId, type);
+  static async ensureWithinLimit(userId, type, userRole = null) {
+    const usage = await this.getUsageStatus(userId, type, userRole);
     if (usage.used >= usage.limit) {
       throw new UsageLimitError(type, usage);
     }

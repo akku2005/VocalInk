@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Volume2, MessageCircle, BookmarkIcon, ShareIcon, Edit, Trash2, MoreVertical, Sparkles, RefreshCw, ChevronDown, User } from "lucide-react";
+import { Volume2, MessageCircle, BookmarkIcon, ShareIcon, Edit, Trash2, MoreVertical, Sparkles, RefreshCw, ChevronDown, User, Tag } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import IconButton from "../ui/IconButton.jsx";
 import Button from "../ui/Button.jsx";
@@ -8,6 +8,7 @@ import AudioPlayer from "../audio/AudioPlayer";
 import CommentList from "../comment/CommentList";
 import LoginPromptModal from "../auth/LoginPromptModal";
 import RelatedBlogs from "./RelatedBlogs";
+import SEOHead from "../seo/SEOHead"; // Added for SEO
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import { buildQuotaToastPayload } from "../../utils/quotaToast";
@@ -16,7 +17,7 @@ import { resolveAssetUrl } from "../../constants/apiConfig";
 
 const normalizeArticleContent = (html) => {
   if (!html || typeof html !== 'string') return '';
-  return html
+  let normalized = html
     .replaceAll('src="/api/uploads/', 'src="/uploads/')
     .replace(/(src|href)\s*=\s*(['"])image\/([a-zA-Z0-9+]+);base64,/gi, (match, attr, quote, type) => {
       return `${attr}=${quote}data:image/${type};base64,`;
@@ -24,6 +25,18 @@ const normalizeArticleContent = (html) => {
     .replace(/url\((['"]?)\s*image\/([a-zA-Z0-9+]+);base64,/gi, (match, quote, type) => {
       return `url(${quote}data:image/${type};base64,`;
     });
+
+  // Add data-tts-segment attribute to spans that have TTS IDs
+  normalized = normalized.replace(/<span\s+id="(tts-seg-\d+)"([^>]*)>/gi, (match, id, attrs) => {
+    return `<span id="${id}" data-tts-segment="${id}"${attrs}>`;
+  });
+
+  // Add data-tts-segment attribute to paragraphs that have TTS IDs
+  normalized = normalized.replace(/<p\s+id="(tts-seg-\d+)"([^>]*)>/gi, (match, id, attrs) => {
+    return `<p id="${id}" data-tts-segment="${id}"${attrs}>`;
+  });
+
+  return normalized;
 };
 
 export default function ArticleView() {
@@ -44,6 +57,42 @@ export default function ArticleView() {
 
   const commentsSectionRef = useRef(null);
   const { showInfo, showError } = useToast();
+
+  // TTS Highlighting Logic
+  const handleSegmentChange = (segmentId) => {
+    // Remove highlight from all segments
+    const allSegments = document.querySelectorAll('[data-tts-segment]');
+    allSegments.forEach(el => {
+      el.classList.remove('tts-highlighted');
+    });
+
+    // If no segmentId (audio paused/stopped), just clear and return
+    if (!segmentId) {
+      return;
+    }
+
+    // Add highlight to active segment - try both formats
+    let element = document.getElementById(segmentId);
+
+    // If not found, try the tts-seg- prefix format
+    if (!element && segmentId.startsWith('tts-seg-')) {
+      element = document.getElementById(segmentId);
+    } else if (!element && !segmentId.startsWith('tts-seg-')) {
+      // If it doesn't have the prefix, try adding it
+      element = document.getElementById(`tts-seg-${segmentId}`);
+    }
+
+    if (element) {
+      // Apply highlight class
+      element.classList.add('tts-highlighted');
+
+      // Smooth scroll to center
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      console.log('Highlighted segment:', segmentId);
+    } else {
+      console.warn(`Segment element not found: ${segmentId}`);
+    }
+  };
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -104,6 +153,7 @@ export default function ArticleView() {
             isBookmarked: blogData.isBookmarked || false,
             ttsUrl: blogData.ttsUrl || null,
             audioDuration: blogData.audioDuration || null,
+            audioSegments: blogData.audioSegments || [],
           });
 
           if (blogData.ttsUrl) {
@@ -259,6 +309,27 @@ export default function ArticleView() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      {/* SEO Meta Tags */}
+      <SEOHead
+        title={article.title}
+        description={article.summary || (article.content?.substring(0, 160) + '...')}
+        keywords={article.tags}
+        image={article.coverImage}
+        url={`${window.location.origin}/blog/${article.slug}`}
+        type="article"
+        author={article.author}
+        publishedTime={article.publishedAt}
+        modifiedTime={article.updatedAt}
+        tags={article.tags}
+        article={{
+          author: article.author,
+          publishedAt: article.publishedAt,
+          updatedAt: article.updatedAt,
+          tags: article.tags,
+          category: article.mood,
+        }}
+      />
+
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
@@ -269,6 +340,27 @@ export default function ArticleView() {
               <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-6 text-text-primary">
                 {article.title}
               </h1>
+
+              {/* Tags and Category Section */}
+              {(article.tags?.length > 0 || article.mood) && (
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                  {article.mood && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-500/10 text-primary-600 dark:text-primary-400 text-sm font-medium rounded-full border border-primary-500/20">
+                      <Tag className="w-4 h-4" />
+                      {article.mood}
+                    </span>
+                  )}
+                  {article.tags?.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-surface-hover text-text-secondary text-sm font-medium rounded-full border border-[var(--border-color)] hover:border-primary-500/30 hover:text-primary-500 cursor-pointer transition-colors"
+                    >
+                      <Tag className="w-3.5 h-3.5" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Mobile Author Info (visible only on small screens) */}
               <div className="lg:hidden flex items-center gap-3 mb-6 pb-6 border-b border-[var(--border-color)]">
@@ -329,7 +421,9 @@ export default function ArticleView() {
                 blogId={article.id}
                 blogTitle={article.title}
                 initialAudioUrl={audioUrl}
-                onAudioGenerated={setAudioUrl}
+                initialAudioSegments={article.audioSegments}
+                onAudioGenerated={(url) => setAudioUrl(url)}
+                onSegmentChange={handleSegmentChange}
               />
             </div>
 

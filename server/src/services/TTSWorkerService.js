@@ -1,4 +1,5 @@
 const TTSService = require('./TTSService');
+const Redis = require('ioredis');
 const logger = require('../utils/logger');
 const config = require('../config');
 
@@ -8,6 +9,7 @@ class TTSWorkerService {
     this.ttsService = new TTSService();
     this.processingJobs = new Map();
     this.maxConcurrentJobs = parseInt(process.env.TTS_MAX_CONCURRENT_JOBS) || 5;
+    this.subscriber = null;
   }
 
   /**
@@ -43,9 +45,38 @@ class TTSWorkerService {
       logger.info('TTS Worker started successfully', {
         maxConcurrentJobs: this.maxConcurrentJobs
       });
+
+      // Initialize Redis subscriber for cancellation events
+      const redisConfig = {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        db: parseInt(process.env.REDIS_DB) || 0,
+      };
+
+      this.subscriber = new Redis(redisConfig);
+      await this.subscriber.subscribe('tts:cancellation');
+
+      this.subscriber.on('message', (channel, message) => {
+        if (channel === 'tts:cancellation') {
+          this.handleJobCancellation(message);
+        }
+      });
     } catch (error) {
       logger.error('Failed to start TTS Worker:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Handle job cancellation event
+   */
+  handleJobCancellation(jobId) {
+    const jobData = this.processingJobs.get(jobId);
+    if (jobData && jobData.controller) {
+      logger.info(`Aborting active job ${jobId} due to cancellation request`);
+      jobData.controller.abort();
+      // We don't delete from map here, we let the processTTSJob error handler do it
     }
   }
 
@@ -71,6 +102,13 @@ class TTSWorkerService {
         userId,
         provider: options.provider,
       });
+
+      // Create AbortController for cancellation
+      const controller = new AbortController();
+      this.processingJobs.get(job.id).controller = controller;
+
+      // Inject signal into options
+      options.signal = controller.signal;
 
       // Update job progress
       await job.progress(10);
@@ -153,7 +191,7 @@ class TTSWorkerService {
 
     } catch (error) {
       const processingTime = Date.now() - startTime;
-      
+
       // Update health check statistics
       this.updateHealthCheck(options.provider || 'elevenlabs', false, processingTime);
 
@@ -173,7 +211,7 @@ class TTSWorkerService {
 
       // Categorize error for retry logic
       const errorCategory = this.categorizeError(error);
-      
+
       throw {
         message: error.message,
         category: errorCategory,
@@ -219,7 +257,7 @@ class TTSWorkerService {
    */
   async generateWithProvider(text, options, provider) {
     const providerOptions = this.mapOptionsForProvider(options, provider);
-    
+
     switch (provider) {
       case 'elevenlabs':
         return await this.ttsService.generateWithElevenLabs(text, providerOptions);
@@ -285,7 +323,7 @@ class TTSWorkerService {
    */
   async tryFallbackProviders(text, options, failedProvider) {
     const fallbackOrder = this.getFallbackOrder(failedProvider);
-    
+
     for (const provider of fallbackOrder) {
       if (!this.queueService.isProviderAvailable(provider)) {
         logger.warn(`Fallback provider ${provider} is not available`);
@@ -296,7 +334,7 @@ class TTSWorkerService {
         logger.info(`Trying fallback provider: ${provider}`);
         const result = await this.generateWithProvider(text, options, provider);
         this.queueService.updateCircuitBreaker(provider, true);
-        
+
         logger.info(`Fallback provider ${provider} succeeded`);
         return result;
       } catch (error) {
@@ -344,39 +382,39 @@ class TTSWorkerService {
    */
   categorizeError(error) {
     const message = error.message.toLowerCase();
-    
+
     // Permanent errors (no retry)
-    if (message.includes('invalid') || 
-        message.includes('unsupported') || 
-        message.includes('not found') ||
-        message.includes('unauthorized') ||
-        message.includes('forbidden')) {
+    if (message.includes('invalid') ||
+      message.includes('unsupported') ||
+      message.includes('not found') ||
+      message.includes('unauthorized') ||
+      message.includes('forbidden')) {
       return 'PERMANENT';
     }
-    
+
     // Rate limit errors (retry with backoff)
-    if (message.includes('rate limit') || 
-        message.includes('quota') || 
-        message.includes('too many requests')) {
+    if (message.includes('rate limit') ||
+      message.includes('quota') ||
+      message.includes('too many requests')) {
       return 'RATE_LIMIT';
     }
-    
+
     // Network errors (retry)
-    if (message.includes('network') || 
-        message.includes('timeout') || 
-        message.includes('connection') ||
-        message.includes('econnreset') ||
-        message.includes('enotfound')) {
+    if (message.includes('network') ||
+      message.includes('timeout') ||
+      message.includes('connection') ||
+      message.includes('econnreset') ||
+      message.includes('enotfound')) {
       return 'NETWORK';
     }
-    
+
     // Provider errors (retry)
-    if (message.includes('provider') || 
-        message.includes('service') || 
-        message.includes('internal')) {
+    if (message.includes('provider') ||
+      message.includes('service') ||
+      message.includes('internal')) {
       return 'PROVIDER';
     }
-    
+
     // Default to temporary error
     return 'TEMPORARY';
   }
@@ -501,7 +539,18 @@ class TTSWorkerService {
       if (this.queueService && this.queueService.queue) {
         await this.queueService.queue.close();
       }
-      
+
+      if (this.subscriber) {
+        await this.subscriber.quit();
+      }
+
+      // Abort all running jobs
+      for (const [jobId, data] of this.processingJobs) {
+        if (data.controller) {
+          data.controller.abort();
+        }
+      }
+
       logger.info('TTS Worker stopped');
     } catch (error) {
       logger.error('Error stopping TTS Worker:', error);

@@ -1,8 +1,10 @@
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
 import Badge from "../ui/Badge";
 import EngagementButtons from "../engagement/EngagementButtons";
-import { Calendar, Clock, User, Bookmark } from "lucide-react";
+import { Calendar, Clock, User, Bookmark, Heart, MessageCircle, Share2, Eye } from "lucide-react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getBlogUrl } from "../../utils/blogUrlHelper";
 import { getCleanExcerpt, formatDate as formatDateUtil } from "../../utils/textUtils";
 import { resolveAssetUrl } from "../../constants/apiConfig";
 
@@ -53,7 +55,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
   const handleCommentClick = () => {
     // Navigate to the full article page where comments are displayed
     // Add a hash to scroll to comments section
-    navigate(`/article/${blog.slug || blogId}#comments`);
+    navigate(`${getBlogUrl(blog)}#comments`);
   };
 
   const formatDate = (date) => {
@@ -64,7 +66,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
     return (
       <Card
         className="cursor-pointer group overflow-hidden"
-        onClick={() => navigate(`/article/${blog.slug || blogId}`)}
+        onClick={() => navigate(getBlogUrl(blog))}
       >
         <div className="flex flex-col lg:flex-row">
           <div className="lg:w-80 aspect-video lg:aspect-square relative flex-shrink-0 overflow-hidden rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none bg-gradient-to-br from-indigo-600/60 to-gray-600/60">
@@ -157,7 +159,7 @@ const BlogCard = ({ blog, viewMode = "grid" }) => {
   return (
     <div
       className="group relative flex flex-col h-full bg-surface border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1 cursor-pointer"
-      onClick={() => navigate(`/article/${blog.slug || blogId}`)}
+      onClick={() => navigate(getBlogUrl(blog))}
     >
       {/* Image Container */}
       <div className="aspect-[16/10] relative overflow-hidden bg-gradient-to-br from-sky-500/10 to-pink-500/10">

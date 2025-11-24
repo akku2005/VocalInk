@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { protect, optionalAuth } = require('../middleware/auth');
 const blogController = require('./blog.controller');
+const draftController = require('./draft.controller'); // Added for draft management
 const { apiLimiter } = require('../middleware/rateLimiter');
-const { 
-  awardBlogCreationXP, 
-  awardBlogPublishingXP, 
-  awardBlogUpdateXP 
+const {
+  awardBlogCreationXP,
+  awardBlogPublishingXP,
+  awardBlogUpdateXP
 } = require('../middleware/xpMiddleware');
 const {
   validateCreateBlog,
@@ -20,7 +21,7 @@ const {
 // router.use(apiLimiter);
 
 // Public routes
-router.get('/tag',blogController.getBlogs);
+router.get('/tag', blogController.getBlogs);
 router.get('/getBlogs', optionalAuth, blogController.getallBlogs);
 router.get('/slug/:slug', optionalAuth, blogController.getBlogBySlug);
 router.get('/:id', optionalAuth, blogController.getBlogById);
@@ -63,6 +64,13 @@ router.put(
   awardBlogPublishingXP
 );
 
+// Draft Management Routes
+router.post('/drafts/:id/autosave', protect, draftController.autosaveDraft);
+router.post('/drafts/:id/save', protect, draftController.manualSaveDraft);
+router.get('/drafts/:id/versions', protect, draftController.getVersionHistory);
+router.post('/drafts/:id/restore/:versionNumber', protect, draftController.restoreVersion);
+router.delete('/drafts/:id/versions/:versionNumber', protect, draftController.deleteVersion);
+
 // Advanced endpoints (with validation)
 const { param, body } = require('express-validator');
 
@@ -73,6 +81,15 @@ router.post(
   validateBlogId[validateBlogId.length - 1], // Use the validation handler from validateBlogId
   blogController.generateTTS
 );
+
+router.post(
+  '/:id/tts/cancel/:jobId',
+  protect,
+  [param('id').isMongoId(), param('jobId').isString()],
+  validateBlogId[validateBlogId.length - 1],
+  blogController.cancelTTS
+);
+
 router.post(
   '/:id/translate',
   protect,

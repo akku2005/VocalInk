@@ -1,16 +1,15 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "../components/ui/Card";
-import Button from "../components/ui/Button";
-import { TrendingUp, Users, BookOpen, Zap, ArrowRight } from "lucide-react";
-import blogService from "../services/blogService";
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { getBlogUrl } from '../utils/blogUrlHelper';
+import { Sparkles, TrendingUp, Clock, Award, BookOpen, Users, Zap, Target, ArrowRight } from 'lucide-react';
+import { apiService } from '../services/api';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Button from '../components/ui/Button';
+import BlogCard from '../components/blog/BlogCard';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { useAuth } from '../context/AuthContext';
 import statsService from "../services/statsService";
+import blogService from "../services/blogService";
 import { getCleanExcerpt } from "../utils/textUtils";
 
 const Home = () => {
@@ -288,7 +287,7 @@ const Home = () => {
           ) : featuredBlogs.length > 0 ? (
             // Real blogs
             featuredBlogs.map((blog) => (
-              <Link key={blog._id} to={`/article/${blog.slug || blog._id}`}>
+              <Link key={blog._id} to={getBlogUrl(blog)}>
                 <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer group border-0 shadow-md h-full flex flex-col">
                   {blog.coverImage ? (
                     <img

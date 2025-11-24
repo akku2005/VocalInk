@@ -3,12 +3,12 @@ const multer = require('multer');
 const { body, param, query, validationResult } = require('express-validator');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
-const { 
-  ttsRateLimiter, 
-  sttRateLimiter, 
-  summaryRateLimiter, 
-  analysisRateLimiter, 
-  fileUploadRateLimiter 
+const {
+  ttsRateLimiter,
+  sttRateLimiter,
+  summaryRateLimiter,
+  analysisRateLimiter,
+  fileUploadRateLimiter
 } = require('../middleware/aiRateLimiter');
 const aiController = require('./ai.controller');
 
@@ -25,14 +25,14 @@ const upload = multer({
     // Security fix: Only accept specific audio MIME types, remove overly permissive octet-stream
     const allowedMimeTypes = [
       'audio/mpeg',
-      'audio/mp3', 
+      'audio/mp3',
       'audio/wav',
       'audio/ogg',
       'audio/m4a',
       'audio/aac',
       'audio/flac'
     ];
-    
+
     if (allowedMimeTypes.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
@@ -45,9 +45,9 @@ const upload = multer({
 function validate(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       message: 'Validation failed',
-      errors: errors.array() 
+      errors: errors.array()
     });
   }
   next();
@@ -309,6 +309,21 @@ router.post(
   aiController.generateTLDR
 );
 
+// Blog Content Generation Route
+router.post(
+  '/generate-blog',
+  protect,
+  summaryRateLimiter, // Reuse summary rate limiter for blog generation
+  [
+    body('topic').isString().isLength({ min: 3, max: 500 }).trim(),
+    body('tone').optional().isIn(['professional', 'casual', 'technical', 'creative', 'educational']),
+    body('length').optional().isIn(['short', 'medium', 'long']),
+    body('language').optional().isString().isLength({ min: 2, max: 5 })
+  ],
+  validate,
+  aiController.generateBlogContent
+);
+
 // Analysis Routes
 router.post(
   '/analyze/content',
@@ -421,14 +436,14 @@ router.use((error, req, res, next) => {
       error: error.message
     });
   }
-  
+
   if (error.message === 'Only audio files are allowed') {
     return res.status(400).json({
       message: 'Only audio files are allowed',
       error: error.message
     });
   }
-  
+
   next(error);
 });
 
