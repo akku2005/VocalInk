@@ -628,6 +628,73 @@ class EmailService {
       throw error;
     }
   }
+  async sendCollaborationInvitationEmail(email, inviterName, seriesTitle, inviteLink) {
+    try {
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject: `Invitation to collaborate on "${seriesTitle}"`,
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
+              a { text-decoration: none; }
+              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+              .header { background-color: #6f42c1; padding: 20px; text-align: center; }
+              .header img { max-width: 150px; height: auto; }
+              .content { padding: 30px; }
+              .button { display: inline-block; background-color: #6f42c1; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
+              .button:hover { background-color: #5a32a3; }
+              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
+              @media only screen and (max-width: 600px) {
+                .container { margin: 10px; }
+                .content { padding: 20px; }
+                .header img { max-width: 120px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
+              </div>
+              <div class="content">
+                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Collaboration Invitation</h2>
+                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
+                <p style="color: #333333; font-size: 16px; line-height: 1.6;"><strong>${inviterName}</strong> has invited you to collaborate on the series <strong>"${seriesTitle}"</strong>.</p>
+                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Click the button below to accept the invitation and start collaborating:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${inviteLink}" class="button">Accept Invitation</a>
+                </div>
+                <p style="color: #666666; font-size: 14px; line-height: 1.6;">This invitation will expire in 7 days.</p>
+                <p style="color: #666666; font-size: 14px; line-height: 1.6;">If you do not wish to collaborate, you can ignore this email.</p>
+              </div>
+              <div class="footer">
+                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
+                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
+                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Collaboration invitation email sent successfully', { email, seriesTitle });
+    } catch (error) {
+      logger.error('Error sending collaboration invitation email:', {
+        error: error.message,
+        email,
+        seriesTitle,
+      });
+      throw error;
+    }
+  }
 }
 
 // Create singleton instance

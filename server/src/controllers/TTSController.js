@@ -92,8 +92,8 @@ class TTSController {
 
       // Prepare options
       const options = {
-        provider: provider || 'elevenlabs',
-        voice: voice || 'en',
+        provider: provider || 'googlecloud',
+        voice: voice || 'en-US-Neural2-F',
         voiceId,
         voiceName,
         languageCode,
@@ -151,7 +151,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('TTS generation failed:', error);
-      
+
       res.status(500).json({
         success: false,
         message: 'TTS generation failed',
@@ -185,7 +185,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to get job status:', error);
-      
+
       if (error.message === 'Queue service not available') {
         return res.status(503).json({
           success: false,
@@ -193,7 +193,7 @@ class TTSController {
           error: error.message
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to get job status',
@@ -227,7 +227,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to get job by idempotency key:', error);
-      
+
       if (error.message === 'Queue service not available') {
         return res.status(503).json({
           success: false,
@@ -235,7 +235,7 @@ class TTSController {
           error: error.message
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to get job',
@@ -269,7 +269,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to cancel job:', error);
-      
+
       if (error.message === 'Queue service not available') {
         return res.status(503).json({
           success: false,
@@ -277,7 +277,7 @@ class TTSController {
           error: error.message
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to cancel job',
@@ -311,7 +311,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to retry job:', error);
-      
+
       if (error.message === 'Queue service not available') {
         return res.status(503).json({
           success: false,
@@ -319,7 +319,7 @@ class TTSController {
           error: error.message
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to retry job',
@@ -346,7 +346,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to get available voices:', error);
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to get available voices',
@@ -376,7 +376,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to get user jobs:', error);
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to get user jobs',
@@ -401,7 +401,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Health check failed:', error);
-      
+
       res.status(500).json({
         success: false,
         message: 'Health check failed',
@@ -434,7 +434,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to get service stats:', error);
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to get service stats',
@@ -469,7 +469,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to cleanup old jobs:', error);
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to cleanup old jobs',
@@ -504,7 +504,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to get dead letter queue jobs:', error);
-      
+
       if (error.message === 'Queue service not available') {
         return res.status(503).json({
           success: false,
@@ -512,7 +512,7 @@ class TTSController {
           error: error.message
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to get dead letter queue jobs',
@@ -547,7 +547,7 @@ class TTSController {
 
     } catch (error) {
       logger.error('Failed to reprocess dead letter queue jobs:', error);
-      
+
       if (error.message === 'Queue service not available') {
         return res.status(503).json({
           success: false,
@@ -555,7 +555,7 @@ class TTSController {
           error: error.message
         });
       }
-      
+
       res.status(500).json({
         success: false,
         message: 'Failed to reprocess dead letter queue jobs',

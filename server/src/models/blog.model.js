@@ -93,6 +93,7 @@ const blogSchema = new mongoose.Schema(
       path: { type: String }, // Local path
       text: { type: String }, // Text content of segment
       duration: { type: Number }, // Duration in seconds
+      id: { type: String }, // TTS segment ID for highlighting
       paragraphId: { type: String }, // ID of the paragraph in HTML
       order: { type: Number, required: true }
     }],

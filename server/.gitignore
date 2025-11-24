@@ -38,3 +38,17 @@ swagger.json
 
 # Google Cloud credentials
 src/config/google-credentials.json
+
+# Audio files - TTS generated content (DO NOT PUSH TO GITHUB)
+public/audio/
+public/audio/**/*.mp3
+public/audio/**/*.wav
+public/audio/**/*.ogg
+public/audio/**/*.m4a
+public/audio/**/*.flac
+
+# Audio transcripts and metadata
+public/transcripts/
+public/tts/
+
+

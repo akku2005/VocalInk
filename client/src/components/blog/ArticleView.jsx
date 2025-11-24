@@ -8,7 +8,7 @@ import AudioPlayer from "../audio/AudioPlayer";
 import CommentList from "../comment/CommentList";
 import LoginPromptModal from "../auth/LoginPromptModal";
 import RelatedBlogs from "./RelatedBlogs";
-import SEOHead from "../seo/SEOHead"; // Added for SEO
+import SEOHead from "../seo/SEOHead";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import { buildQuotaToastPayload } from "../../utils/quotaToast";
@@ -59,7 +59,10 @@ export default function ArticleView() {
   const { showInfo, showError } = useToast();
 
   // TTS Highlighting Logic
-  const handleSegmentChange = (segmentId) => {
+  const handleSegmentChange = (segmentData) => {
+    // Handle both string (legacy) and object (new) format
+    const segmentId = typeof segmentData === 'string' ? segmentData : segmentData?.segmentId;
+
     // Remove highlight from all segments
     const allSegments = document.querySelectorAll('[data-tts-segment]');
     allSegments.forEach(el => {
@@ -71,26 +74,36 @@ export default function ArticleView() {
       return;
     }
 
-    // Add highlight to active segment - try both formats
+    // Add highlight to active segment - try multiple methods
     let element = document.getElementById(segmentId);
 
-    // If not found, try the tts-seg- prefix format
-    if (!element && segmentId.startsWith('tts-seg-')) {
-      element = document.getElementById(segmentId);
-    } else if (!element && !segmentId.startsWith('tts-seg-')) {
-      // If it doesn't have the prefix, try adding it
+    if (!element) {
+      element = document.querySelector(`[data-tts-segment="${segmentId}"]`);
+    }
+
+    if (!element && !segmentId.startsWith('tts-seg-')) {
       element = document.getElementById(`tts-seg-${segmentId}`);
+    }
+
+    if (!element && !segmentId.startsWith('tts-seg-')) {
+      element = document.querySelector(`[data-tts-segment="tts-seg-${segmentId}"]`);
     }
 
     if (element) {
       // Apply highlight class
       element.classList.add('tts-highlighted');
 
-      // Smooth scroll to center
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      console.log('Highlighted segment:', segmentId);
+      // Smooth scroll to element
+      setTimeout(() => {
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      }, 100);
+
     } else {
-      console.warn(`Segment element not found: ${segmentId}`);
+      console.warn('TTS: Segment not found -', segmentId);
     }
   };
 
