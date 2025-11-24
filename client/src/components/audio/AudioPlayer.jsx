@@ -20,6 +20,7 @@ import {
   X
 } from 'lucide-react';
 import { buildQuotaToastPayload } from '../../utils/quotaToast';
+import audioStorageService from '../../services/AudioStorageService';
 
 const AudioPlayer = ({
   blogId,
@@ -55,10 +56,24 @@ const AudioPlayer = ({
   const [previewSrc, setPreviewSrc] = useState(null);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState(null);
+  const [loadingFromStorage, setLoadingFromStorage] = useState(true);
+  const [audioAvailable, setAudioAvailable] = useState(false);
 
   const audioRef = useRef(null);
+  const blobUrlsRef = useRef([]); // Track blob URLs for cleanup
+  const pendingSeekRef = useRef(null); // Track pending seek time when switching segments
   const { isAuthenticated } = useAuth();
   const { showInfo, showError } = useToast();
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach(url => {
+        audioStorageService.revokeBlobUrl(url);
+      });
+      blobUrlsRef.current = [];
+    };
+  }, []);
 
   const resolveAudioUrl = (url) => {
     if (!url) return null;
@@ -73,37 +88,111 @@ const AudioPlayer = ({
     return `${serverBaseUrl}${normalizedPath}`;
   };
 
-  // Initialize segments if provided
+  // Load audio from IndexedDB on mount
   useEffect(() => {
-    if (initialAudioSegments && initialAudioSegments.length > 0) {
-      console.log('AudioPlayer: Initializing segments', { count: initialAudioSegments.length, segments: initialAudioSegments });
-      setSegments(initialAudioSegments);
-
-      // Calculate total duration across all segments
-      const total = initialAudioSegments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
-      setTotalDuration(total);
-
-      // If we have segments but no current URL, set the first one
-      if (!audioUrl) {
-        setAudioUrl(resolveAudioUrl(initialAudioSegments[0].url));
-        setCurrentSegmentIndex(0);
-        // Don't highlight on load - only when playing
+    const loadFromStorage = async () => {
+      if (!blogId || !audioStorageService.isSupported()) {
+        setLoadingFromStorage(false);
+        return;
       }
-    }
-  }, [initialAudioSegments]);
 
-  // Notify parent of segment change - only when playing
+      try {
+        const stored = await audioStorageService.getAudio(blogId);
+
+        if (stored && stored.segments && stored.segments.length > 0) {
+          // Audio found in IndexedDB - create blob URLs for playback
+          const normalizedSegments = stored.segments.map(normalizeSegmentForHighlighting);
+          const segmentsWithUrls = normalizedSegments.map(seg => {
+            const blobUrl = audioStorageService.createBlobUrl(seg.audioData);
+            blobUrlsRef.current.push(blobUrl);
+            return {
+              ...seg,
+              url: blobUrl
+            };
+          });
+
+          setSegments(segmentsWithUrls);
+          setTotalDuration(stored.duration || 0);
+          setAudioAvailable(true);
+
+          if (segmentsWithUrls.length > 0) {
+            setAudioUrl(segmentsWithUrls[0].url);
+            setCurrentSegmentIndex(0);
+          }
+
+          console.log('✅ Audio loaded from IndexedDB', {
+            segments: segmentsWithUrls.length,
+            duration: stored.duration,
+            firstSegment: segmentsWithUrls[0]
+          });
+        } else {
+          // No audio in IndexedDB - ignore any stale URLs from database
+          setAudioAvailable(false);
+          setAudioUrl(null);
+          setSegments([]);
+          console.log('⚠️ No audio in IndexedDB - user needs to generate');
+        }
+      } catch (error) {
+        console.error('Error loading from IndexedDB:', error);
+        setAudioAvailable(false);
+        setAudioUrl(null);
+        setSegments([]);
+      } finally {
+        setLoadingFromStorage(false);
+      }
+    };
+
+    loadFromStorage();
+  }, [blogId]);
+
+  // REMOVED: Server audio validation logic
+  // IndexedDB is now the sole source for audio storage
+  // If audio is not in IndexedDB, user must regenerate it
+
+  const normalizeSegmentForHighlighting = (segment) => {
+    if (!segment || typeof segment !== 'object') return segment;
+    const normalizedId = segment.id || segment.paragraphId || segment._id || null;
+    return {
+      ...segment,
+      id: normalizedId,
+      paragraphId: segment.paragraphId || normalizedId,
+    };
+  };
+
+  // Track current segment and notify parent for highlighting
+  const currentSegmentRef = useRef(null);
+
+  // Notify parent of segment change - continuously during playback
   useEffect(() => {
     if (segments.length > 0 && onSegmentChange && isPlaying) {
       const currentSeg = segments[currentSegmentIndex];
       if (currentSeg) {
         // Use id field which contains tts-seg-X for highlighting
         const segmentId = currentSeg.id || currentSeg.paragraphId;
-        console.log('AudioPlayer: Segment changed', { index: currentSegmentIndex, segmentId, segment: currentSeg });
-        onSegmentChange(segmentId);
+
+        // Warn if segment lacks ID (old cached audio)
+        if (!currentSeg.id && currentSegmentIndex === 0) {
+          console.warn('⚠️ TTS segments missing "id" field - highlighting disabled.', {
+            segment: currentSeg,
+            hint: 'Regenerate audio to enable highlighting'
+          });
+        }
+
+        const highlightKey = `${segmentId || 'null'}-${currentSegmentIndex}`;
+
+        // Only update if segment actually changed
+        if (currentSegmentRef.current !== highlightKey) {
+          currentSegmentRef.current = highlightKey;
+          onSegmentChange({
+            segmentId,
+            segmentIndex: currentSegmentIndex,
+            text: currentSeg.text
+          });
+        }
       }
     } else if (!isPlaying && onSegmentChange) {
       // Clear highlighting when not playing
+      currentSegmentRef.current = null;
       onSegmentChange(null);
     }
   }, [currentSegmentIndex, segments, onSegmentChange, isPlaying]);
@@ -114,6 +203,13 @@ const AudioPlayer = ({
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration || 0);
+
+      // Handle pending seek if we just switched segments due to seek
+      if (pendingSeekRef.current !== null) {
+        audio.currentTime = pendingSeekRef.current;
+        pendingSeekRef.current = null;
+      }
+
       if (isPlaying) {
         audio.play().catch(e => console.error("Auto-play failed:", e));
       }
@@ -140,7 +236,7 @@ const AudioPlayer = ({
         // Move to next segment
         const nextIndex = currentSegmentIndex + 1;
         setCurrentSegmentIndex(nextIndex);
-        setAudioUrl(resolveAudioUrl(segments[nextIndex].url));
+        setAudioUrl(segments[nextIndex].url); // Use URL directly (already resolved or blob URL)
         // isPlaying remains true, so handleLoadedMetadata will trigger play
       } else {
         // End of playlist or single file
@@ -150,7 +246,7 @@ const AudioPlayer = ({
         // Reset to start
         if (segments.length > 0) {
           setCurrentSegmentIndex(0);
-          setAudioUrl(resolveAudioUrl(segments[0].url));
+          setAudioUrl(segments[0].url); // Use URL directly (already resolved or blob URL)
         }
       }
     };
@@ -161,12 +257,18 @@ const AudioPlayer = ({
         1: 'Audio loading aborted',
         2: 'Network error loading audio',
         3: 'Audio decoding failed',
-        4: 'Audio format not supported'
+        4: 'Audio format not supported or file not found'
       };
       const errorMsg = errorMessages[errorCode] || 'Failed to load audio';
       console.error('Audio error:', { errorCode, errorMsg, audioUrl });
-      // Don't show error for empty src (initial state)
-      if (audioUrl) {
+
+      // If audio files don't exist, mark as unavailable
+      if (errorCode === 4 || errorCode === 2) {
+        setAudioAvailable(false);
+        setAudioUrl(null);
+        setSegments([]);
+        setError('Audio files not found. Please regenerate audio.');
+      } else if (audioUrl) {
         setError(errorMsg);
         setIsPlaying(false);
       }
@@ -185,25 +287,23 @@ const AudioPlayer = ({
     };
   }, [audioUrl, segments, currentSegmentIndex]); // Removed isPlaying from deps to avoid re-binding
 
-  // Handle initial audio URL from props (Legacy support)
+  // DEPRECATED: Ignore initialAudioUrl from database
+  // IndexedDB is now the source of truth for audio
   useEffect(() => {
-    if (initialAudioUrl && segments.length === 0) {
-      let finalUrl = initialAudioUrl;
-      if (finalUrl && !finalUrl.startsWith('http')) {
-        const apiBaseUrl = api.defaults.baseURL || 'http://localhost:3000/api';
-        const serverBaseUrl = apiBaseUrl.replace('/api', '');
-        finalUrl = `${serverBaseUrl}${finalUrl}`;
-      }
-      setAudioUrl(finalUrl);
+    // Don't use initialAudioUrl - it's likely stale/non-existent
+    // User should regenerate audio which will store in IndexedDB
+    if (initialAudioUrl && !loadingFromStorage && !audioAvailable) {
+      console.log('⚠️ Ignoring legacy audio URL from database:', initialAudioUrl);
+      console.log('💡 User needs to regenerate audio to store in IndexedDB');
     }
-  }, [initialAudioUrl, segments]);
+  }, [initialAudioUrl, loadingFromStorage, audioAvailable]);
 
   useEffect(() => {
     const loadVoices = async () => {
       try {
         setVoicesLoading(true);
         setVoicesError(null);
-        const res = await api.get(`/tts/voices`, { params: { provider: 'elevenlabs' } });
+        const res = await api.get(`/tts/voices`, { params: { provider: 'googlecloud' } });
         const list = res?.data?.voices || res?.data || [];
         setVoices(list);
         if (list.length > 0) {
@@ -233,22 +333,6 @@ const AudioPlayer = ({
     } else {
       audioRef.current.play();
       setIsPlaying(true);
-    }
-  };
-
-  const handleSeek = (e) => {
-    if (!audioRef.current || !duration) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
-    const newTime = percentage * duration;
-
-    audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-
-    if (isPlaying) {
-      audioRef.current.play().catch(err => console.error('Play error:', err));
     }
   };
 
@@ -297,7 +381,7 @@ const AudioPlayer = ({
     setTtsJobId(null);
     try {
       const response = await api.post(`/blogs/${blogId}/tts`, {
-        provider: 'auto',
+        provider: 'googlecloud',
         voiceId: voiceSettings.voice,
         language: voiceSettings.language,
         stability: 0.62,
@@ -307,27 +391,75 @@ const AudioPlayer = ({
       });
 
       if (response?.data) {
-        const { audioUrl, audioSegments, jobId, message } = response.data;
+        const { audioSegments, jobId } = response.data;
 
         // Store job ID for potential cancellation
         if (jobId) {
           setTtsJobId(jobId);
         }
 
-        console.log('TTS Generated:', { audioUrl, audioSegments, jobId });
+        console.log('TTS Generated:', { segments: audioSegments?.length, jobId });
+        if (audioSegments && audioSegments.length > 0) {
+          console.log('Raw API Segments (first 3):', audioSegments.slice(0, 3));
+        }
 
         if (audioSegments && audioSegments.length > 0) {
-          setSegments(audioSegments);
-          setAudioUrl(resolveAudioUrl(audioSegments[0].url));
-          setCurrentSegmentIndex(0);
-        } else if (audioUrl) {
-          // Legacy fallback
-          setAudioUrl(resolveAudioUrl(audioUrl));
-          setSegments([]);
+          // Fetch audio blobs and store in IndexedDB
+          const segmentsWithBlobs = await Promise.all(
+            audioSegments.map(async (seg) => {
+              try {
+                const audioUrl = resolveAudioUrl(seg.url);
+                const audioResponse = await fetch(audioUrl);
+                const audioBlob = await audioResponse.blob();
+                const audioData = await audioBlob.arrayBuffer();
+
+                return normalizeSegmentForHighlighting({
+                  ...seg,
+                  audioData
+                });
+              } catch (err) {
+                console.error(`Failed to fetch segment ${seg.id}:`, err);
+                return null;
+              }
+            })
+          );
+
+          const validSegments = segmentsWithBlobs.filter(s => s !== null);
+
+          if (validSegments.length > 0) {
+            // Calculate total duration
+            const totalDur = validSegments.reduce((sum, seg) => sum + (seg.duration || 0), 0);
+
+            // Store in IndexedDB
+            await audioStorageService.saveAudio(
+              blogId,
+              new ArrayBuffer(0), // Not used, keeping for compatibility
+              validSegments,
+              totalDur
+            );
+
+            // Create blob URLs for playback
+            const segmentsWithUrls = validSegments.map((seg) => {
+              const blobUrl = audioStorageService.createBlobUrl(seg.audioData);
+              blobUrlsRef.current.push(blobUrl);
+              return {
+                ...seg,
+                url: blobUrl
+              };
+            });
+
+            setSegments(segmentsWithUrls);
+            setTotalDuration(totalDur);
+            setAudioUrl(segmentsWithUrls[0].url);
+            setCurrentSegmentIndex(0);
+            setAudioAvailable(true);
+
+            showInfo('Audio saved to your browser storage');
+          }
         }
 
         if (onAudioGenerated) {
-          onAudioGenerated(audioSegments || audioUrl);
+          onAudioGenerated(audioSegments);
         }
 
         const usage = response.data.usage;
@@ -415,19 +547,10 @@ const AudioPlayer = ({
     { value: 'en-US-Neural2-E', label: 'Lisa (Female)' },
     { value: 'en-US-Neural2-G', label: 'David (Male)' }
   ];
-  const effectiveVoiceOptions = voices.length > 0 ? voices.map(v => ({ value: v.id, label: v.name, previewUrl: v.previewUrl })) : voiceOptions;
-  const languageOptionsUI = [
-    { value: 'en', label: 'English' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'fr', label: 'French' },
-    { value: 'de', label: 'German' },
-    { value: 'it', label: 'Italian' },
-    { value: 'pt', label: 'Portuguese' },
-    { value: 'ja', label: 'Japanese' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'zh', label: 'Chinese' },
-    { value: 'hi', label: 'Hindi' },
-  ];
+  const filteredVoices = voices.filter(v => v.language === 'en' || v.language?.startsWith('en'));
+  const effectiveVoiceOptions = filteredVoices.length > 0
+    ? filteredVoices.map(v => ({ value: v.id, label: v.name, previewUrl: v.previewUrl }))
+    : voiceOptions;
 
   if (!isAuthenticated) {
     return (
@@ -458,38 +581,98 @@ const AudioPlayer = ({
           <div className="flex items-center gap-4">
             {/* VocalInk Logo Icon */}
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/60 rounded-xl blur-lg opacity-60 group-hover:opacity-100 transition-all"></div>
-              <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
+              <div className="absolute inset-0 bg-primary/20 blur-lg rounded-full animate-pulse"></div>
+              <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg shadow-primary/20">
                 <Mic2 className="w-5 h-5 text-white" />
               </div>
             </div>
-
             <div>
-              <h3 className="text-sm font-bold text-text-primary">VocalInk</h3>
-              <p className="text-xs text-text-secondary font-medium">AI Voice Narration</p>
+              <h3 className="font-bold text-lg text-text-primary tracking-tight">VocalInk</h3>
+              <p className="text-xs font-medium text-primary/80 uppercase tracking-wider">AI Voice Narration</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2.5 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg ${showSettings
-                ? 'bg-primary/20 dark:bg-primary/20 text-primary'
-                : 'bg-gray-200 dark:bg-white/10 hover:bg-primary/20 dark:hover:bg-primary/20 text-text-secondary hover:text-primary'
-                }`}
-              title="Settings"
-            >
-              <Settings className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            <button className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary">
+              <Settings className="w-5 h-5" />
             </button>
-
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2.5 rounded-lg bg-gray-200 dark:bg-white/10 hover:bg-primary/20 dark:hover:bg-primary/20 text-text-secondary hover:text-primary transition-all duration-300 shadow-md hover:shadow-lg"
-              title={isExpanded ? "Collapse" : "Expand"}
+              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
             >
-              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
             </button>
           </div>
+        </div>
+
+        {/* Player Controls */}
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={togglePlayPause}
+                disabled={loadingFromStorage || (!audioAvailable && !audioUrl)}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                {isPlaying ? (
+                  <Pause className="w-6 h-6 fill-current" />
+                ) : (
+                  <Play className="w-6 h-6 fill-current ml-1" />
+                )}
+              </button>
+
+              {/* Volume Control */}
+              <div className="flex items-center gap-3 bg-gray-100 dark:bg-white/5 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/5">
+                <button onClick={toggleMute} className="text-text-secondary hover:text-primary transition-colors">
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="w-20 accent-primary cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Voice Selection Dropdown (No Label) */}
+            <div className="w-48">
+              <select
+                value={voiceSettings.voice}
+                onChange={(e) => setVoiceSettings(prev => ({ ...prev, voice: e.target.value }))}
+                className="w-full px-4 py-3 text-sm font-medium rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 text-text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all shadow-sm hover:shadow-md cursor-pointer outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                {effectiveVoiceOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Expanded Settings */}
+          {isExpanded && (
+            <div className="pt-6 border-t border-gray-200 dark:border-white/5 animate-in slide-in-from-top-2 duration-300">
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5 ml-1">Speed: {voiceSettings.speed}x</label>
+                  <div className="px-2 py-2">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.25"
+                      value={voiceSettings.speed}
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
+                      className="w-full accent-primary cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Content */}
@@ -575,56 +758,78 @@ const AudioPlayer = ({
                       />
                     </div>
                   </div>
-
-                  {/* Language Selector */}
-                  <select
-                    value={voiceSettings.language}
-                    onChange={(e) => setVoiceSettings(prev => ({ ...prev, language: e.target.value }))}
-                    className="px-4 py-2 text-sm font-medium rounded-xl bg-gray-200 dark:bg-white/10 border border-gray-300 dark:border-white/10 text-text-primary hover:bg-gray-300 dark:hover:bg-white/20 transition-all shadow-md hover:shadow-lg cursor-pointer"
-                  >
-                    {languageOptionsUI.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
             ) : (
               <div className="text-center py-10">
-                <div className="relative w-20 h-20 mx-auto mb-5">
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/60 rounded-full blur-lg opacity-40 animate-pulse"></div>
-                  <div className="relative rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                    <Mic2 className="w-10 h-10 text-primary" />
-                  </div>
-                </div>
-                <p className="text-text-primary font-bold mb-2 text-lg">Generate Audio</p>
-                <p className="text-text-secondary text-sm mb-6 font-medium">
-                  Create an AI-narrated version of this post
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  {isGenerating ? (
-                    <Button
-                      onClick={cancelTTS}
-                      disabled={!ttsJobId}
-                      variant="destructive"
-                      size="md"
-                      className="shadow-lg hover:shadow-xl hover:shadow-red-500/50"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Cancel TTS
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={generateTTS}
-                      disabled={isGenerating}
-                      loading={isGenerating}
-                      variant="primary"
-                      size="md"
-                      className="shadow-lg hover:shadow-xl hover:shadow-primary/50"
-                    >
-                      {isGenerating ? 'Generating...' : 'Generate Audio'}
-                    </Button>
-                  )}
-                </div>
+                {loadingFromStorage ? (
+                  // Loading from IndexedDB
+                  <>
+                    <div className="relative w-20 h-20 mx-auto mb-5">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/60 rounded-full blur-lg opacity-40 animate-pulse"></div>
+                      <div className="relative rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center w-20 h-20">
+                        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                      </div>
+                    </div>
+                    <p className="text-text-primary font-bold mb-2 text-lg">Loading audio...</p>
+                    <p className="text-text-secondary text-sm mb-6 font-medium">
+                      Checking browser storage
+                    </p>
+                  </>
+                ) : !audioAvailable ? (
+                  // No audio available - show generate button
+                  <>
+                    <div className="relative w-20 h-20 mx-auto mb-5">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/60 rounded-full blur-lg opacity-40 animate-pulse"></div>
+                      <div className="relative rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center w-20 h-20">
+                        <Mic2 className="w-10 h-10 text-primary" />
+                      </div>
+                    </div>
+                    <p className="text-text-primary font-bold mb-2 text-lg">No Audio Available</p>
+                    <p className="text-text-secondary text-sm mb-6 font-medium">
+                      Generate AI narration to listen to this post
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      {isGenerating ? (
+                        <Button
+                          onClick={cancelTTS}
+                          disabled={!ttsJobId}
+                          variant="destructive"
+                          size="md"
+                          className="shadow-lg hover:shadow-xl hover:shadow-red-500/50"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel Generation
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={generateTTS}
+                          disabled={isGenerating}
+                          loading={isGenerating}
+                          variant="primary"
+                          size="md"
+                          className="shadow-lg hover:shadow-xl hover:shadow-primary/50"
+                        >
+                          {isGenerating ? 'Generating Audio...' : 'Generate Audio'}
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  // Audio exists but not loaded yet (fallback)
+                  <>
+                    <div className="relative w-20 h-20 mx-auto mb-5">
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/60 rounded-full blur-lg opacity-40 animate-pulse"></div>
+                      <div className="relative rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center w-20 h-20">
+                        <Mic2 className="w-10 h-10 text-primary" />
+                      </div>
+                    </div>
+                    <p className="text-text-primary font-bold mb-2 text-lg">Audio Ready</p>
+                    <p className="text-text-secondary text-sm font-medium">
+                      Click expand to load audio player
+                    </p>
+                  </>
+                )}
               </div>
             )}
 

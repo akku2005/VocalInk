@@ -18,6 +18,7 @@ const settingsRoutes = require('./settings');
 const securityRoutes = require('../security/security.routes');
 const statsRoutes = require('./stats');
 const dashboardRoutes = require('./dashboard.routes');
+const collaborationRoutes = require('./collaboration.routes');
 
 const authRoutes = require('./auth');
 
@@ -39,6 +40,7 @@ router.use(API_ROUTES.SETTINGS, settingsRoutes);
 router.use(API_ROUTES.SECURITY, securityRoutes);
 router.use('/stats', statsRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use(API_ROUTES.COLLABORATIONS, collaborationRoutes);
 router.use('/test', (req, res) => {
   res.json({
     success: true,

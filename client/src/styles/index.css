@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* Font imports */
-@import "@fontsource/poppins/400.css"; 
-@import '@fontsource/dancing-script/400.css'; 
+@import "@fontsource/poppins/400.css";
+@import '@fontsource/dancing-script/400.css';
 
 /* Custom CSS Variables for Themes */
 :root {
@@ -18,23 +18,23 @@
   --color-success: 16 185 129;
   --color-warning: 245 158 11;
   --color-error: 239 68 68;
-   --background: rgb(255, 255, 255);
+  --background: rgb(255, 255, 255);
   --paragraph-text-color: rgb(47, 47, 47);
   --links-color: rgb(var(--color-primary));
 
   /* buttons colors */
   --secondary-btn: rgb(236, 235, 235);
   --secondary-btn2: rgb(228, 225, 225);
-   --secondary-btn3: rgb(197, 196, 196);
+  --secondary-btn3: rgb(197, 196, 196);
   --secondary-btn-hover: rgb(236, 236, 236);
-  --secondary-btn-hover2:rgb(216, 216, 216);
-   --secondary-btn-hover3:rgb(184, 182, 182);
-  --text-color:rgb(39, 39, 39);
-  --light-text-color:rgb(151, 151, 151);
-  --light-text-color2:rgb(32, 32, 32);
-  --placeholder-texts:rgb(56, 56, 56);
-  --links-hover:rgba(255, 255, 255, 0.2);
-   --border-color:rgba(0, 0, 0, 0.3);
+  --secondary-btn-hover2: rgb(216, 216, 216);
+  --secondary-btn-hover3: rgb(184, 182, 182);
+  --text-color: rgb(39, 39, 39);
+  --light-text-color: rgb(151, 151, 151);
+  --light-text-color2: rgb(32, 32, 32);
+  --placeholder-texts: rgb(56, 56, 56);
+  --links-hover: rgba(255, 255, 255, 0.2);
+  --border-color: rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] {
@@ -50,22 +50,22 @@
   --color-success: 34 197 94;
   --color-warning: 251 191 36;
   --color-error: 248 113 113;
- --background: rgb(0, 0, 0);
+  --background: rgb(0, 0, 0);
   --paragraph-text-color: rgba(255, 255, 255, 0.92);
   --links-color: rgb(var(--color-primary));
-   /* buttons colors */
+  /* buttons colors */
   --secondary-btn: rgba(255, 255, 255, 0.1);
   --secondary-btn2: rgba(240, 239, 239, 0.1);
   --secondary-btn3: rgba(58, 57, 57, 0.2);
-   --secondary-btn-hover: rgba(255, 255, 255, 0.2);
-   --secondary-btn-hover2: rgba(255, 255, 255, 0.2);
-   --secondary-btn-hover3: rgba(80, 79, 79, 0.2);
-   --text-color:rgb(241, 235, 235);
-   --light-text-color:rgb(226, 220, 220);
-   --light-text-color2:rgb(219, 210, 210);
-   
-   --placeholder-texts:rgb(185, 185, 185);
-   --border-color:rgba(255, 255, 255, 0.2);
+  --secondary-btn-hover: rgba(255, 255, 255, 0.2);
+  --secondary-btn-hover2: rgba(255, 255, 255, 0.2);
+  --secondary-btn-hover3: rgba(80, 79, 79, 0.2);
+  --text-color: rgb(241, 235, 235);
+  --light-text-color: rgb(226, 220, 220);
+  --light-text-color2: rgb(219, 210, 210);
+
+  --placeholder-texts: rgb(185, 185, 185);
+  --border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Custom Classes */
@@ -79,7 +79,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 0, 0, 0.1);
- 
+
 }
 
 [data-theme="dark"] .glassmorphism {
@@ -97,7 +97,7 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 16px;
   overflow: visible;
- 
+
 }
 
 /* Article typography */
@@ -182,7 +182,8 @@
   position: absolute;
   top: 100%;
   left: 0;
-  z-index: 50; }
+  z-index: 50;
+}
 
 [data-theme="dark"] .glassmorphism-card {
   background: rgba(255, 255, 255, 0.05);
@@ -194,7 +195,9 @@
 }
 
 /* Base styles */
-html, body, #root {
+html,
+body,
+#root {
   font-family: "Poppins", sans-serif;
   font-weight: 400;
   background-color: rgb(var(--color-background));
@@ -221,10 +224,12 @@ html {
 ::-webkit-scrollbar-track {
   background: rgb(var(--color-surface));
 }
+
 input:focus {
   outline: none !important;
   box-shadow: none !important;
 }
+
 button:focus {
   outline: none !important;
   box-shadow: none !important;
@@ -273,13 +278,25 @@ button:focus {
 
 /* Animation classes */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideIn {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 .animate-fade-in {
@@ -292,72 +309,73 @@ button:focus {
 
 /* Mobile-specific improvements */
 @media (max-width: 640px) {
+
   /* Improve touch targets */
-  button, 
-  input[type="checkbox"], 
+  button,
+  input[type="checkbox"],
   input[type="radio"],
   select,
   .cursor-pointer {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Smaller touch targets for specific elements */
   input[type="checkbox"],
   input[type="radio"] {
     min-height: 24px;
     min-width: 24px;
   }
-  
+
   /* Improve spacing for mobile */
-  .space-y-3 > * + * {
+  .space-y-3>*+* {
     margin-top: 0.75rem;
   }
-  
-  .space-y-4 > * + * {
+
+  .space-y-4>*+* {
     margin-top: 1rem;
   }
-  
+
   /* Better mobile card spacing */
   .glassmorphism-card {
     border-radius: 12px;
   }
-  
+
   /* Improve mobile button spacing */
-  .flex.gap-1 > * + * {
+  .flex.gap-1>*+* {
     margin-left: 0.25rem;
   }
-  
-  .flex.gap-2 > * + * {
+
+  .flex.gap-2>*+* {
     margin-left: 0.5rem;
   }
-  
+
   /* Mobile-optimized text sizes */
   .text-xs {
     font-size: 0.75rem;
     line-height: 1rem;
   }
-  
+
   .text-sm {
     font-size: 0.875rem;
     line-height: 1.25rem;
   }
-  
+
   .text-base {
     font-size: 1rem;
     line-height: 1.5rem;
   }
-  
+
   .text-lg {
     font-size: 1.125rem;
     line-height: 1.75rem;
   }
-  
+
   .text-2xl {
     font-size: 1.5rem;
     line-height: 2rem;
   }
-  
+
   .text-3xl {
     font-size: 1.875rem;
     line-height: 2.25rem;
@@ -366,15 +384,19 @@ button:focus {
 
 /* Improve mobile form elements */
 @media (max-width: 640px) {
-  input, select, textarea {
-    font-size: 16px; /* Prevents zoom on iOS */
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    /* Prevents zoom on iOS */
   }
-  
+
   /* Better mobile button states */
   button:active {
     transform: scale(0.98);
   }
-  
+
   /* Improve mobile scrolling */
   .overflow-x-hidden {
     -webkit-overflow-scrolling: touch;
@@ -523,27 +545,61 @@ button:focus {
   box-shadow: 0 4px 6px -1px rgba(var(--color-primary), 0.25), 0 2px 4px -1px rgba(var(--color-primary), 0.125);
 }
 
-/* TTS Highlighting Styles - Visible in both light and dark themes */
+/* TTS Highlighting Styles - Enhanced for Better Visibility */
 [data-tts-segment] {
-  transition: all 0.3s ease-in-out;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 /* For inline spans (sentence-level highlighting) */
+.article-content span[data-tts-segment].tts-highlighted,
 span[data-tts-segment].tts-highlighted {
-  background-color: rgb(59, 130, 246);
-  color: white;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  font-weight: 500;
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(96, 165, 250)) !important;
+  color: white !important;
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.2),
+    0 0 20px rgba(59, 130, 246, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  padding: 0.25rem 0.6rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 500 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  animation: pulse-glow 2s ease-in-out infinite !important;
+  transform: scale(1.02) !important;
 }
 
 /* For block-level paragraphs */
+.article-content [data-tts-segment].tts-highlighted,
 [data-tts-segment].tts-highlighted {
-  background-color: rgb(59, 130, 246);
-  color: white;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(96, 165, 250, 0.95)) !important;
+  color: white !important;
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.2),
+    0 0 20px rgba(59, 130, 246, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  padding: 0.75rem !important;
+  border-radius: 0.75rem !important;
+  font-weight: 500 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  animation: pulse-glow 2s ease-in-out infinite !important;
+  transform: scale(1.01) !important;
+}
+
+/* Subtle pulsing animation for highlighted elements */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(59, 130, 246, 0.2),
+      0 0 20px rgba(59, 130, 246, 0.4),
+      0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(59, 130, 246, 0.3),
+      0 0 25px rgba(59, 130, 246, 0.5),
+      0 6px 16px rgba(0, 0, 0, 0.2);
+  }
 }

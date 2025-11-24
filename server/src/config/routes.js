@@ -22,6 +22,7 @@ const API_ROUTES = {
   IMAGES: '/images',
   SETTINGS: '/settings',
   SECURITY: '/security',
+  COLLABORATIONS: '/collaborations',
 
   // Complete route definitions
   ROUTES: {

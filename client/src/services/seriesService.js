@@ -448,6 +448,66 @@ class SeriesService {
       throw error;
     }
   }
+  /**
+   * Invite a user to collaborate via email
+   * @param {string} seriesId - Series ID
+   * @param {Object} data - { email, role, permissions }
+   * @returns {Promise<Object>} Response data
+   */
+  async inviteCollaborator(seriesId, data) {
+    try {
+      const response = await api.post(`/collaborations/series/${seriesId}/invite`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error inviting collaborator:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pending invitations for a series
+   * @param {string} seriesId - Series ID
+   * @returns {Promise<Array>} List of invites
+   */
+  async getPendingInvites(seriesId) {
+    try {
+      const response = await api.get(`/collaborations/series/${seriesId}/invites`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pending invites:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Accept a collaboration invitation
+   * @param {string} token - Invitation token
+   * @returns {Promise<Object>} Response data
+   */
+  async acceptInvite(token) {
+    try {
+      const response = await api.post(`/collaborations/invites/${token}/accept`);
+      return response.data;
+    } catch (error) {
+      console.error('Error accepting invite:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reject a collaboration invitation
+   * @param {string} token - Invitation token
+   * @returns {Promise<Object>} Response data
+   */
+  async rejectInvite(token) {
+    try {
+      const response = await api.post(`/collaborations/invites/${token}/reject`);
+      return response.data;
+    } catch (error) {
+      console.error('Error rejecting invite:', error);
+      throw error;
+    }
+  }
 }
 
 export default new SeriesService();

@@ -26,6 +26,7 @@ const NotificationsPage = lazy(() => import("../pages/NotificationsPage"));
 const CreateBlogPage = lazy(() => import("../pages/CreateBlogPage"));
 const EditBlogPage = lazy(() => import("../pages/EditBlogPage"));
 const SeriesTimelinePage = lazy(() => import("../pages/SeriesTimelinePage"));
+const AcceptInvitePage = lazy(() => import("../pages/collaborations/AcceptInvitePage.jsx"));
 const SearchPage = lazy(() => import("../pages/SearchPage"));
 const SettingsPage = lazy(() => import("../components/settings/SettingsPage"));
 const LeaderboardPage = lazy(() => import("../pages/LeaderboardPage"));
@@ -159,6 +160,7 @@ export default function AppRoutes() {
               <SeriesTimelinePage />
             </ProtectedRoute>
           } />
+          <Route path="/collaborations/accept/:token" element={<ProtectedRoute><AcceptInvitePage /></ProtectedRoute>} />
           <Route path="settings" element={
             <ProtectedRoute>
               <SettingsPage />

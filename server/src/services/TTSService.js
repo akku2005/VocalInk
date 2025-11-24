@@ -734,6 +734,7 @@ class TTSService {
             ...audioResult,
             text: segment.text,
             paragraphId: segment.id,
+            id: segment.id,
             order: i + index
           };
         } catch (error) {
@@ -903,7 +904,7 @@ class TTSService {
   /**
    * Get available voices for each provider
    */
-  async getAvailableVoices(provider = 'elevenlabs') {
+  async getAvailableVoices(provider = 'googlecloud') {
     try {
       switch (provider.toLowerCase()) {
         case 'elevenlabs':

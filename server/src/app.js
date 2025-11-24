@@ -134,7 +134,7 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Enhanced CORS configuration
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:5173'],
+  origin: true, // Allow all origins (development only - restrict in production!)
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -147,6 +147,7 @@ const corsOptions = {
     'X-Session-Token',
     'X-Device-Fingerprint',
     'X-Correlation-ID',
+    'x-user-location',
   ],
   exposedHeaders: ['X-Total-Count', 'X-Page-Count', 'X-Rate-Limit-Remaining'],
   maxAge: 86400, // 24 hours
@@ -362,7 +363,9 @@ const audioStaticOptions = {
     if (ext === '.ogg') res.setHeader('Content-Type', 'audio/ogg');
     if (ext === '.m4a') res.setHeader('Content-Type', 'audio/mp4');
     if (['.mp3', '.wav', '.ogg', '.m4a'].includes(ext)) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // Allow browser to cache briefly but not indefinitely
+      // IndexedDB is now the primary storage mechanism
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
       res.setHeader('Accept-Ranges', 'bytes');
     }
   }
