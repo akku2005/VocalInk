@@ -31,14 +31,8 @@ function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
   server.on('error', (err) => {
     if (err && err.code === 'EADDRINUSE') {
       logger.error('Port in use:', { port: startPort, message: err.message });
-      if (process.env.NODE_ENV !== 'production' && attemptsLeft > 0) {
-        const nextPort = startPort + 1;
-        logger.warn(`Attempting to use next port ${nextPort} (remaining attempts: ${attemptsLeft - 1})`);
-        setTimeout(() => startServer(nextPort, attemptsLeft - 1), 500);
-      } else {
-        logger.error('Failed to start server due to port conflict');
-        process.exit(1);
-      }
+      logger.error(`❌ Port ${startPort} is already in use. Please stop the other process running on this port.`);
+      process.exit(1);
     } else {
       logger.error('Server startup error:', { message: err?.message, name: err?.name, code: err?.code });
       process.exit(1);

@@ -6,12 +6,12 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Textarea from '../components/ui/Textarea';
 import Select from '../components/ui/Select';
-import { 
-  User, 
-  MapPin, 
-  Link, 
-  Building, 
-  Briefcase, 
+import {
+  User,
+  MapPin,
+  Link,
+  Building,
+  Briefcase,
   Globe,
   ArrowLeft,
   Save,
@@ -46,7 +46,8 @@ const ProfileEditPage = () => {
     socialLinks: [],
     avatar: '',
     profilePicture: '',
-    coverImage: ''
+    coverImage: '',
+    role: ''
   });
 
   const [imagePreview, setImagePreview] = useState({
@@ -62,10 +63,10 @@ const ProfileEditPage = () => {
       try {
         setLoading(true);
         const profile = await userService.getMyProfile();
-        
+
         // Format date for input field
         const formattedDob = profile.dob ? new Date(profile.dob).toISOString().split('T')[0] : '';
-        
+
         setFormData({
           name: profile.name || '',
           bio: profile.bio || '',
@@ -82,7 +83,8 @@ const ProfileEditPage = () => {
           socialLinks: profile.socialLinks || [],
           avatar: profile.avatar || '',
           profilePicture: profile.profilePicture || '',
-          coverImage: profile.coverImage || ''
+          coverImage: profile.coverImage || '',
+          role: profile.role || 'reader'
         });
 
         // Set image previews
@@ -137,7 +139,7 @@ const ProfileEditPage = () => {
   const uploadImage = async (file, type) => {
     try {
       setUploadingImage(true);
-      
+
       const formData = new FormData();
       let url = '/api/images/upload';
       if (type === 'avatar') {
@@ -151,16 +153,16 @@ const ProfileEditPage = () => {
       }
 
       // Upload image
-        const headers = {};
-        if (storage.available) {
-          const token = storage.getItem('accessToken');
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-        }
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: formData
-        });
+      const headers = {};
+      if (storage.available) {
+        const token = storage.getItem('accessToken');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData
+      });
 
       if (!response.ok) {
         throw new Error('Failed to upload image');
@@ -172,7 +174,7 @@ const ProfileEditPage = () => {
         ...prev,
         [type]: imageUrl
       }));
-      
+
       setImagePreview(prev => ({
         ...prev,
         [type]: imageUrl
@@ -232,7 +234,7 @@ const ProfileEditPage = () => {
       ...prev,
       [type]: ''
     }));
-    
+
     setImagePreview(prev => ({
       ...prev,
       [type]: ''
@@ -241,14 +243,14 @@ const ProfileEditPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       setSaving(true);
       setError(null);
-      
+
       // Filter out empty fields
       const updateData = Object.fromEntries(
-        Object.entries(formData).filter(([_key, value]) => 
+        Object.entries(formData).filter(([_key, value]) =>
           value !== '' && value !== null && value !== undefined
         )
       );
@@ -260,12 +262,12 @@ const ProfileEditPage = () => {
 
       await userService.updateProfile(updateData);
       setSuccess(true);
-      
+
       // Redirect to profile page after a short delay
       setTimeout(() => {
         navigate('/profile');
       }, 2000);
-      
+
     } catch (err) {
       console.error('Error updating profile:', err);
       setError(err.message || 'Failed to update profile');
@@ -343,9 +345,8 @@ const ProfileEditPage = () => {
                 Cover Image
               </label>
               <div
-                className={`relative w-full h-48 border-2 border-dashed rounded-lg overflow-hidden ${
-                  imagePreview.coverImage ? 'border-primary' : 'border-border'
-                }`}
+                className={`relative w-full h-48 border-2 border-dashed rounded-lg overflow-hidden ${imagePreview.coverImage ? 'border-primary' : 'border-border'
+                  }`}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, 'coverImage')}
               >
@@ -383,9 +384,9 @@ const ProfileEditPage = () => {
                   </>
                 ) : (
                   <div className="w-full h-full bg-gradient-to-r from-gray-400 to-gray-600 flex items-center justify-center">
-                    <img 
-                      src="https://images.unsplash.com/photo-1557683316-973673baf926?w=600&h=300&fit=crop&crop=center&auto=format&q=80" 
-                      alt="Default cover" 
+                    <img
+                      src="https://images.unsplash.com/photo-1557683316-973673baf926?w=600&h=300&fit=crop&crop=center&auto=format&q=80"
+                      alt="Default cover"
                       className="w-full h-full object-cover opacity-50"
                       onError={(e) => {
                         e.target.style.display = 'none';
@@ -429,9 +430,8 @@ const ProfileEditPage = () => {
               </label>
               <div className="flex items-center gap-4">
                 <div
-                  className={`relative w-24 h-24 border-2 border-dashed rounded-full overflow-hidden ${
-                    imagePreview.avatar ? 'border-primary' : 'border-border'
-                  }`}
+                  className={`relative w-24 h-24 border-2 border-dashed rounded-full overflow-hidden ${imagePreview.avatar ? 'border-primary' : 'border-border'
+                    }`}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, 'avatar')}
                 >
@@ -541,7 +541,23 @@ const ProfileEditPage = () => {
                 />
               </div>
             </div>
-            
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">
+                Account Type
+              </label>
+              <Select
+                value={formData.role}
+                onChange={(e) => handleInputChange('role', e.target.value)}
+              >
+                <option value="reader">Reader - Browse and read blogs</option>
+                <option value="writer">Writer - Create and publish content</option>
+              </Select>
+              <p className="text-xs text-text-secondary mt-1">
+                Writers can create blogs and series. Readers can only view content.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
                 Bio
@@ -700,7 +716,7 @@ const ProfileEditPage = () => {
                   Add Link
                 </Button>
               </div>
-              
+
               <div className="space-y-3">
                 {formData.socialLinks.map((link, index) => (
                   <div key={index} className="flex gap-2">

@@ -14,6 +14,7 @@ import { useToast } from "../../hooks/useToast";
 import { buildQuotaToastPayload } from "../../utils/quotaToast";
 import blogService from "../../services/blogService";
 import { resolveAssetUrl } from "../../constants/apiConfig";
+import { getCleanExcerpt, stripHtml } from "../../utils/textUtils";
 
 const normalizeArticleContent = (html) => {
   if (!html || typeof html !== 'string') return '';
@@ -470,6 +471,11 @@ export default function ArticleView() {
                 isLiked={article.isLiked || false}
                 isBookmarked={article.isBookmarked || false}
                 onCommentClick={handleCommentClick}
+                shareTitle={article.title}
+                shareDescription={article.summary || getCleanExcerpt(article.content, 200)}
+                shareContent={stripHtml(article.content || '')}
+                shareImage={resolveAssetUrl(article.coverImage)}
+                shareUrl={window.location.href}
               />
 
               {canModifyBlog() && (

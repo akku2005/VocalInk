@@ -48,7 +48,7 @@ const getTimestamp = () => {
 const formatMessage = (level, message, ...args) => {
   const timestamp = chalk.gray(`[${getTimestamp()}]`);
   const levelTag = getLevelTag(level);
-  
+
   // Sanitize sensitive data in arguments
   const sanitizedArgs = args.map(arg => sanitizeData(arg));
   const formattedMessage = formatArgs(message, ...sanitizedArgs);
@@ -94,20 +94,22 @@ const formatArgs = (message, ...args) => {
 const logger = {
   info: (message, ...args) => {
     const msg = formatMessage('INFO', message, ...args);
-    console.info(msg);
     writeToFile(msg);
+    if (process.env.NODE_ENV !== 'production') {
+      console.info(msg);
+    }
   },
 
   warn: (message, ...args) => {
     const msg = formatMessage('WARN', message, ...args);
-    console.warn(msg);
     writeToFile(msg);
+    console.warn(msg);
   },
 
   error: (message, ...args) => {
     const msg = formatMessage('ERROR', message, ...args);
-    console.error(msg);
     writeToFile(msg);
+    console.error(msg);
   },
 
   debug: (message, ...args) => {
@@ -121,8 +123,10 @@ const logger = {
 
   success: (message, ...args) => {
     const msg = formatMessage('SUCCESS', message, ...args);
-    console.log(msg);
     writeToFile(msg);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(msg);
+    }
   },
 
   // Production-safe logging methods

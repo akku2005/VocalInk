@@ -14,6 +14,13 @@ const EngagementButtons = ({
   isBookmarked = false,
   onEngagementUpdate,
   onCommentClick,
+  compact = false,
+  // Share metadata
+  shareTitle,
+  shareDescription,
+  shareImage,
+  shareUrl,
+  shareContent,
 }) => {
   const [likes, setLikes] = useState(initialLikes);
   const [bookmarks, setBookmarks] = useState(initialBookmarks);
@@ -25,7 +32,7 @@ const EngagementButtons = ({
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginAction, setLoginAction] = useState('interact');
-  
+
   const { isAuthenticated } = useAuth();
   const { showSuccess, showError } = useToast();
 
@@ -117,21 +124,44 @@ const EngagementButtons = ({
   };
 
   const handleShare = async (platform) => {
-    const url = window.location.href;
-    const title = document.title;
+    // Use provided share data or fallback to current page
+    const url = shareUrl || window.location.href;
+    const title = shareTitle || document.title;
+    const description = shareDescription || '';
+    const image = shareImage || '';
 
-    let shareUrl = "";
+    let shareMessage = '';
 
     switch (platform) {
       case "twitter":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`;
+        // Twitter: Use title + URL (Twitter will fetch meta tags for preview)
+        shareMessage = `${encodeURIComponent(title)}\n\n${encodeURIComponent(url)}`;
+        shareUrl = `https://twitter.com/intent/tweet?text=${shareMessage}`;
         break;
       case "facebook":
+        // Facebook: Simple URL share (Facebook reads OG tags)
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         break;
       case "linkedin":
-        // Use LinkedIn's feed share URL which works better
-        shareUrl = `https://www.linkedin.com/feed/?shareActive=true&shareUrl=${encodeURIComponent(url)}`;
+        // LinkedIn: Use feed endpoint to allow pre-filling text (works better for localhost/no-scrape)
+        // Include title, content (or description), and URL
+        {
+          const textParts = [title];
+
+          if (shareContent) {
+            // Truncate content to avoid URL length limits (keep it safe around 2000 chars)
+            const maxLen = 2000;
+            const content = shareContent.length > maxLen
+              ? shareContent.substring(0, maxLen) + '...'
+              : shareContent;
+            textParts.push(content);
+          } else if (description) {
+            textParts.push(description);
+          }
+
+          textParts.push(url);
+          shareUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textParts.join('\n\n'))}`;
+        }
         break;
       case "copy":
         try {
@@ -188,16 +218,15 @@ const EngagementButtons = ({
   ];
 
   return (
-    <div className="flex items-center justify-center gap-2.5 pl-1">
+    <div className={`flex items-center justify-center ${compact ? 'gap-1' : 'gap-2.5'} pl-1`}>
       {/* Like Button */}
       <button
         onClick={handleLike}
-        className={`flex items-center  gap-2  py-2 rounded-lg transition-all duration-200 cursor-pointer ${
-          isLikedState
-            ? "bg-error/10"
-            : "hover:bg-error/10"
-        }`}
-        style={{ 
+        className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'py-2'} rounded-lg transition-all duration-200 cursor-pointer ${isLikedState
+          ? "bg-error/10"
+          : "hover:bg-error/10"
+          }`}
+        style={{
           color: isLikedState ? 'rgb(var(--color-error))' : 'var(--text-color)',
           backgroundColor: isLikedState ? 'rgba(var(--color-error), 0.1)' : 'transparent'
         }}
@@ -210,7 +239,7 @@ const EngagementButtons = ({
       {/* Comment Button */}
       <button
         onClick={handleComment}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary/10 transition-all duration-200 cursor-pointer"
+        className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg hover:bg-primary/10 transition-all duration-200 cursor-pointer`}
         style={{ color: 'var(--text-color)' }}
         title="View comments"
       >
@@ -221,12 +250,11 @@ const EngagementButtons = ({
       {/* Bookmark Button */}
       <button
         onClick={handleBookmark}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${
-          isBookmarkedState
-            ? "bg-primary/10"
-            : "hover:bg-primary/10"
-        }`}
-        style={{ 
+        className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg transition-all duration-200 cursor-pointer ${isBookmarkedState
+          ? "bg-primary/10"
+          : "hover:bg-primary/10"
+          }`}
+        style={{
           color: isBookmarkedState ? 'rgb(var(--color-primary))' : 'var(--text-color)',
           backgroundColor: isBookmarkedState ? 'rgba(var(--color-primary), 0.1)' : 'transparent'
         }}
@@ -242,12 +270,12 @@ const EngagementButtons = ({
       <div className="relative">
         <button
           onClick={() => setShowShareMenu(!showShareMenu)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent/10 transition-all duration-200 cursor-pointer"
+          className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg hover:bg-accent/10 transition-all duration-200 cursor-pointer`}
           style={{ color: 'var(--text-color)' }}
           title="Share this post"
         >
           <Share2 className="w-4 h-4" />
-          <span className="text-sm">Share</span>
+          {!compact && <span className="text-sm">Share</span>}
         </button>
 
         {/* Share Menu */}

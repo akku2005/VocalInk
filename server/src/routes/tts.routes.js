@@ -257,7 +257,7 @@ router.post(
  */
 router.get(
   '/voices',
-  protect,
+  // protect, // Allow public access to voice list
   [
     query('provider')
       .optional()

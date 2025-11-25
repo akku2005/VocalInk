@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 const config = require('../config');
+const { generateEmailHtml, config: emailConfig } = require('../utils/emailTemplates');
 
 class EmailService {
   constructor() {
@@ -34,7 +35,7 @@ class EmailService {
               logger.warn('📧 DEVELOPMENT MODE: Email would have been sent:', {
                 to: mailOptions.to,
                 subject: mailOptions.subject,
-                code: mailOptions.html?.includes('verification code') ? 'Check HTML for code' : 'No code found'
+                code: mailOptions.html?.includes('verification-code') ? 'Check HTML for code' : 'No code found'
               });
 
               // Extract verification code from HTML for development
@@ -79,7 +80,6 @@ class EmailService {
     } catch (error) {
       logger.error('Failed to initialize email service:', error);
       // Do not throw error to prevent server crash on startup
-      // throw error; 
       this.initialized = false;
     }
   }
@@ -132,60 +132,27 @@ class EmailService {
 
   async sendVerificationEmail(email, code) {
     try {
+      const html = generateEmailHtml({
+        title: 'Verify Your Email Address',
+        content: `
+          <p class="text">Hello,</p>
+          <p class="text">Thank you for signing up! Please use the following verification code to confirm your email address:</p>
+          <div class="code-block">
+            <span class="verification-code">${code}</span>
+          </div>
+          <p class="text">This code will expire in 10 minutes. If you did not request this verification, please ignore this email.</p>
+        `,
+        actionText: 'Verify Email',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify`,
+        previewText: `Your verification code is ${code}`,
+        themeColor: emailConfig.colors.primary
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: email,
         subject: 'Verify Your Email Address',
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #007bff; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .code-box { background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 6px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-              .button { display: inline-block; background-color: #007bff; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #0056b3; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Email Verification</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Thank you for signing up! Please use the following verification code to confirm your email address:</p>
-                <div class="code-box">
-                  <h3 style="color: #007bff; margin: 0; font-size: 32px; letter-spacing: 2px;">${code}</h3>
-                </div>
-                <p style="color: #666666; font-size: 14px; line-height: 1.6;">This code will expire in 10 minutes. If you did not request this verification, please ignore this email or contact our <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #007bff;">support team</a>.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify" class="button">Verify Email</a>
-                </div>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -201,61 +168,27 @@ class EmailService {
 
   async sendPasswordResetEmail(email, resetCode) {
     try {
+      const html = generateEmailHtml({
+        title: 'Reset Your Password',
+        content: `
+          <p class="text">Hello,</p>
+          <p class="text">We received a request to reset your password. Please use the following code to proceed:</p>
+          <div class="code-block">
+            <span class="verification-code">${resetCode}</span>
+          </div>
+          <p class="text">This code will expire in 10 minutes. If you did not request this reset, please ignore this email immediately.</p>
+        `,
+        actionText: 'Reset Password',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password`,
+        previewText: `Your password reset code is ${resetCode}`,
+        themeColor: emailConfig.colors.primary
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: email,
         subject: 'Password Reset Request',
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #007bff; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .code-box { background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 6px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-              .button { display: inline-block; background-color: #007bff; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #0056b3; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Password Reset Request</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">We received a request to reset your password. Please use the following code to proceed:</p>
-                <div class="code-box">
-                  <h3 style="color: #007bff; margin: 0; font-size: 32px; letter-spacing: 2px;">${resetCode}</h3>
-                </div>
-                <p style="color: #666666; font-size: 14px; line-height: 1.6;">This code will expire in 10 minutes. To reset your password, enter this code on the password reset page.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password" class="button">Reset Password</a>
-                </div>
-                <p style="color: #666666; font-size: 14px; line-height: 1.6;">If you did not request this reset, please ignore this email or contact our <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #007bff;">support team</a> immediately.</p>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -271,56 +204,24 @@ class EmailService {
 
   async sendVerificationSuccessEmail(email, name) {
     try {
+      const html = generateEmailHtml({
+        title: 'Welcome to VocalInk!',
+        content: `
+          <p class="text">Dear ${name},</p>
+          <p class="text">Congratulations! Your email has been successfully verified. You can now enjoy full access to all features of our platform.</p>
+          <p class="text">We're excited to have you on board.</p>
+        `,
+        actionText: 'Login to Your Account',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        previewText: 'Your email has been verified successfully.',
+        themeColor: emailConfig.colors.secondary // Green for success
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: email,
         subject: 'Welcome! Your Email Has Been Verified',
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #28a745; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .button { display: inline-block; background-color: #28a745; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #218838; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Welcome to Our Platform!</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Dear ${name},</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Congratulations! Your email has been successfully verified. You can now enjoy full access to all features of our platform.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="button">Login to Your Account</a>
-                </div>
-                <p style="color: #666666; font-size: 14px; line-height: 1.6;">Thank you for joining us! If you have any questions, feel free to contact our <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #28a745;">support team</a>.</p>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -334,74 +235,32 @@ class EmailService {
     }
   }
 
-  async sendAdminCreationNotification(
-    newAdminEmail,
-    newAdminName,
-    creatorEmail
-  ) {
+  async sendAdminCreationNotification(newAdminEmail, newAdminName, creatorEmail) {
     try {
+      const html = generateEmailHtml({
+        title: 'New Admin Account Created',
+        content: `
+          <p class="text">Hello,</p>
+          <p class="text">A new admin account has been created with the following details:</p>
+          <div class="info-box">
+            <p class="text" style="margin: 5px 0;"><strong>Name:</strong> ${newAdminName}</p>
+            <p class="text" style="margin: 5px 0;"><strong>Email:</strong> ${newAdminEmail}</p>
+            <p class="text" style="margin: 5px 0;"><strong>Role:</strong> Admin</p>
+            <p class="text" style="margin: 5px 0;"><strong>Created by:</strong> ${creatorEmail}</p>
+          </div>
+          <p class="text">Please ensure to verify your email address and enable two-factor authentication.</p>
+        `,
+        actionText: 'Login to Admin Dashboard',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        previewText: 'A new admin account has been created.',
+        themeColor: emailConfig.colors.primary
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: [newAdminEmail, creatorEmail],
         subject: 'New Admin Account Created',
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #007bff; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .details-box { background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-              .button { display: inline-block; background-color: #007bff; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #0056b3; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">New Admin Account Created</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">A new admin account has been created with the following details:</p>
-                <div class="details-box">
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Name:</strong> ${newAdminName}</p>
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Email:</strong> ${newAdminEmail}</p>
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Role:</strong> Admin</p>
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Created by:</strong> ${creatorEmail}</p>
-                </div>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Please ensure to:</p>
-                <ul style="color: #333333; font-size: 16px; line-height: 1.6; padding-left: 20px; margin: 10px 0;">
-                  <li>Verify your email address</li>
-                  <li>Enable two-factor authentication if available</li>
-                  <li>Review security guidelines and admin responsibilities</li>
-                </ul>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="button">Login to Admin Dashboard</a>
-                </div>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -419,63 +278,30 @@ class EmailService {
 
   async sendSecurityAlertEmail(user, alert) {
     try {
+      const html = generateEmailHtml({
+        title: 'Security Alert',
+        content: `
+          <p class="text">Hello,</p>
+          <p class="text">We detected a security event on your account. Please review the details below:</p>
+          <div class="info-box" style="border-left-color: ${emailConfig.colors.danger}; background-color: #FEF2F2;">
+            <p class="text" style="margin: 5px 0; color: #991B1B;"><strong>Type:</strong> ${alert.type}</p>
+            <p class="text" style="margin: 5px 0; color: #991B1B;"><strong>Time:</strong> ${alert.timestamp}</p>
+            <p class="text" style="margin: 5px 0; color: #991B1B;"><strong>IP Address:</strong> ${alert.ipAddress || 'Unknown'}</p>
+            <p class="text" style="margin: 5px 0; color: #991B1B;"><strong>Device:</strong> ${alert.userAgent || 'Unknown'}</p>
+          </div>
+          <p class="text">If this activity was not initiated by you, please secure your account immediately.</p>
+        `,
+        actionText: 'Secure Your Account',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/security`,
+        previewText: 'Suspicious activity detected on your account.',
+        themeColor: emailConfig.colors.danger // Red for alert
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: user.email,
         subject: 'Security Alert: Suspicious Activity Detected',
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #dc3545; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .details-box { background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-              .button { display: inline-block; background-color: #dc3545; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #c82333; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Security Alert</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">We detected a security event on your account. Please review the details below:</p>
-                <div class="details-box">
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Type:</strong> ${alert.type}</p>
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Time:</strong> ${alert.timestamp}</p>
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>IP Address:</strong> ${alert.ipAddress || 'Unknown'}</p>
-                  <p style="color: #333333; font-size: 16px; margin: 5px 0;"><strong>Device:</strong> ${alert.userAgent || 'Unknown'}</p>
-                </div>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">If this activity was not initiated by you, please secure your account immediately by resetting your password and enabling two-factor authentication.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/security" class="button">Secure Your Account</a>
-                </div>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -493,56 +319,24 @@ class EmailService {
 
   async sendPasswordChangeNotification(email) {
     try {
+      const html = generateEmailHtml({
+        title: 'Password Changed',
+        content: `
+          <p class="text">Hello,</p>
+          <p class="text">Your password was successfully changed. If you initiated this change, no further action is required.</p>
+          <p class="text">If you did not perform this action, please contact our support team immediately.</p>
+        `,
+        actionText: 'Secure Your Account',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/security`,
+        previewText: 'Your password has been changed.',
+        themeColor: emailConfig.colors.primary
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: email,
         subject: 'Your Password Has Been Changed',
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #007bff; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .button { display: inline-block; background-color: #007bff; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #0056b3; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Password Change Confirmation</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Your password was successfully changed. If you initiated this change, no further action is required.</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">If you did not perform this action, please contact our <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #007bff;">support team</a> immediately to secure your account.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/security" class="button">Secure Your Account</a>
-                </div>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -557,56 +351,24 @@ class EmailService {
   }
 
   async sendAccountLockoutNotification(email, lockoutUntil) {
-    const subject = 'Account Locked Due to Failed Login Attempts';
     const lockoutTime = new Date(lockoutUntil).toLocaleString();
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-          a { text-decoration: none; }
-          .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-          .header { background-color: #dc3545; padding: 20px; text-align: center; }
-          .header img { max-width: 150px; height: auto; }
-          .content { padding: 30px; }
-          .button { display: inline-block; background-color: #dc3545; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-          .button:hover { background-color: #c82333; }
-          .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-          @media only screen and (max-width: 600px) {
-            .container { margin: 10px; }
-            .content { padding: 20px; }
-            .header img { max-width: 120px; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-          </div>
-          <div class="content">
-            <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Account Lockout Notification</h2>
-            <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-            <p style="color: #333333; font-size: 16px; line-height: 1.6;">Your account has been temporarily locked due to multiple failed login attempts.</p>
-            <p style="color: #333333; font-size: 16px; line-height: 1.6;">You can try logging in again after: <strong>${lockoutTime}</strong>.</p>
-            <p style="color: #333333; font-size: 16px; line-height: 1.6;">If this was not you, please contact our <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #dc3545;">support team</a> immediately to secure your account.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/security" class="button">Secure Your Account</a>
-            </div>
-          </div>
-          <div class="footer">
-            <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-            <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-            <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-          </div>
+    const html = generateEmailHtml({
+      title: 'Account Locked',
+      content: `
+        <p class="text">Hello,</p>
+        <p class="text">Your account has been temporarily locked due to multiple failed login attempts.</p>
+        <div class="info-box" style="border-left-color: ${emailConfig.colors.danger}; background-color: #FEF2F2;">
+          <p class="text" style="margin: 0; color: #991B1B;">You can try logging in again after: <strong>${lockoutTime}</strong></p>
         </div>
-      </body>
-      </html>
-    `;
-    return this.sendNotificationEmail(email, subject, html);
+        <p class="text">If this was not you, please contact our support team immediately.</p>
+      `,
+      actionText: 'Secure Your Account',
+      actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/security`,
+      previewText: 'Your account has been temporarily locked.',
+      themeColor: emailConfig.colors.danger
+    });
+
+    return this.sendNotificationEmail(email, 'Account Locked Due to Failed Login Attempts', html);
   }
 
   async sendNotificationEmail(email, subject, html) {
@@ -628,60 +390,27 @@ class EmailService {
       throw error;
     }
   }
+
   async sendCollaborationInvitationEmail(email, inviterName, seriesTitle, inviteLink) {
     try {
+      const html = generateEmailHtml({
+        title: 'Collaboration Invitation',
+        content: `
+          <p class="text">Hello,</p>
+          <p class="text"><strong>${inviterName}</strong> has invited you to collaborate on the series <strong>"${seriesTitle}"</strong>.</p>
+          <p class="text">Click the button below to accept the invitation and start collaborating:</p>
+        `,
+        actionText: 'Accept Invitation',
+        actionUrl: inviteLink,
+        previewText: `${inviterName} invited you to collaborate on "${seriesTitle}"`,
+        themeColor: '#2f5adbff' // Purple for collaboration
+      });
+
       const mailOptions = {
         from: process.env.SMTP_USER || 'noreply@example.com',
         to: email,
         subject: `Invitation to collaborate on "${seriesTitle}"`,
-        html: `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Arial, sans-serif; }
-              a { text-decoration: none; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-              .header { background-color: #6f42c1; padding: 20px; text-align: center; }
-              .header img { max-width: 150px; height: auto; }
-              .content { padding: 30px; }
-              .button { display: inline-block; background-color: #6f42c1; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-size: 16px; font-weight: 500; }
-              .button:hover { background-color: #5a32a3; }
-              .footer { background-color: #f1f1f1; padding: 20px; text-align: center; font-size: 12px; color: #666666; }
-              @media only screen and (max-width: 600px) {
-                .container { margin: 10px; }
-                .content { padding: 20px; }
-                .header img { max-width: 120px; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <img src="${process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x50?text=Your+Logo'}" alt="Company Logo">
-              </div>
-              <div class="content">
-                <h2 style="color: #333333; font-size: 24px; margin: 0 0 20px;">Collaboration Invitation</h2>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Hello,</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;"><strong>${inviterName}</strong> has invited you to collaborate on the series <strong>"${seriesTitle}"</strong>.</p>
-                <p style="color: #333333; font-size: 16px; line-height: 1.6;">Click the button below to accept the invitation and start collaborating:</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${inviteLink}" class="button">Accept Invitation</a>
-                </div>
-                <p style="color: #666666; font-size: 14px; line-height: 1.6;">This invitation will expire in 7 days.</p>
-                <p style="color: #666666; font-size: 14px; line-height: 1.6;">If you do not wish to collaborate, you can ignore this email.</p>
-              </div>
-              <div class="footer">
-                <p style="margin: 0;">This is an automated message. Please do not reply.</p>
-                <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
-                <p style="margin: 5px 0;"><a href="${process.env.PRIVACY_URL || 'https://example.com/privacy'}" style="color: #666666;">Privacy Policy</a> | <a href="${process.env.SUPPORT_URL || 'mailto:support@example.com'}" style="color: #666666;">Contact Support</a></p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html,
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -692,6 +421,43 @@ class EmailService {
         email,
         seriesTitle,
       });
+      throw error;
+    }
+  }
+  /**
+   * Send support email to admin
+   * @param {Object} data - { name, email, subject, message }
+   */
+  async sendSupportEmail({ name, email, subject, message }) {
+    try {
+      const html = generateEmailHtml({
+        title: `New Support Request: ${subject}`,
+        content: `
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <p style="margin: 0 0 10px;"><strong>From:</strong> ${name} (<a href="mailto:${email}">${email}</a>)</p>
+            <p style="margin: 0;"><strong>Subject:</strong> ${subject}</p>
+          </div>
+          <p><strong>Message:</strong></p>
+          <div style="white-space: pre-wrap; background-color: #ffffff; padding: 15px; border: 1px solid #eee; border-radius: 5px;">${message}</div>
+        `,
+        actionText: 'Reply to User',
+        actionUrl: `mailto:${email}?subject=Re: ${subject}`,
+        previewText: `New support message from ${name}`,
+        themeColor: '#000000'
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_USER,
+        to: process.env.SMTP_USER, // Send to self/admin
+        replyTo: email, // Reply to user
+        subject: `[Support] ${subject}`,
+        html,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Support email sent successfully', { from: email, subject });
+    } catch (error) {
+      logger.error('Error sending support email:', { error: error.message });
       throw error;
     }
   }

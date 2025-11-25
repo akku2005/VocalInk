@@ -1,556 +1,188 @@
 const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
 const cacheService = require('../services/CacheService');
+const { StatusCodes } = require('http-status-codes');
+
 let RedisStore;
-try { RedisStore = require('rate-limit-redis').default || require('rate-limit-redis'); } catch (e) { RedisStore = null; }
+try {
+  RedisStore = require('rate-limit-redis').default || require('rate-limit-redis');
+} catch (e) {
+  logger.warn('rate-limit-redis not found, falling back to memory store');
+  RedisStore = null;
+}
 
 /**
  * Rate Limiting Configuration
  * 
- * Development Environment Overrides:
- * - Login: 200 attempts per 15 minutes (vs 50 in production)
- * - Register: 15 attempts per hour (vs 3 in production)  
- * - Password Reset: 50 attempts per 30 minutes (vs 10 in production)
- * - Verification: 100 attempts per minute (vs 20 in production)
+ * Production vs Development:
+ * - Development: Limits are 5x higher and windows are shorter for easier testing.
+ * - Production: Strict limits applied based on user roles.
  * 
- * Environment Variables for Custom Limits:
- * - DEV_LOGIN_RATE_LIMIT: Override login rate limit
- * - DEV_REGISTER_RATE_LIMIT: Override registration rate limit
- * - DEV_PASSWORD_RESET_RATE_LIMIT: Override password reset rate limit
- * - DEV_VERIFICATION_RATE_LIMIT: Override verification rate limit
- * 
- * The system automatically detects development mode and applies more lenient limits.
+ * Key Features:
+ * - Redis Support: Uses Redis for distributed rate limiting if available.
+ * - Role-Based: Different limits for Admin, Writer, Reader, and Anonymous.
+ * - Standard Headers: Returns RateLimit-* headers (Draft 7).
+ * - No "Stuck" Blocks: Blocked requests do NOT reset the window.
  */
 
-// Custom IP key generator function
-const ipKeyGenerator = (req) => {
-  // Get the real IP address considering proxies
-  const ip = req.ip || 
-             req.connection?.remoteAddress || 
-             req.socket?.remoteAddress || 
-             req.connection?.socket?.remoteAddress || 
-             'unknown';
-  return ip;
-};
-
-// Custom function to get client IP (fallback)
-function getClientIp(req) {
+// Robust IP extraction
+const getClientIp = (req) => {
   return (
     req.headers['x-forwarded-for']?.split(',').shift() ||
     req.socket?.remoteAddress ||
     req.ip ||
-    ''
+    'unknown'
   );
-}
+};
 
+// Standard Key Generator: IP for anonymous, UserID for authenticated
+const standardKeyGenerator = (req) => {
+  if (req.user && req.user.id) {
+    return `user:${req.user.id}`;
+  }
+  return `ip:${getClientIp(req)}`;
+};
+
+// Get Store (Redis or Memory)
 function getStore() {
-  if (RedisStore && cacheService.redisClient) {
+  if (RedisStore && cacheService.redisClient && cacheService.redisClient.isOpen) {
     return new RedisStore({
-      sendCommand: (...args) => cacheService.redisClient.sendCommand(args)
+      sendCommand: (...args) => cacheService.redisClient.sendCommand(args),
     });
   }
-  return undefined; // default memory store
+  return undefined; // Defaults to MemoryStore
 }
 
-// Enhanced rate limiter configuration with adaptive thresholds
+// Factory function for creating rate limiters
 const createLimiter = (options) => {
-  // Disable rate limiting in test environment
+  // 1. Bypass for Test Environment
   if (process.env.NODE_ENV === 'test') {
     return (req, res, next) => next();
   }
-  
-  // Development environment override - much more lenient
-  if (process.env.NODE_ENV === 'development') {
-    const devOptions = {
-      ...options,
-      max: Math.max(options.max * 5, 100), // 5x more lenient in development
-      windowMs: Math.min(options.windowMs, 5 * 60 * 1000), // Shorter windows in development
-    };
-    
-    return rateLimit({
-      ...devOptions,
-      store: getStore(),
-      message: {
-        success: false,
-        message: devOptions.message,
-      },
-      standardHeaders: true,
-      legacyHeaders: false,
-      skipSuccessfulRequests: devOptions.skipSuccessfulRequests || false,
-      keyGenerator: (req) => {
-        // Use a safe IP extraction method with user ID for better rate limiting
-        const ip = ipKeyGenerator(req);
-        const userKey = req.user ? req.user.id : 'anonymous';
-        const key = [
-          ip,
-          req.headers['user-agent'],
-          userKey,
-          devOptions.additionalKey ? devOptions.additionalKey(req) : '',
-        ]
-          .filter(Boolean)
-          .join(':');
-        return key;
-      },
-      handler: (req, res) => {
-        const rateLimitInfo = req.rateLimit;
-        
-        logger.warn('Rate limit exceeded (development mode)', {
-          ip: req.ip,
-          userAgent: req.headers['user-agent'],
-          userId: req.user?.id || 'anonymous',
-          userRole: req.user?.role || 'anonymous',
-          url: req.originalUrl,
-          method: req.method,
-          rateLimitInfo: {
-            current: rateLimitInfo.current,
-            limit: rateLimitInfo.limit,
-            remaining: rateLimitInfo.remaining,
-            resetTime: rateLimitInfo.resetTime,
-          },
-        });
 
-        res.status(429).json({
-          success: false,
-          message: devOptions.message + ' (Development mode - limits are relaxed)',
-          retryAfter: res.getHeader('Retry-After'),
-          requiresCaptcha: rateLimitInfo.current >= 3,
-          rateLimitInfo: {
-            current: rateLimitInfo.current,
-            limit: rateLimitInfo.limit,
-            remaining: rateLimitInfo.remaining,
-            resetTime: rateLimitInfo.resetTime,
-          },
-        });
-      },
-    });
-  }
-  
+  const isDev = process.env.NODE_ENV === 'development';
+
+  // 2. Adjust limits for Development
+  const max = isDev ? (options.max * 5) : options.max;
+  const windowMs = isDev ? Math.min(options.windowMs, 5 * 60 * 1000) : options.windowMs;
+
   return rateLimit({
-    windowMs: options.windowMs,
-    max: options.max,
+    windowMs,
+    max,
     store: getStore(),
-    message: {
-      success: false,
-      message: options.message,
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
+    keyGenerator: options.keyGenerator || standardKeyGenerator,
+    standardHeaders: true, // Return RateLimit-* headers
+    legacyHeaders: false, // Disable X-RateLimit-* headers
     skipSuccessfulRequests: options.skipSuccessfulRequests || false,
-    keyGenerator: (req) => {
-      // Use a safe IP extraction method with user ID for better rate limiting
-      const ip = ipKeyGenerator(req);
-      const userKey = req.user ? req.user.id : 'anonymous';
-      const key = [
-        ip,
-        req.headers['user-agent'],
-        userKey,
-        options.additionalKey ? options.additionalKey(req) : '',
-      ]
-        .filter(Boolean)
-        .join(':');
-      return key;
-    },
-    handler: (req, res) => {
-      const rateLimitInfo = req.rateLimit;
-      
-      logger.warn('Rate limit exceeded', {
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
+
+    // Custom Handler for consistent error responses
+    handler: (req, res, next, options) => {
+      logger.warn(`Rate limit exceeded: ${options.message}`, {
+        ip: getClientIp(req),
         userId: req.user?.id || 'anonymous',
-        userRole: req.user?.role || 'anonymous',
         url: req.originalUrl,
-        method: req.method,
-        rateLimitInfo: {
-          current: rateLimitInfo.current,
-          limit: rateLimitInfo.limit,
-          remaining: rateLimitInfo.remaining,
-          resetTime: rateLimitInfo.resetTime,
-        },
+        limit: options.max,
+        windowMs: options.windowMs
       });
 
-      res.status(429).json({
+      res.status(StatusCodes.TOO_MANY_REQUESTS).json({
         success: false,
-        message: options.message,
-        retryAfter: res.getHeader('Retry-After'),
-        requiresCaptcha: rateLimitInfo.current >= 3,
-        rateLimitInfo: {
-          current: rateLimitInfo.current,
-          limit: rateLimitInfo.limit,
-          remaining: rateLimitInfo.remaining,
-          resetTime: rateLimitInfo.resetTime,
-        },
+        message: typeof options.message === 'string' ? options.message : 'Too many requests, please try again later.',
+        retryAfter: Math.ceil(options.windowMs / 1000),
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          details: `Limit of ${options.max} requests per ${Math.round(options.windowMs / 1000 / 60)} minutes exceeded.`
+        }
       });
     },
+
+    // Custom message (used by default handler if not overridden, but we override handler above)
+    message: options.message || 'Too many requests, please try again later.',
   });
 };
 
-// Tier-based rate limiting with dynamic limits
-const tierRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req) => {
-    const user = req.user;
-    if (!user) return parseInt(process.env.ANONYMOUS_RATE_LIMIT_MAX) || 50;
-    
-    switch (user.role) {
-      case 'admin': return parseInt(process.env.ADMIN_RATE_LIMIT_MAX) || 500;
-      case 'writer': return parseInt(process.env.WRITER_RATE_LIMIT_MAX) || 200;
-      case 'reader': return parseInt(process.env.READER_RATE_LIMIT_MAX) || 100;
-      default: return parseInt(process.env.ANONYMOUS_RATE_LIMIT_MAX) || 50;
-    }
-  },
-  store: getStore(),
-  keyGenerator: (req) => (req.user ? req.user.id : ipKeyGenerator(req)),
-  handler: (req, res) => {
-    const rateLimitInfo = req.rateLimit;
-    
-    logger.warn('Tier rate limit exceeded', {
-      ip: req.ip,
-      userId: req.user?.id || 'anonymous',
-      role: req.user?.role || 'anonymous',
-      url: req.originalUrl,
-      method: req.method,
-      rateLimitInfo: {
-        current: rateLimitInfo.current,
-        limit: rateLimitInfo.limit,
-        remaining: rateLimitInfo.remaining,
-        resetTime: rateLimitInfo.resetTime,
-      },
-    });
-    
-    res.status(429).json({
-      success: false,
-      message: 'Rate limit exceeded for your tier. Please try again later.',
-      retryAfter: Math.ceil(15 * 60 / 1000),
-      requiresCaptcha: rateLimitInfo.current >= 3,
-      rateLimitInfo: {
-        current: rateLimitInfo.current,
-        limit: rateLimitInfo.limit,
-        remaining: rateLimitInfo.remaining,
-        resetTime: rateLimitInfo.resetTime,
-      },
-    });
-  },
-});
+// --- PRE-CONFIGURED LIMITERS ---
 
-// Adaptive rate limiting based on user behavior
-const adaptiveRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req) => {
-    const user = req.user;
-    
-    // Base limits
-    let baseLimit = 100;
-    
-    if (user) {
-      switch (user.role) {
-        case 'admin': baseLimit = 500; break;
-        case 'writer': baseLimit = 200; break;
-        case 'reader': baseLimit = 100; break;
-        default: baseLimit = 50; break;
-      }
-      
-      // Reduce limits for suspicious behavior
-      if (user.failedLoginAttempts > 5) {
-        baseLimit = Math.floor(baseLimit * 0.5);
-      }
-      
-      // Increase limits for trusted users
-      if (user.isVerified && user.lastLoginAt) {
-        const daysSinceLastLogin = (Date.now() - user.lastLoginAt) / (1000 * 60 * 60 * 24);
-        if (daysSinceLastLogin < 7) {
-          baseLimit = Math.floor(baseLimit * 1.2);
-        }
-      }
-    } else {
-      // Anonymous users get lower limits
-      baseLimit = 50;
-    }
-    
-    return baseLimit;
-  },
-  store: getStore(),
-  keyGenerator: (req) => (req.user ? req.user.id : ipKeyGenerator(req)),
-  handler: (req, res) => {
-    const rateLimitInfo = req.rateLimit;
-    
-    logger.warn('Adaptive rate limit exceeded', {
-      ip: req.ip,
-      userId: req.user?.id || 'anonymous',
-      role: req.user?.role || 'anonymous',
-      url: req.originalUrl,
-      method: req.method,
-      rateLimitInfo: {
-        current: rateLimitInfo.current,
-        limit: rateLimitInfo.limit,
-        remaining: rateLimitInfo.remaining,
-        resetTime: rateLimitInfo.resetTime,
-      },
-    });
-    
-    res.status(429).json({
-      success: false,
-      message: 'Rate limit exceeded. Please try again later.',
-      retryAfter: Math.ceil(15 * 60 / 1000),
-      requiresCaptcha: rateLimitInfo.current >= 3,
-      rateLimitInfo: {
-        current: rateLimitInfo.current,
-        limit: rateLimitInfo.limit,
-        remaining: rateLimitInfo.remaining,
-        resetTime: rateLimitInfo.resetTime,
-      },
-    });
-  },
-});
-
-// Login rate limiter - More strict with progressive delays
-const loginLimiter = createLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.DEV_LOGIN_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 200 : 50), // Configurable via env
-  message: 'Too many login attempts, please try again after 15 minutes',
-  skipSuccessfulRequests: true,
-  additionalKey: (req) => req.body.email, // Rate limit by email too
-});
-
-// Register rate limiter with enhanced security
-const registerLimiter = createLimiter({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.DEV_REGISTER_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 15 : 3), // Configurable via env
-  message: 'Too many registration attempts, please try again after 1 hour',
-  skipSuccessfulRequests: true,
-  additionalKey: (req) => req.body.email, // Rate limit by email
-});
-
-// Password reset rate limiter with enhanced security
-const passwordResetLimiter = createLimiter({
-  windowMs: 30 * 60 * 1000, // 30 minutes
-  max: process.env.DEV_PASSWORD_RESET_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 50 : 10), // Configurable via env
-  message: 'Too many password reset attempts, please try again after 30 minutes',
-  skipSuccessfulRequests: true,
-  additionalKey: (req) => req.body.email,
-});
-
-// Verification code rate limiter with enhanced security
-const verificationLimiter = createLimiter({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: process.env.DEV_VERIFICATION_RATE_LIMIT || (process.env.NODE_ENV === 'development' ? 100 : 20), // Configurable via env
-  message: 'Too many verification attempts, please try again after 1 minute',
-  skipSuccessfulRequests: true,
-  additionalKey: (req) => req.body.email,
-});
-
-// Global API rate limiter - More granular with tier support
+// 1. Global API Limiter (Baseline protection)
 const apiLimiter = createLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req) => {
-    const user = req.user;
-    if (!user) return 100; // Anonymous users
-    
-    switch (user.role) {
-      case 'admin': return 500;
-      case 'writer': return 200;
-      case 'reader': return 100;
-      default: return 100;
-    }
-  },
-  message: 'Too many requests, please try again later',
-  skipSuccessfulRequests: false,
+  max: 300, // 300 requests per 15m (generous baseline)
+  message: 'Too many requests to the API.',
 });
 
-// Admin API rate limiter - Stricter for admin operations
-const adminApiLimiter = createLimiter({
+// 2. Auth Limiter (Login/Register - Strict)
+const authLimiter = createLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
-  message: 'Too many admin requests, please try again later',
-  skipSuccessfulRequests: false,
-});
-
-// File upload rate limiter with size consideration
-const uploadLimiter = createLimiter({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 uploads per hour
-  message: 'Too many file uploads, please try again later',
-  skipSuccessfulRequests: true,
-});
-
-// Enhanced smart rate limiting with behavior analysis
-const smartRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req) => {
-    const user = req.user;
-    
-    // Base limits
-    let limit = 100;
-    
-    if (user) {
-      switch (user.role) {
-        case 'admin': limit = 500; break;
-        case 'writer': limit = 200; break;
-        case 'reader': limit = 100; break;
-        default: limit = 50; break;
-      }
-      
-      // Reduce limits for suspicious behavior
-      if (user.failedLoginAttempts > 5) {
-        limit = Math.floor(limit * 0.5);
-      }
-      
-      // Check for VPN/Proxy usage
-      if (req.headers['x-forwarded-for'] && req.headers['x-forwarded-for'].includes(',')) {
-        limit = Math.floor(limit * 0.7);
-      }
-      
-      // Check for suspicious user agent
-      const userAgent = req.headers['user-agent'] || '';
-      if (userAgent.includes('bot') || userAgent.includes('crawler') || userAgent.includes('spider')) {
-        limit = Math.floor(limit * 0.3);
-      }
-    } else {
-      // Anonymous users get lower limits
-      limit = 50;
-      
-      // Further reduce for suspicious anonymous requests
-      if (req.headers['x-forwarded-for']) {
-        limit = Math.floor(limit * 0.5);
-      }
-    }
-    
-    return Math.max(limit, 10); // Minimum limit of 10
-  },
+  max: 20, // 20 attempts per 15m
+  skipSuccessfulRequests: true, // Don't count successful logins
+  message: 'Too many login/register attempts. Please try again later.',
   keyGenerator: (req) => {
-    const ip = ipKeyGenerator(req);
-    const userKey = req.user ? req.user.id : 'anonymous';
-    const userAgent = req.headers['user-agent'] || 'unknown';
-    
-    return `${ip}:${userKey}:${userAgent}`;
-  },
-  handler: (req, res) => {
-    const rateLimitInfo = req.rateLimit;
-    
-    logger.warn('Smart rate limit exceeded', {
-      ip: req.ip,
-      userId: req.user?.id || 'anonymous',
-      role: req.user?.role || 'anonymous',
-      userAgent: req.headers['user-agent'],
-      url: req.originalUrl,
-      method: req.method,
-      rateLimitInfo: {
-        current: rateLimitInfo.current,
-        limit: rateLimitInfo.limit,
-        remaining: rateLimitInfo.remaining,
-        resetTime: rateLimitInfo.resetTime,
-      },
-    });
-    
-    // Progressive response based on violation count
-    let message = 'Too many requests. Please try again later.';
-    let statusCode = 429;
-    
-    if (rateLimitInfo.current >= 10) {
-      message = 'Excessive requests detected. Your IP may be temporarily blocked.';
-      statusCode = 429;
-    } else if (rateLimitInfo.current >= 5) {
-      message = 'Too many requests. Please slow down.';
-      statusCode = 429;
-    }
-    
-    res.status(statusCode).json({
-      success: false,
-      message: message,
-      retryAfter: Math.ceil(15 * 60 / 1000),
-      requiresCaptcha: rateLimitInfo.current >= 3,
-      rateLimitInfo: {
-        current: rateLimitInfo.current,
-        limit: rateLimitInfo.limit,
-        remaining: rateLimitInfo.remaining,
-        resetTime: rateLimitInfo.resetTime,
-      },
-    });
-  },
+    // Limit by IP AND Email to prevent brute force on specific accounts
+    const ip = getClientIp(req);
+    const email = req.body.email || '';
+    return `auth:${ip}:${email}`;
+  }
+});
+
+// 3. Sensitive Operations (Password Reset, etc.)
+const sensitiveLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many sensitive operations. Please try again in an hour.',
+});
+
+// 4. Tier-Based Limiter (For heavy endpoints like AI generation)
+const tierLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
-});
-
-// Burst rate limiting for sudden spikes
-const burstRateLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
+  store: getStore(),
+  keyGenerator: standardKeyGenerator,
   max: (req) => {
     const user = req.user;
-    if (!user) return 20; // Anonymous users
-    
+    if (!user) return 50; // Anonymous
+
     switch (user.role) {
-      case 'admin': return 100;
-      case 'writer': return 50;
-      case 'reader': return 30;
-      default: return 20;
+      case 'admin': return 1000;
+      case 'writer': return 200;
+      case 'reader': return 100;
+      default: return 50;
     }
   },
-  keyGenerator: (req) => (req.user ? req.user.id : ipKeyGenerator(req)),
-  handler: (req, res) => {
-    logger.warn('Burst rate limit exceeded', {
-      ip: req.ip,
-      userId: req.user?.id || 'anonymous',
-      role: req.user?.role || 'anonymous',
-      url: req.originalUrl,
-      method: req.method,
-    });
-    
-    res.status(429).json({
+  handler: (req, res, next, options) => {
+    res.status(StatusCodes.TOO_MANY_REQUESTS).json({
       success: false,
-      message: 'Too many requests in a short time. Please slow down.',
-      retryAfter: Math.ceil(1 * 60 / 1000),
-      requiresCaptcha: true,
+      message: 'Rate limit exceeded for your plan.',
+      retryAfter: Math.ceil(options.windowMs / 1000),
     });
-  },
+  }
 });
 
-// Rate limiting for sensitive operations
-const sensitiveOperationLimiter = createLimiter({
+// 5. Upload Limiter
+const uploadLimiter = createLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 sensitive operations per hour
-  message: 'Too many sensitive operations, please try again later',
-  skipSuccessfulRequests: true,
+  max: 20,
+  message: 'Upload limit exceeded.',
 });
 
-// Rate limiting for data export operations
-const exportLimiter = createLimiter({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // 3 exports per hour
-  message: 'Too many export requests, please try again later',
-  skipSuccessfulRequests: true,
-});
-
-// Rate limiting for search operations
-const searchLimiter = createLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req) => {
-    const user = req.user;
-    if (!user) return 30; // Anonymous users
-    
-    switch (user.role) {
-      case 'admin': return 200;
-      case 'writer': return 100;
-      case 'reader': return 50;
-      default: return 30;
-    }
-  },
-  message: 'Too many search requests, please try again later',
-  skipSuccessfulRequests: false,
-});
-
-module.exports = { 
-  smartRateLimit, 
-  tierRateLimiter,
-  adaptiveRateLimiter,
+module.exports = {
+  createLimiter,
   apiLimiter,
-  loginLimiter,
-  registerLimiter,
-  passwordResetLimiter,
-  verificationLimiter,
-  adminApiLimiter,
+  authLimiter,
+  sensitiveLimiter,
+  tierLimiter,
   uploadLimiter,
-  burstRateLimiter,
-  sensitiveOperationLimiter,
-  exportLimiter,
-  searchLimiter,
-  createLimiter
+
+  // Aliases for backward compatibility
+  loginLimiter: authLimiter,
+  registerLimiter: authLimiter,
+  passwordResetLimiter: sensitiveLimiter,
+  verificationLimiter: authLimiter,
+  adminApiLimiter: tierLimiter,
+  smartRateLimit: tierLimiter,
+  adaptiveRateLimiter: tierLimiter,
+  burstRateLimiter: apiLimiter,
+  exportLimiter: sensitiveLimiter,
+  searchLimiter: apiLimiter,
+  sensitiveOperationLimiter: sensitiveLimiter
 };

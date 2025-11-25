@@ -92,6 +92,10 @@ const updateProfileValidators = [
     .isLength({ max: 500 })
     .withMessage('Bio too long'),
   body('birthday').optional().isISO8601().withMessage('Invalid birthday date'),
+  body('role')
+    .optional()
+    .isIn(['reader', 'writer'])
+    .withMessage('Invalid role'),
 ];
 
 // Get all users
@@ -295,6 +299,7 @@ const updateProfile = async (req, res, next) => {
       linkedin,
       bio,
       birthday,
+      role,
     } = req.body;
     const user = await User.findById(req.user.id);
 
@@ -319,6 +324,11 @@ const updateProfile = async (req, res, next) => {
     if (linkedin !== undefined) updateObj.linkedin = linkedin;
     if (bio !== undefined) updateObj.bio = bio;
     if (birthday !== undefined) updateObj.birthday = birthday;
+    if (role !== undefined) {
+      if (['reader', 'writer'].includes(role)) {
+        updateObj.role = role;
+      }
+    }
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(req.user.id, updateObj, {

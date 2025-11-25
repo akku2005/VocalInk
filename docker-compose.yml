@@ -85,11 +85,13 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api}
     container_name: vocalink-client
     restart: unless-stopped
     environment:
-      - REACT_APP_API_URL=http://server:3000
-      - REACT_APP_ENVIRONMENT=production
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api}
+      - VITE_ENVIRONMENT=production
     ports:
       - "80:80"
     depends_on:

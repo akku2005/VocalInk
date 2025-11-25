@@ -38,6 +38,9 @@ const ContactSalesPage = lazy(() => import("../pages/ContactSalesPage.jsx"));
 const FreeTrialPage = lazy(() => import("../pages/FreeTrialPage.jsx"));
 const ToastTest = lazy(() => import("../components/test/ToastTest.jsx"));
 const AppearanceTest = lazy(() => import("../components/test/AppearanceTest.jsx"));
+const PrivacyPage = lazy(() => import("../pages/PrivacyPage"));
+const TermsPage = lazy(() => import("../pages/TermsPage"));
+const SupportPage = lazy(() => import("../pages/SupportPage"));
 
 export default function AppRoutes() {
   return (
@@ -66,6 +69,9 @@ export default function AppRoutes() {
           <Route path="free-trial" element={<FreeTrialPage />} />
           <Route path="toast-test" element={<ToastTest />} />
           <Route path="appearance-test" element={<AppearanceTest />} />
+          <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="terms" element={<TermsPage />} />
+          <Route path="support" element={<SupportPage />} />
 
           {/* Guest Routes - Only for non-authenticated users */}
           <Route path="login" element={
