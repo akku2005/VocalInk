@@ -1,14 +1,14 @@
 const express = require('express');
 
 const router = express.Router();
-const { protect, requireAdmin } = require('../middleware/auth');
+const { protect, requireAdmin, optionalAuth } = require('../middleware/auth');
 
 const userController = require('./user.controller');
 
 // Profile routes
 router.get('/me', protect, userController.getMyProfile);
 router.get('/username/availability', userController.checkUsernameAvailability);
-router.get('/:id', userController.getProfile);
+router.get('/:id', optionalAuth, userController.getProfile);
 router.put('/:id', protect, userController.updateProfile);
 router.patch('/me', protect, userController.updateProfile);
 
@@ -18,12 +18,13 @@ router.patch('/me/password', protect, userController.changePassword);
 // Follow system
 router.post('/:targetUserId/follow', protect, userController.followUser);
 router.delete('/:targetUserId/follow', protect, userController.unfollowUser);
+router.delete('/followers/:followerId', protect, userController.removeFollower);
 
 // User content
-router.get('/:id/blogs', userController.getUserBlogs);
-router.get('/:id/likes', userController.getUserLikedBlogs);
-router.get('/:id/bookmarks', userController.getUserBookmarkedBlogs);
-router.get('/:id/series', userController.getUserSeries);
+router.get('/:id/blogs', optionalAuth, userController.getUserBlogs);
+router.get('/:id/likes', optionalAuth, userController.getUserLikedBlogs);
+router.get('/:id/bookmarks', optionalAuth, userController.getUserBookmarkedBlogs);
+router.get('/:id/series', optionalAuth, userController.getUserSeries);
 router.get('/:id/badges', userController.getUserBadges);
 
 // Notifications

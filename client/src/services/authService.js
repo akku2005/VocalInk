@@ -10,8 +10,22 @@ class AuthService {
 
   // Token management
   getStoredTokens() {
-    const accessToken = sessionStorageHelper.getItem('accessToken');
-    const refreshToken = sessionStorageHelper.getItem('refreshToken');
+    // Try sessionStorage first (for current tab)
+    let accessToken = sessionStorageHelper.getItem('accessToken');
+    let refreshToken = sessionStorageHelper.getItem('refreshToken');
+
+    // Fallback to cookies if sessionStorage is empty (for cross-tab/email links)
+    if (!accessToken || !refreshToken) {
+      accessToken = cookieStorage.getItem('accessToken');
+      refreshToken = cookieStorage.getItem('refreshToken');
+
+      // If found in cookies, sync back to sessionStorage for current session
+      if (accessToken && refreshToken) {
+        sessionStorageHelper.setItem('accessToken', accessToken);
+        sessionStorageHelper.setItem('refreshToken', refreshToken);
+      }
+    }
+
     return { accessToken, refreshToken };
   }
 
@@ -52,14 +66,14 @@ class AuthService {
         throw error;
       }
     } catch (error) {
-      
+
       // If it's an HTTP error with specific error data, handle it
       if (error.response && error.response.data && !error.response.data.success) {
         const errorData = error.response.data;
         const customError = new Error(errorData.message || 'Registration failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -69,38 +83,38 @@ class AuthService {
     try {
       // Ensure device fingerprint exists (stored locally for frontend use)
       this.ensureDeviceFingerprint();
-      
-      const loginData = { 
-        email, 
+
+      const loginData = {
+        email,
         password
       };
-      
+
       if (twoFactorToken) {
         loginData.twoFactorToken = twoFactorToken;
       }
 
       await locationService.captureLocation();
       const response = await apiHelpers.post('AUTH.LOGIN', loginData);
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         const { accessToken, refreshToken, deviceFingerprint: serverFingerprint } = response.data;
-        
+
         // Store tokens only if login is completely successful
         this.setStoredTokens(accessToken, refreshToken);
         this.setAuthHeader(accessToken);
-        
+
         // Store device fingerprint for security (use server's if provided, otherwise use local)
         if (serverFingerprint) {
           sessionStorageHelper.setItem('deviceFingerprint', serverFingerprint);
         }
-        
+
         return response.data;
       } else {
         // Backend returned success: false in the response body
         // This means the request was successful but authentication failed
         const error = new Error(response.data.message || 'Login failed');
-        
+
         // Add specific error properties for the frontend to handle
         if (response.data.twoFactorRequired) {
           error.twoFactorRequired = true;
@@ -112,35 +126,35 @@ class AuthService {
           error.accountLocked = true;
           error.lockoutUntil = response.data.lockoutUntil;
         }
-        
+
         // Improve error message for better user experience
         if (response.data.message === 'Invalid credentials') {
           error.message = 'The email address or password you entered is incorrect. Please check your credentials and try again.';
         }
-        
+
         throw error;
       }
     } catch (error) {
-      
+
       // If it's already our custom error, re-throw it
       if (error.twoFactorRequired || error.requiresVerification || error.accountLocked) {
         throw error;
       }
-      
+
       // If it's an HTTP error (like 401, 500, etc.), handle it
       if (error.response) {
         // Check if the error response has specific error data
         if (error.response.data && !error.response.data.success) {
           const errorData = error.response.data;
           let errorMessage = errorData.message || 'Login failed';
-          
+
           // Improve error message for better user experience
           if (errorMessage === 'Invalid credentials') {
             errorMessage = 'The email address or password you entered is incorrect. Please check your credentials and try again.';
           }
-          
+
           const customError = new Error(errorMessage);
-          
+
           // Add specific error properties
           if (errorData.twoFactorRequired) {
             customError.twoFactorRequired = true;
@@ -152,11 +166,11 @@ class AuthService {
             customError.accountLocked = true;
             customError.lockoutUntil = errorData.lockoutUntil;
           }
-          
+
           throw customError;
         }
       }
-      
+
       // Otherwise, handle it as a regular error
       throw this.handleError(error);
     }
@@ -179,18 +193,18 @@ class AuthService {
   async verifyEmail(email, code) {
     try {
       const response = await apiHelpers.post('AUTH.VERIFY_EMAIL', { email, code });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         const { accessToken, refreshToken, deviceFingerprint } = response.data;
         this.setStoredTokens(accessToken, refreshToken);
         this.setAuthHeader(accessToken);
-        
+
         // Store device fingerprint for security
-          if (deviceFingerprint) {
-            sessionStorageHelper.setItem('deviceFingerprint', deviceFingerprint);
-          }
-        
+        if (deviceFingerprint) {
+          sessionStorageHelper.setItem('deviceFingerprint', deviceFingerprint);
+        }
+
         return response.data;
       } else {
         // Backend returned success: false in the response body
@@ -204,7 +218,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Email verification failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -214,7 +228,7 @@ class AuthService {
     try {
       // FIXED: Use apiHelpers instead of this.baseURL
       const response = await apiHelpers.post('AUTH.RESEND_VERIFICATION', { email });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -230,7 +244,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Failed to resend verification');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -239,7 +253,7 @@ class AuthService {
   async forgotPassword(email) {
     try {
       const response = await apiHelpers.post('AUTH.FORGOT_PASSWORD', { email });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -255,7 +269,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Failed to send password reset');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -268,7 +282,7 @@ class AuthService {
         code,
         newPassword
       });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -284,7 +298,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Password reset failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -296,7 +310,7 @@ class AuthService {
         currentPassword,
         newPassword
       });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -312,7 +326,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Password change failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -321,7 +335,7 @@ class AuthService {
   async setup2FA() {
     try {
       const response = await apiHelpers.post('AUTH.SETUP_2FA');
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -337,7 +351,7 @@ class AuthService {
         const customError = new Error(errorData.message || '2FA setup failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -346,7 +360,7 @@ class AuthService {
   async verify2FASetup(token) {
     try {
       const response = await apiHelpers.post('AUTH.VERIFY_2FA', { token });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -362,7 +376,7 @@ class AuthService {
         const customError = new Error(errorData.message || '2FA verification failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -371,7 +385,7 @@ class AuthService {
   async disable2FA(token) {
     try {
       const response = await apiHelpers.post('AUTH.DISABLE_2FA', { token });
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -387,7 +401,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Failed to disable 2FA');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -396,7 +410,7 @@ class AuthService {
   async getCurrentUser() {
     try {
       const response = await apiHelpers.get('AUTH.ME');
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         // Backend returns user data in response.data.data
@@ -414,7 +428,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Failed to get current user');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -449,7 +463,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Token refresh failed');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -486,7 +500,7 @@ class AuthService {
   async getUserSessions() {
     try {
       const response = await apiHelpers.get('AUTH.SESSIONS');
-      
+
       // Check if the response indicates success or failure
       if (response.data.success) {
         return response.data;
@@ -502,7 +516,7 @@ class AuthService {
         const customError = new Error(errorData.message || 'Failed to get user sessions');
         throw customError;
       }
-      
+
       throw this.handleError(error);
     }
   }
@@ -512,7 +526,7 @@ class AuthService {
     if (error.response) {
       // Server responded with error status
       const { status, data } = error.response;
-      
+
       switch (status) {
         case 400:
           return new Error(data.message || 'Invalid request data');
@@ -585,10 +599,10 @@ class AuthService {
       navigator.deviceMemory || 'unknown',
       navigator.maxTouchPoints || 'unknown'
     ];
-    
+
     const fingerprintString = components.filter(Boolean).join('|');
     const fingerprint = btoa(fingerprintString).slice(0, 32); // Base64 encode and truncate
-    
+
     // Store the fingerprint
     sessionStorageHelper.setItem('deviceFingerprint', fingerprint);
     return fingerprint;
@@ -608,7 +622,7 @@ class AuthService {
     try {
       // Ensure device fingerprint exists
       this.ensureDeviceFingerprint();
-      
+
       const tokens = this.getStoredTokens();
       if (tokens.accessToken) {
         this.setAuthHeader(tokens.accessToken);

@@ -29,6 +29,8 @@ router.get('/:id', optionalAuth, seriesController.getSeriesById);
 router.post('/', protect, validate(createSeriesSchema), seriesController.createSeries);
 router.put('/:id', protect, validate(updateSeriesSchema), seriesController.updateSeries);
 router.delete('/:id', protect, seriesController.deleteSeries);
+router.post('/:id/like', protect, seriesController.toggleLikeSeries);
+router.post('/:id/save', protect, seriesController.toggleSaveSeries);
 
 // Episode Management Routes
 router.post('/:id/episodes', protect, validate(addEpisodeSchema), seriesController.addEpisode);

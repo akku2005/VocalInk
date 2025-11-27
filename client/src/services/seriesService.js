@@ -106,9 +106,13 @@ class SeriesService {
         throw new Error(response.data.message || 'Failed to fetch series');
       }
 
-      // Backend returns { series, userProgress, analytics }
-      // Extract just the series data
-      return response.data.data.series;
+      const payload = response.data.data || {};
+      return {
+        ...payload.series,
+        analytics: payload.analytics || payload.series?.analytics,
+        isLiked: payload.isLiked,
+        isSaved: payload.isSaved,
+      };
     } catch (error) {
       console.error('Error fetching series by ID:', error);
       throw error;
@@ -131,6 +135,32 @@ class SeriesService {
       return response.data.data;
     } catch (error) {
       console.error('Error creating series:', error);
+      throw error;
+    }
+  }
+
+  async toggleLike(seriesId) {
+    try {
+      const response = await api.post(`/series/${seriesId}/like`);
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to like series');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error toggling like on series:', error);
+      throw error;
+    }
+  }
+
+  async toggleSave(seriesId) {
+    try {
+      const response = await api.post(`/series/${seriesId}/save`);
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to save series');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error toggling save on series:', error);
       throw error;
     }
   }

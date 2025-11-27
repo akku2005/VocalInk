@@ -134,7 +134,7 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Enhanced CORS configuration
 const corsOptions = {
-  origin: true, // Allow all origins (development only - restrict in production!)
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true, // Allow specific origins or all in dev
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -153,12 +153,20 @@ const corsOptions = {
   maxAge: 86400, // 24 hours
 };
 
+// Clear HSTS in development to prevent SSL errors
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    res.setHeader('Strict-Transport-Security', 'max-age=0');
+    next();
+  });
+}
+
 // Apply security middleware first
 app.use(securityHeaders);
 app.use(cors(corsOptions));
 
-// Enforce HTTPS in production
-if (process.env.NODE_ENV === 'production') {
+// Enforce HTTPS in production (only if explicitly enabled)
+if (process.env.NODE_ENV === 'production' && process.env.FORCE_HTTPS === 'true') {
   app.use((req, res, next) => {
     if (req.secure || req.headers['x-forwarded-proto'] === 'https') return next();
     return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
@@ -284,6 +292,17 @@ morgan.token('response-time-ms', (req, res) => {
 // Enhanced logging format
 app.use(
   morgan(':method :url :status-color :res[content-length] - :response-time-ms:security-info', {
+    skip: (req, res) => {
+      // Skip logging for 304 Not Modified
+      if (res.statusCode === 304) return true;
+      // Skip logging for OPTIONS requests (CORS preflight)
+      if (req.method === 'OPTIONS') return true;
+      // Skip logging for health checks
+      if (req.url.includes('/health')) return true;
+      // Skip logging for frequent polling endpoints
+      if (req.url.includes('/api/tts/voices')) return true;
+      return false;
+    },
     stream: {
       write: (message) => {
         logger.info(message.trim());

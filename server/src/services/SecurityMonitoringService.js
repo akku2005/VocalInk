@@ -23,7 +23,7 @@ class SecurityMonitoringService extends EventEmitter {
       failedLogins: 3,         // per minute
       malformedInputs: 15      // per minute
     };
-    
+
     this.initializeMonitoring();
   }
 
@@ -32,14 +32,14 @@ class SecurityMonitoringService extends EventEmitter {
    */
   initializeMonitoring() {
     // Set up periodic security reports
-    setInterval(() => this.generateSecurityReport(), 60000); // Every minute
-    
+    // setInterval(() => this.generateSecurityReport(), 60000); // Every minute
+
     // Set up threat level monitoring
-    setInterval(() => this.assessThreatLevel(), 300000); // Every 5 minutes
-    
+    // setInterval(() => this.assessThreatLevel(), 300000); // Every 5 minutes
+
     // Set up cleanup of old events
-    setInterval(() => this.cleanupOldEvents(), 3600000); // Every hour
-    
+    // setInterval(() => this.cleanupOldEvents(), 3600000); // Every hour
+
     logger.info('Security monitoring service initialized');
   }
 
@@ -49,7 +49,7 @@ class SecurityMonitoringService extends EventEmitter {
   logSecurityEvent(eventType, details, threatLevel = this.threatLevels.LOW) {
     const timestamp = new Date();
     const eventId = this.generateEventId();
-    
+
     const securityEvent = {
       id: eventId,
       timestamp,
@@ -159,7 +159,7 @@ class SecurityMonitoringService extends EventEmitter {
     };
 
     this.logSecurityEvent('potential_attack', details, this.threatLevels.CRITICAL);
-    
+
     // Emit immediate alert
     this.emit('attackDetected', details);
   }
@@ -169,12 +169,12 @@ class SecurityMonitoringService extends EventEmitter {
    */
   checkThresholds(eventType) {
     const events = this.securityEvents.get(eventType) || [];
-    const recentEvents = events.filter(event => 
+    const recentEvents = events.filter(event =>
       Date.now() - event.timestamp.getTime() < 60000 // Last minute
     );
 
     const threshold = this.alertThresholds[eventType] || 10;
-    
+
     if (recentEvents.length >= threshold) {
       this.emit('thresholdExceeded', {
         eventType,
@@ -204,7 +204,7 @@ class SecurityMonitoringService extends EventEmitter {
 
     // Calculate threat scores based on recent events
     for (const [eventType, events] of this.securityEvents) {
-      const recentEvents = events.filter(event => 
+      const recentEvents = events.filter(event =>
         Date.now() - event.timestamp.getTime() < 300000 // Last 5 minutes
       );
 
@@ -249,7 +249,7 @@ class SecurityMonitoringService extends EventEmitter {
 
     // Aggregate event data
     for (const [eventType, events] of this.securityEvents) {
-      const recentEvents = events.filter(event => 
+      const recentEvents = events.filter(event =>
         Date.now() - event.timestamp.getTime() < 60000 // Last minute
       );
 
@@ -276,7 +276,7 @@ class SecurityMonitoringService extends EventEmitter {
     }
 
     // Log report
-    logger.info('Security report generated', report);
+    logger.debug('Security report generated', report);
 
     // Emit report
     this.emit('securityReport', report);
@@ -299,7 +299,7 @@ class SecurityMonitoringService extends EventEmitter {
     const cutoffTime = Date.now() - timeWindow;
 
     for (const [eventType, events] of this.securityEvents) {
-      const recentEvents = events.filter(event => 
+      const recentEvents = events.filter(event =>
         event.timestamp.getTime() > cutoffTime
       );
 
@@ -321,8 +321,8 @@ class SecurityMonitoringService extends EventEmitter {
         stats.topSources.get(sourceKey).count++;
 
         // Track high-level threats
-        if (event.threatLevel === this.threatLevels.HIGH || 
-            event.threatLevel === this.threatLevels.CRITICAL) {
+        if (event.threatLevel === this.threatLevels.HIGH ||
+          event.threatLevel === this.threatLevels.CRITICAL) {
           stats.recentThreats.push({
             timestamp: event.timestamp,
             eventType: event.eventType,
@@ -349,9 +349,9 @@ class SecurityMonitoringService extends EventEmitter {
    */
   cleanupOldEvents() {
     const cutoffTime = Date.now() - 86400000; // 24 hours ago
-    
+
     for (const [eventType, events] of this.securityEvents) {
-      const recentEvents = events.filter(event => 
+      const recentEvents = events.filter(event =>
         event.timestamp.getTime() > cutoffTime
       );
       this.securityEvents.set(eventType, recentEvents);
@@ -430,10 +430,10 @@ class SecurityMonitoringService extends EventEmitter {
    */
   convertToCSV(events) {
     if (events.length === 0) return '';
-    
+
     const headers = Object.keys(events[0]);
     const csvRows = [headers.join(',')];
-    
+
     for (const event of events) {
       const row = headers.map(header => {
         const value = event[header];
@@ -444,7 +444,7 @@ class SecurityMonitoringService extends EventEmitter {
       });
       csvRows.push(row.join(','));
     }
-    
+
     return csvRows.join('\n');
   }
 }

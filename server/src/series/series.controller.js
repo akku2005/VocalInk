@@ -107,8 +107,8 @@ exports.getSeries = async (req, res, next) => {
 
     const [series, total] = await Promise.all([
       Series.find(query)
-        .populate('authorId', 'name email profilePicture')
-        .populate('collaborators.userId', 'name email profilePicture')
+        .populate('authorId', 'firstName lastName displayName username name email profilePicture avatar bio')
+        .populate('collaborators.userId', 'firstName lastName displayName username name email profilePicture avatar bio')
         .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -117,9 +117,35 @@ exports.getSeries = async (req, res, next) => {
 
     const totalPages = Math.ceil(total / parseInt(limit));
 
+    // Normalize author + analytics fields for frontend
+    const mappedSeries = series.map((s) => {
+      const obj = s.toObject();
+      const author = obj.authorId || obj.author || {};
+      const fullName = [author.firstName, author.lastName].filter(Boolean).join(' ').trim();
+      obj.authorDisplayName =
+        author.displayName ||
+        author.name ||
+        fullName ||
+        author.username ||
+        author.email ||
+        'Unknown';
+      obj.authorUsername = author.username || author.displayName || author.name || author.email || 'unknown';
+      obj.authorAvatar = author.profilePicture || author.avatar;
+      // Ensure analytics defaults and backward-compatibility with legacy fields
+      obj.analytics = {
+        totalViews: obj.analytics?.totalViews ?? obj.views ?? 0,
+        likes: obj.analytics?.likes ?? (obj.likedBy?.length || 0),
+        bookmarks: obj.analytics?.bookmarks ?? (obj.savedBy?.length || 0),
+        comments: obj.analytics?.comments ?? 0,
+        subscribers: obj.analytics?.subscribers ?? 0,
+        ...obj.analytics,
+      };
+      return obj;
+    });
+
     res.json({
       success: true,
-      data: series,
+      data: mappedSeries,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -189,6 +215,30 @@ exports.getSeriesById = async (req, res, next) => {
       const analytics = await SeriesProgress.getSeriesAnalytics(series._id);
       console.log('Analytics fetched successfully:', analytics);
 
+      // Merge analytics back onto the series object for immediate display, prefer stored counters
+      const baseAnalytics = (series.analytics && typeof series.analytics.toObject === 'function')
+        ? series.analytics.toObject()
+        : (series.analytics || {});
+      const aggAnalytics = analytics?.[0] || {};
+
+      series.analytics = {
+        ...aggAnalytics,
+        ...baseAnalytics,
+        totalViews: baseAnalytics.totalViews ?? aggAnalytics.totalViews ?? series.views ?? 0,
+        likes: baseAnalytics.likes ?? aggAnalytics.likes ?? (series.likedBy?.length || 0),
+        bookmarks: baseAnalytics.bookmarks ?? aggAnalytics.bookmarks ?? (series.savedBy?.length || 0),
+        comments: baseAnalytics.comments ?? aggAnalytics.comments ?? 0,
+      };
+
+      // Augment with user-specific flags
+      let isLiked = false;
+      let isSaved = false;
+      if (req.user) {
+        const userIdStr = req.user.id.toString();
+        isLiked = series.likedBy?.some((u) => u.toString() === userIdStr) || false;
+        isSaved = series.savedBy?.some((u) => u.toString() === userIdStr) || false;
+      }
+
       // Auto-generate slug if missing (migration for legacy data)
       if (!series.slug) {
         const slugify = require('slugify');
@@ -209,8 +259,10 @@ exports.getSeriesById = async (req, res, next) => {
         success: true,
         data: {
           series,
+          isLiked,
+          isSaved,
           userProgress,
-          analytics: analytics[0] || {}
+          analytics: series.analytics || analytics[0] || {}
         }
       });
     } catch (analyticsError) {
@@ -220,8 +272,10 @@ exports.getSeriesById = async (req, res, next) => {
         success: true,
         data: {
           series,
+          isLiked: false,
+          isSaved: false,
           userProgress,
-          analytics: {}
+          analytics: series.analytics || {}
         }
       });
     }
@@ -700,6 +754,82 @@ exports.getSeriesAnalytics = async (req, res, next) => {
         },
         analytics: analytics[0] || {}
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle like on a series
+exports.toggleLikeSeries = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const series = await Series.findById(id);
+    if (!series) {
+      throw new NotFoundError('Series not found');
+    }
+
+    const userIdStr = userId.toString();
+    const hasLiked = series.likedBy.some((u) => u.toString() === userIdStr);
+
+    if (hasLiked) {
+      series.likedBy = series.likedBy.filter((u) => u.toString() !== userIdStr);
+      series.analytics = series.analytics || {};
+      series.analytics.likes = Math.max(0, (series.analytics.likes || 0) - 1);
+    } else {
+      series.analytics = series.analytics || {};
+      series.likedBy.push(userId);
+      series.analytics.likes = (series.analytics.likes || 0) + 1;
+    }
+
+    await series.save();
+
+    res.json({
+      success: true,
+      data: {
+        liked: !hasLiked,
+        likes: series.analytics.likes
+      },
+      message: hasLiked ? 'Series unliked' : 'Series liked'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle save/bookmark on a series
+exports.toggleSaveSeries = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const series = await Series.findById(id);
+    if (!series) {
+      throw new NotFoundError('Series not found');
+    }
+
+    const userIdStr = userId.toString();
+    const hasSaved = series.savedBy.some((u) => u.toString() === userIdStr);
+
+    if (hasSaved) {
+      series.savedBy = series.savedBy.filter((u) => u.toString() !== userIdStr);
+      series.analytics.bookmarks = Math.max(0, (series.analytics.bookmarks || 0) - 1);
+    } else {
+      series.savedBy.push(userId);
+      series.analytics.bookmarks = (series.analytics.bookmarks || 0) + 1;
+    }
+
+    await series.save();
+
+    res.json({
+      success: true,
+      data: {
+        saved: !hasSaved,
+        bookmarks: series.analytics.bookmarks
+      },
+      message: hasSaved ? 'Series removed from saved' : 'Series saved'
     });
   } catch (error) {
     next(error);

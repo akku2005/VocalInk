@@ -331,7 +331,7 @@ const SeriesPage = () => {
     if (!author) return "Unknown";
 
     if (typeof author === "string") {
-      return directCandidate || "Unknown";
+      return seriesItem.authorDisplayName || author || "Unknown";
     }
 
     const nestedProfileName =
@@ -350,6 +350,7 @@ const SeriesPage = () => {
       author.name ||
       fullName ||
       author.username ||
+      seriesItem.authorUsername ||
       "Unknown"
     );
   };

@@ -2,11 +2,24 @@ const Notification = require('../models/notification.model');
 const User = require('../models/user.model');
 const Badge = require('../models/badge.model');
 const EmailService = require('./EmailService');
+const webSocketService = require('./WebSocketService');
 const logger = require('../utils/logger');
 
 class NotificationService {
   constructor() {
     this.emailService = EmailService;
+  }
+
+  /**
+   * Attempt to push a realtime notification over WebSocket (best effort)
+   */
+  async sendRealtimeNotification(userId, notification) {
+    try {
+      if (!userId || !notification) return;
+      webSocketService.sendNotification(userId.toString(), notification);
+    } catch (error) {
+      logger.debug('WebSocket notification dispatch failed (non-blocking)', { error: error.message });
+    }
   }
 
   /**
@@ -24,6 +37,7 @@ class NotificationService {
 
       // Create in-app notification
       const notification = await Notification.createBadgeNotification(userId, badgeId);
+      this.sendRealtimeNotification(userId, notification);
 
       // Send email notification if user has email notifications enabled
       if (user.emailNotifications !== false) {
@@ -75,6 +89,7 @@ class NotificationService {
       if (user.emailNotifications !== false) {
         await this.sendBadgeEligibilityEmail(user, badge);
       }
+      this.sendRealtimeNotification(userId, notification);
 
       logger.info('Badge eligibility notification sent', {
         userId,
@@ -105,6 +120,7 @@ class NotificationService {
 
       // Create in-app notification
       const notification = await Notification.createLevelUpNotification(userId, newLevel, xpGained);
+      this.sendRealtimeNotification(userId, notification);
 
       // Send email notification if user has email notifications enabled
       if (user.emailNotifications !== false) {
@@ -156,6 +172,7 @@ class NotificationService {
       if (user.emailNotifications !== false) {
         await this.sendAchievementMilestoneEmail(user, milestone, data);
       }
+      this.sendRealtimeNotification(userId, notification);
 
       logger.info('Achievement milestone notification sent', {
         userId,
@@ -396,6 +413,7 @@ class NotificationService {
           });
 
           notifications.push(notification);
+          this.sendRealtimeNotification(userId, notification);
 
           // Queue email notification
           if (user.emailNotifications !== false) {

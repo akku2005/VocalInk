@@ -7,11 +7,11 @@ const logger = require('../utils/logger');
 // Custom IP key generator function
 const ipKeyGenerator = (req) => {
   // Get the real IP address considering proxies
-  const ip = req.ip || 
-             req.connection?.remoteAddress || 
-             req.socket?.remoteAddress || 
-             req.connection?.socket?.remoteAddress || 
-             'unknown';
+  const ip = req.ip ||
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    req.connection?.socket?.remoteAddress ||
+    'unknown';
   return ip;
 };
 
@@ -43,101 +43,24 @@ const securityHeaders = helmet({
   dnsPrefetchControl: { allow: false },
   frameguard: { action: "deny" },
   hidePoweredBy: true,
-  hsts: {
+  hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true,
-  },
+  } : false,
   ieNoOpen: true,
   noSniff: true,
   permittedCrossDomainPolicies: { permittedPolicies: "none" },
   referrerPolicy: { policy: "strict-origin-when-cross-origin" },
 });
 
-// Enhanced rate limiting for different endpoints
-const createRateLimit = (options) => {
-  return rateLimit({
-    windowMs: options.windowMs || 15 * 60 * 1000, // 15 minutes
-    max: options.max || 100,
-    message: {
-      success: false,
-      message: options.message || 'Too many requests from this IP, please try again later.',
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => {
-      // Use IP + user agent + user ID for better rate limiting
-      const userKey = req.user ? req.user.id : 'anonymous';
-      return `${ipKeyGenerator(req)}-${req.headers['user-agent'] || 'unknown'}-${userKey}`;
-    },
-    handler: (req, res) => {
-      logger.warn('Rate limit exceeded', {
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
-        userId: req.user?.id || 'anonymous',
-        url: req.originalUrl,
-        method: req.method,
-        rateLimitInfo: req.rateLimit,
-      });
-      res.status(StatusCodes.TOO_MANY_REQUESTS).json({
-        success: false,
-        message: 'Too many requests from this IP, please try again later.',
-        retryAfter: Math.ceil(options.windowMs / 1000),
-        requiresCaptcha: req.rateLimit.current >= 3,
-      });
-    },
-  });
-};
-
-// Tier-based rate limiting
-const tierRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: (req) => {
-    const user = req.user;
-    if (!user) return parseInt(process.env.ANONYMOUS_RATE_LIMIT_MAX) || 50;
-    
-    switch (user.role) {
-      case 'admin': return parseInt(process.env.ADMIN_RATE_LIMIT_MAX) || 500;
-      case 'writer': return parseInt(process.env.WRITER_RATE_LIMIT_MAX) || 200;
-      case 'reader': return parseInt(process.env.READER_RATE_LIMIT_MAX) || 100;
-      default: return parseInt(process.env.ANONYMOUS_RATE_LIMIT_MAX) || 50;
-    }
-  },
-  keyGenerator: (req) => (req.user ? req.user.id : ipKeyGenerator(req)),
-  handler: (req, res) => {
-    logger.warn('Tier rate limit exceeded', {
-      ip: req.ip,
-      userId: req.user?.id || 'anonymous',
-      role: req.user?.role || 'anonymous',
-      url: req.originalUrl,
-      method: req.method,
-    });
-    res.status(StatusCodes.TOO_MANY_REQUESTS).json({
-      success: false,
-      message: 'Rate limit exceeded for your tier. Please try again later.',
-      retryAfter: Math.ceil(15 * 60 / 1000),
-    });
-  },
-});
-
-// Specific rate limiters for different endpoints
-const authRateLimit = createRateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per 15 minutes
-  message: 'Too many authentication attempts, please try again later.',
-});
-
-const sensitiveRateLimit = createRateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 attempts per hour
-  message: 'Too many sensitive operations, please try again later.',
-});
-
-const generalRateLimit = createRateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 minutes
-  message: 'Too many requests, please try again later.',
-});
+// Rate limiters are now imported from rateLimiter.js to avoid duplication
+const {
+  apiLimiter,
+  authLimiter,
+  sensitiveLimiter,
+  tierLimiter
+} = require('./rateLimiter');
 
 // Speed limiting for brute force protection
 const speedLimiter = slowDown({
@@ -225,6 +148,7 @@ const sanitizeRequest = (req, res, next) => {
 
 // Enhanced security monitoring middleware
 const securityMonitor = (req, res, next) => {
+  /* Feature disabled for now
   const suspiciousPatterns = [
     /<script/i,
     /javascript:/i,
@@ -256,7 +180,7 @@ const securityMonitor = (req, res, next) => {
 
   // Create a copy of request body for security scanning, excluding image data and HTML content
   const bodyForScanning = { ...req.body };
-  
+
   // Remove base64 image data from security scanning to prevent false positives
   if (bodyForScanning.avatar && typeof bodyForScanning.avatar === 'string' && bodyForScanning.avatar.startsWith('data:image/')) {
     bodyForScanning.avatar = '[BASE64_IMAGE_DATA]';
@@ -264,7 +188,7 @@ const securityMonitor = (req, res, next) => {
   if (bodyForScanning.coverImage && typeof bodyForScanning.coverImage === 'string' && bodyForScanning.coverImage.startsWith('data:image/')) {
     bodyForScanning.coverImage = '[BASE64_IMAGE_DATA]';
   }
-  
+
   // Exclude blog content field from security scanning as it's expected to contain HTML
   // The content will be sanitized separately in the blog controller
   if (bodyForScanning.content && req.path.includes('/blog')) {
@@ -273,7 +197,7 @@ const securityMonitor = (req, res, next) => {
   if (bodyForScanning.summary && req.path.includes('/blog')) {
     bodyForScanning.summary = '[SUMMARY_CONTENT]';
   }
-  
+
   // Exclude text field from TTS endpoints as it contains HTML content from rich text editor
   if (bodyForScanning.text && (req.path.includes('/tts') || req.path.includes('/ai/summary'))) {
     bodyForScanning.text = '[HTML_CONTENT]';
@@ -302,7 +226,7 @@ const securityMonitor = (req, res, next) => {
           params: req.params,
         },
       });
-      
+
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: 'Suspicious request detected',
@@ -310,6 +234,7 @@ const securityMonitor = (req, res, next) => {
       });
     }
   }
+  */
 
   next();
 };
@@ -317,7 +242,7 @@ const securityMonitor = (req, res, next) => {
 // Enhanced device fingerprinting middleware
 const deviceFingerprint = (req, res, next) => {
   const crypto = require('crypto');
-  
+
   // IMPORTANT: Do NOT include timestamp in fingerprint - it changes on every request
   // and will cause token verification to fail after token refresh
   const fingerprint = {
@@ -336,17 +261,17 @@ const deviceFingerprint = (req, res, next) => {
   // Create a hash of the fingerprint
   const fingerprintString = JSON.stringify(fingerprint);
   const fingerprintHash = require('crypto').createHash('sha256').update(fingerprintString).digest('hex');
-  
+
   req.deviceFingerprint = fingerprintHash;
   req.deviceFingerprintData = fingerprint;
-  
+
   next();
 };
 
 // Enhanced request logging middleware
 const requestLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const logData = {
@@ -363,10 +288,16 @@ const requestLogger = (req, res, next) => {
       timestamp: new Date().toISOString(),
     };
 
+    // Skip logging for 304 Not Modified to reduce noise
+    if (res.statusCode === 304) {
+      return;
+    }
+
     if (res.statusCode >= 400) {
       logger.warn('Request completed with error', logData);
     } else {
-      logger.info('Request completed', logData);
+      // Use debug level for successful requests to save logs/cost
+      logger.debug('Request completed', logData);
     }
   });
 
@@ -375,6 +306,8 @@ const requestLogger = (req, res, next) => {
 
 // Enhanced error handling middleware
 const errorHandler = (err, req, res, next) => {
+  const statusCode = err.statusCode || err.status || StatusCodes.INTERNAL_SERVER_ERROR;
+
   const errorLog = {
     timestamp: new Date().toISOString(),
     error: {
@@ -382,6 +315,7 @@ const errorHandler = (err, req, res, next) => {
       message: err.message,
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
       code: err.code,
+      statusCode: statusCode,
     },
     request: {
       method: req.method,
@@ -397,14 +331,19 @@ const errorHandler = (err, req, res, next) => {
     },
   };
 
-  logger.error('Unhandled error:', errorLog);
+  if (statusCode >= 500) {
+    logger.error('Unhandled error:', errorLog);
+  } else {
+    logger.warn('Request error:', errorLog);
+  }
 
-  // Don't leak error details in production
+  // Don't leak error details in production unless it's a known operational error
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
-  res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  const isOperational = statusCode < 500;
+
+  res.status(statusCode).json({
     success: false,
-    message: isDevelopment ? err.message : 'Internal server error',
+    message: (isDevelopment || isOperational) ? err.message : 'Internal server error',
     ...(isDevelopment && { stack: err.stack }),
   });
 };
@@ -418,7 +357,7 @@ const notFoundHandler = (req, res) => {
     userAgent: req.get('User-Agent'),
     userId: req.user?.id || 'anonymous',
   });
-  
+
   res.status(StatusCodes.NOT_FOUND).json({
     success: false,
     message: 'Route not found',
@@ -451,10 +390,10 @@ const csrfProtection = (req, res, next) => {
 
 module.exports = {
   securityHeaders,
-  authRateLimit,
-  sensitiveRateLimit,
-  generalRateLimit,
-  tierRateLimiter,
+  authRateLimit: authLimiter, // Alias for backward compatibility
+  sensitiveRateLimit: sensitiveLimiter, // Alias for backward compatibility
+  generalRateLimit: apiLimiter, // Alias for backward compatibility
+  tierRateLimiter: tierLimiter, // Alias for backward compatibility
   speedLimiter,
   csrfProtection,
   sanitizeRequest,

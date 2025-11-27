@@ -10,17 +10,18 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  Download,
-  Settings,
   Loader2,
   AlertCircle,
+  Settings,
   Volume1,
   ChevronDown,
+  ChevronUp,
   Mic2,
   X
 } from 'lucide-react';
 import { buildQuotaToastPayload } from '../../utils/quotaToast';
 import audioStorageService from '../../services/AudioStorageService';
+import { base64ToArrayBuffer } from '../../utils/audioUtils';
 
 const AudioPlayer = ({
   blogId,
@@ -299,6 +300,7 @@ const AudioPlayer = ({
   }, [initialAudioUrl, loadingFromStorage, audioAvailable]);
 
   useEffect(() => {
+    if (!showSettings || !audioAvailable) return;
     const loadVoices = async () => {
       try {
         setVoicesLoading(true);
@@ -316,7 +318,7 @@ const AudioPlayer = ({
       }
     };
     loadVoices();
-  }, []);
+  }, [showSettings, audioAvailable]);
 
   // ... (keep existing handlers: handleLoadedMetadata, handleTimeUpdate, handleEnded, handleError)
   // Note: We redefined handleEnded inside useEffect, but we might need to keep the external one or remove it.
@@ -333,6 +335,43 @@ const AudioPlayer = ({
     } else {
       audioRef.current.play();
       setIsPlaying(true);
+    }
+  };
+
+  const handleSeek = (e) => {
+    if (!audioRef.current || !totalDuration) return;
+
+    const progressBar = e.currentTarget;
+    const clickX = e.clientX - progressBar.getBoundingClientRect().left;
+    const width = progressBar.offsetWidth;
+    const clickedTime = (clickX / width) * totalDuration;
+
+    // Find which segment this time belongs to
+    let cumulativeTime = 0;
+    let targetSegmentIndex = 0;
+
+    for (let i = 0; i < segments.length; i++) {
+      const segmentDuration = segments[i]?.duration || 0;
+      if (clickedTime < cumulativeTime + segmentDuration) {
+        targetSegmentIndex = i;
+        break;
+      }
+      cumulativeTime += segmentDuration;
+    }
+
+    // Calculate time within the target segment
+    const timeInSegment = clickedTime - cumulativeTime;
+
+    // Switch to target segment if different
+    if (targetSegmentIndex !== currentSegmentIndex) {
+      setCurrentSegmentIndex(targetSegmentIndex);
+      setAudioUrl(segments[targetSegmentIndex].url);
+      // Wait for audio to load then seek
+      audioRef.current.addEventListener('loadedmetadata', () => {
+        audioRef.current.currentTime = timeInSegment;
+      }, { once: true });
+    } else {
+      audioRef.current.currentTime = timeInSegment;
     }
   };
 
@@ -404,26 +443,40 @@ const AudioPlayer = ({
         }
 
         if (audioSegments && audioSegments.length > 0) {
-          // Fetch audio blobs and store in IndexedDB
+          // Decode base64 audio data and store in IndexedDB
           const segmentsWithBlobs = await Promise.all(
             audioSegments.map(async (seg) => {
               try {
-                const audioUrl = resolveAudioUrl(seg.url);
-                const audioResponse = await fetch(audioUrl);
-                const audioBlob = await audioResponse.blob();
-                const audioData = await audioBlob.arrayBuffer();
+                // Check if audioData is provided (new base64 format)
+                if (seg.audioData) {
+                  // Decode base64 to ArrayBuffer
+                  const audioData = base64ToArrayBuffer(seg.audioData);
 
-                return normalizeSegmentForHighlighting({
-                  ...seg,
-                  audioData
-                });
+                  return normalizeSegmentForHighlighting({
+                    ...seg,
+                    audioData
+                  });
+                } else if (seg.url) {
+                  // Legacy fallback: fetch from URL (for old blogs)
+                  const audioUrl = resolveAudioUrl(seg.url);
+                  const audioResponse = await fetch(audioUrl);
+                  const audioBlob = await audioResponse.blob();
+                  const audioData = await audioBlob.arrayBuffer();
+
+                  return normalizeSegmentForHighlighting({
+                    ...seg,
+                    audioData
+                  });
+                } else {
+                  console.error('Segment has neither audioData nor url:', seg);
+                  return null;
+                }
               } catch (err) {
-                console.error(`Failed to fetch segment ${seg.id}:`, err);
+                console.error(`Failed to process segment ${seg.id}:`, err);
                 return null;
               }
             })
           );
-
           const validSegments = segmentsWithBlobs.filter(s => s !== null);
 
           if (validSegments.length > 0) {
@@ -592,18 +645,23 @@ const AudioPlayer = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary">
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
-            >
-              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-            </button>
+            <div className="flex items-center gap-2">
+              {audioAvailable && audioUrl && (
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
+              >
+                {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* Player Controls */}
         <div className="p-6 space-y-6">
@@ -638,18 +696,20 @@ const AudioPlayer = ({
               </div>
             </div>
 
-            {/* Voice Selection Dropdown (No Label) */}
-            <div className="w-48">
-              <select
-                value={voiceSettings.voice}
-                onChange={(e) => setVoiceSettings(prev => ({ ...prev, voice: e.target.value }))}
-                className="w-full px-4 py-3 text-sm font-medium rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 text-text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all shadow-sm hover:shadow-md cursor-pointer outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                {effectiveVoiceOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
+            {/* Voice Selection Dropdown (hide until audio exists) */}
+            {audioAvailable && audioUrl && (
+              <div className="w-48">
+                <select
+                  value={voiceSettings.voice}
+                  onChange={(e) => setVoiceSettings(prev => ({ ...prev, voice: e.target.value }))}
+                  className="w-full px-4 py-3 text-sm font-medium rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 text-text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all shadow-sm hover:shadow-md cursor-pointer outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  {effectiveVoiceOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Expanded Settings */}
@@ -777,7 +837,7 @@ const AudioPlayer = ({
                     </p>
                   </>
                 ) : !audioAvailable ? (
-                  // No audio available - show generate button
+                  // No Audio Available - show generate button
                   <>
                     <div className="relative w-20 h-20 mx-auto mb-5">
                       <div className="absolute inset-0 bg-gradient-to-r from-primary to-primary/60 rounded-full blur-lg opacity-40 animate-pulse"></div>

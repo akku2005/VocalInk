@@ -3,6 +3,7 @@ const logger = require('./src/utils/logger');
 const webSocketService = require('./src/services/WebSocketService');
 const { runStartupCleanup } = require('./src/utils/startupCleanup');
 
+// Force restart trigger: 2025-11-27
 const DESIRED_PORT = parseInt(process.env.PORT, 10) || 5000;
 const MAX_ATTEMPTS = 10;
 
@@ -19,6 +20,7 @@ const MAX_ATTEMPTS = 10;
 function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
   const server = app.listen(startPort, () => {
     logger.success(`🚀 Server is running on port ${startPort}`);
+    logger.info('Server restarted with updates [2025-11-27]');
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`API Documentation: http://localhost:${startPort}/api-docs`);
     logger.info(`API Base URL: http://localhost:${startPort}/api`);
@@ -31,14 +33,8 @@ function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
   server.on('error', (err) => {
     if (err && err.code === 'EADDRINUSE') {
       logger.error('Port in use:', { port: startPort, message: err.message });
-      if (process.env.NODE_ENV !== 'production' && attemptsLeft > 0) {
-        const nextPort = startPort + 1;
-        logger.warn(`Attempting to use next port ${nextPort} (remaining attempts: ${attemptsLeft - 1})`);
-        setTimeout(() => startServer(nextPort, attemptsLeft - 1), 500);
-      } else {
-        logger.error('Failed to start server due to port conflict');
-        process.exit(1);
-      }
+      logger.error(`❌ Port ${startPort} is already in use. Please stop the other process running on this port.`);
+      process.exit(1);
     } else {
       logger.error('Server startup error:', { message: err?.message, name: err?.name, code: err?.code });
       process.exit(1);

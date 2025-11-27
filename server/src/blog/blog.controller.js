@@ -295,10 +295,9 @@ exports.getBlogBySlug = async (req, res) => {
   try {
     const cacheKey = cacheService.generateKey('blog-slug', req.params.slug);
 
-    const blog = await cacheService.cacheFunction(cacheKey, async () => {
-      return await Blog.findOne({ slug: req.params.slug })
-        .populate('author', 'firstName lastName displayName username email avatar bio');
-    }, 600); // Cache for 10 minutes
+    // Note: We avoid caching here to ensure view counts stay fresh per request
+    const blog = await Blog.findOne({ slug: req.params.slug })
+      .populate('author', 'firstName lastName displayName username email avatar bio');
 
     if (!blog) {
       return res.status(404).json({ message: 'Blog not found' });
@@ -309,7 +308,12 @@ exports.getBlogBySlug = async (req, res) => {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
+    // Increment view count
+    await Blog.findByIdAndUpdate(blog._id, { $inc: { views: 1 } });
+
     const blogObject = blog.toObject ? blog.toObject() : JSON.parse(JSON.stringify(blog));
+    blogObject.views = (blogObject.views || 0) + 1;
+    await invalidateAnalyticsCache(blog.author);
 
     const commentCount = await Comment.countDocuments({ blogId: blog._id, status: 'active' });
     blogObject.commentCount = commentCount;
@@ -556,15 +560,18 @@ exports.generateTTS = async (req, res) => {
     const segments = [];
     let segmentIndex = 0;
 
+    // Use cheerio for proper HTML parsing
+    const cheerio = require('cheerio');
+    const $ = cheerio.load(content, { decodeEntities: false });
+
     // Helper function to split text into sentences (improved)
     const splitIntoSentences = (text) => {
-      // Remove HTML tags for splitting
-      let cleanText = text.replace(/<[^>]+>/g, '').trim();
-      if (!cleanText) return [];
+      text = text.trim();
+      if (!text) return [];
 
-      // Simple sentence split by . ! ? followed by space or end of string
+      // Split by sentence boundaries
       const sentences = [];
-      const parts = cleanText.split(/([.!?]+\s+|[.!?]+$)/);
+      const parts = text.split(/([.!?]+\s+|[.!?]+$)/);
 
       let currentSentence = '';
       for (let i = 0; i < parts.length; i++) {
@@ -587,85 +594,92 @@ exports.generateTTS = async (req, res) => {
       return sentences.filter(s => s.length > 0);
     };
 
-    // Extract text from ALL block elements (p, h1-h6, li, div, blockquote, etc.)
-    const extractTextBlocks = (html) => {
-      const blocks = [];
+    // Helper function to wrap text node with span
+    const wrapTextNodes = (element, sentence, id) => {
+      // Simple approach: try to wrap the sentence text directly
+      let html = $(element).html();
 
-      // Match all block-level elements
-      const blockRegex = /<(p|h[1-6]|li|div|blockquote)([^>]*)>([\s\S]*?)<\/\1>/gi;
-      let match;
+      // Check if sentence is already wrapped
+      if (html && html.includes(`data-tts-segment="${id}"`)) return false;
 
-      while ((match = blockRegex.exec(html)) !== null) {
-        const tag = match[1];
-        const attributes = match[2];
-        const content = match[3];
+      // Escape special regex characters in sentence
+      const escapedSentence = sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-        blocks.push({
-          tag,
-          attributes,
-          content,
-          fullMatch: match[0]
-        });
+      // Try simple replacement first (when sentence has no HTML within it)
+      const simpleRegex = new RegExp(escapedSentence, 'i');
+      if (simpleRegex.test(html)) {
+        const newHtml = html.replace(simpleRegex, `<span id="${id}" data-tts-segment="${id}">$&</span>`);
+        $(element).html(newHtml);
+        return true;
       }
 
-      return blocks;
+      // If simple match failed, try matching with potential HTML tags around and between words
+      const words = escapedSentence.split(/\s+/);
+      if (words.length > 1) {
+        // Create pattern that allows tags before, after, and between words
+        // Pattern: (?:<[^>]*>)*word1(?:<[^>]*>)*(?:\s+(?:<[^>]*>)*)?word2(?:<[^>]*>)*...
+        const wordPatterns = words.map(word => `(?:<[^>]*>)*${word}(?:<[^>]*>)*`);
+        const pattern = wordPatterns.join('(?:\\s+)?');
+        const flexibleRegex = new RegExp(`(${pattern})`, 'i');
+
+        if (flexibleRegex.test(html)) {
+          const newHtml = html.replace(flexibleRegex, `<span id="${id}" data-tts-segment="${id}">$1</span>`);
+          $(element).html(newHtml);
+          return true;
+        }
+      }
+
+      // Last resort: wrap the entire element if it only contains this sentence
+      const elementText = $(element).text().trim();
+      if (elementText === sentence) {
+        $(element).wrapInner(`<span id="${id}" data-tts-segment="${id}"></span>`);
+        return true;
+      }
+
+      return false;
     };
 
-    // Process all blocks and create segments + wrap content with IDs
-    const blocks = extractTextBlocks(content);
+    // Extract text blocks and create segments
+    const blockSelectors = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, div:not(:has(p)):not(:has(h1)):not(:has(h2)):not(:has(h3)):not(:has(h4)):not(:has(h5)):not(:has(h6))';
+    const $blocks = $(blockSelectors);
 
-    logger.info(`TTS: Found ${blocks.length} content blocks to process`);
+    logger.info(`TTS: Found ${$blocks.length} content blocks to process`);
 
-    // Create segment map for ID injection
-    const segmentMap = new Map();
+    // Process each block
+    $blocks.each((blockIndex, element) => {
+      // Get clean text content (no HTML tags)
+      const blockText = $(element).text().trim();
 
-    blocks.forEach((block) => {
-      const sentences = splitIntoSentences(block.content);
+      if (!blockText) return; // Skip empty blocks
 
+      // Split into sentences
+      const sentences = splitIntoSentences(blockText);
+
+      // Create segments and wrap in DOM
       sentences.forEach((sentence) => {
         const id = `tts-seg-${segmentIndex}`;
+
         segments.push({
           id,
           text: sentence,
           index: segmentIndex,
-          blockTag: block.tag
+          blockTag: element.name
         });
 
-        // Store mapping for content replacement
-        segmentMap.set(sentence, id);
+        // Wrap the sentence in the DOM
+        const wrapped = wrapTextNodes(element, sentence, id);
+        if (!wrapped) {
+          logger.warn(`TTS: Failed to wrap segment ${id}: "${sentence.substring(0, 50)}..."`);
+        }
+
         segmentIndex++;
       });
     });
 
-    logger.info(`TTS: Created ${segments.length} sentence segments from ${blocks.length} blocks`);
+    logger.info(`TTS: Created ${segments.length} sentence segments from ${$blocks.length} blocks`);
 
-    // Wrap content with sentence IDs for highlighting
-    let updatedContent = content;
-
-    // For each block, wrap sentences with span IDs
-    blocks.forEach((block) => {
-      const sentences = splitIntoSentences(block.content);
-      let wrappedContent = block.content;
-
-      sentences.forEach((sentence) => {
-        const id = segmentMap.get(sentence);
-        if (id) {
-          // Escape special regex characters in sentence
-          const escapedSentence = sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-          // Wrap sentence with span (preserving existing HTML)
-          wrappedContent = wrappedContent.replace(
-            new RegExp(escapedSentence, 'i'),
-            `<span id="${id}" data-tts-segment="${id}">${sentence}</span>`
-          );
-        }
-      });
-
-      // Replace the block content in the full HTML
-      updatedContent = updatedContent.replace(block.fullMatch,
-        `<${block.tag}${block.attributes}>${wrappedContent}</${block.tag}>`
-      );
-    });
+    // Get updated HTML
+    let updatedContent = $.html();
 
     if (segments.length === 0) {
       logger.error('TTS: No segments created from blog content', {
@@ -692,16 +706,16 @@ exports.generateTTS = async (req, res) => {
       useSpeakerBoost: req.body?.useSpeakerBoost,
       pitch: req.body?.pitch,
       volumeGainDb: req.body?.volumeGainDb,
-      effectsProfileId: req.body?.effectsProfileId
+      effectsProfileId: req.body?.effectsProfileId,
+      skipDiskStorage: true // Don't save audio files on server
     });
 
     // 3. Update Blog
     blog.content = updatedContent; // Save content with injected IDs
 
-    // Map results to schema - use 'id' field for TTS segment highlighting
+    // Map results to schema - NO URL/PATH since audio is stored client-side
     blog.audioSegments = audioSegments.map(seg => ({
-      url: seg.url,
-      path: seg.path,
+      // No url or path - audio is in IndexedDB
       text: seg.text,
       duration: seg.duration,
       id: seg.id, // This is the tts-seg-X ID created above
@@ -709,8 +723,8 @@ exports.generateTTS = async (req, res) => {
       order: seg.order
     }));
 
-    // Set legacy fields for backward compatibility
-    blog.audioUrl = audioSegments[0]?.url;
+    // Set legacy fields (no URL since no files saved)
+    blog.audioUrl = null; // Deprecated - audio is in IndexedDB
     blog.audioGeneratedAt = new Date();
     blog.audioVoiceId = req.body?.voiceId;
 
@@ -731,13 +745,23 @@ exports.generateTTS = async (req, res) => {
     logger.info(`TTS generated successfully`, {
       user: req.user._id.toString(),
       blog: blog._id,
-      segments: audioSegments.length
+      segments: audioSegments.length,
+      storage: 'indexeddb-only'
     });
+
+    // Send audio data as base64 to client
+    const audioSegmentsWithData = audioSegments.map(seg => ({
+      text: seg.text,
+      duration: seg.duration,
+      id: seg.id,
+      paragraphId: seg.id,
+      order: seg.order,
+      audioData: seg.audioData ? seg.audioData.toString('base64') : null
+    }));
 
     res.json({
       message: 'TTS generated successfully',
-      audioSegments: blog.audioSegments,
-      audioUrl: blog.audioUrl,
+      audioSegments: audioSegmentsWithData,
       usage
     });
 

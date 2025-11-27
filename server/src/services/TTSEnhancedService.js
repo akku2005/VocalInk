@@ -21,18 +21,18 @@ class TTSEnhancedService {
         // Initialize queue service
         this.queueService = new TTSQueueService();
         await this.queueService.initialize();
-        
+
         // Initialize worker service if enabled
         if (process.env.TTS_WORKER_ENABLED === 'true') {
           this.workerService = new TTSWorkerService(this.queueService);
           await this.workerService.start();
         }
-        
+
         logger.info('TTS Enhanced Service initialized with queue system');
       } else {
         logger.info('TTS Enhanced Service initialized without queue system');
       }
-      
+
       this.initialized = true;
     } catch (error) {
       logger.error('Failed to initialize TTS Enhanced Service:', error);
@@ -94,7 +94,7 @@ class TTSEnhancedService {
   async processImmediately(text, options, userId) {
     try {
       const result = await this.ttsService.generateSpeech(text, options);
-      
+
       logger.info('TTS processed immediately', {
         userId,
         provider: result.provider,
@@ -123,7 +123,7 @@ class TTSEnhancedService {
       }
 
       const status = await this.queueService.getJobStatus(jobId);
-      
+
       // Check if user owns the job
       if (status.result && status.result.userId !== userId) {
         throw new Error('Unauthorized to access this job');
@@ -146,7 +146,7 @@ class TTSEnhancedService {
       }
 
       const status = await this.queueService.getJobByIdempotencyKey(idempotencyKey);
-      
+
       if (!status) {
         return { status: 'not_found' };
       }
@@ -207,7 +207,7 @@ class TTSEnhancedService {
       }
 
       const voices = await this.ttsService.getAvailableVoices(provider);
-      
+
       return {
         success: true,
         provider,
@@ -216,8 +216,8 @@ class TTSEnhancedService {
         healthy: true,
       };
     } catch (error) {
-      logger.error(`Failed to get voices for provider ${provider}:`, error);
-      
+      logger.warn(`Failed to get voices for provider ${provider}:`, error.message);
+
       // Return fallback voices
       return this.getFallbackVoices(provider);
     }
@@ -263,7 +263,7 @@ class TTSEnhancedService {
     try {
       const queueStats = this.queueService ? await this.queueService.getQueueStats() : {};
       const workerStats = this.workerService ? this.workerService.getWorkerStats() : {};
-      
+
       return {
         queue: queueStats,
         worker: workerStats,
@@ -282,12 +282,12 @@ class TTSEnhancedService {
   getProviderHealthSummary() {
     const summary = {};
     const providers = ['elevenlabs', 'googlecloud', 'espeak', 'gtts', 'responsivevoice'];
-    
+
     providers.forEach(provider => {
       if (this.queueService) {
         const breaker = this.queueService.circuitBreakers.get(provider);
         const health = this.queueService.healthChecks.get(provider);
-        
+
         summary[provider] = {
           available: this.queueService.isProviderAvailable(provider),
           circuitBreakerState: breaker ? breaker.state : 'UNKNOWN',
@@ -305,7 +305,7 @@ class TTSEnhancedService {
         };
       }
     });
-    
+
     return summary;
   }
 
@@ -355,7 +355,7 @@ class TTSEnhancedService {
 
     // Language validation (basic whitelist used for gtts/espeak/general)
     if (options.language) {
-      const supported = ['en','es','fr','de','it','pt','ja','ko','zh','hi'];
+      const supported = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ja', 'ko', 'zh', 'hi'];
       if (!supported.includes(options.language)) {
         throw new Error(`Unsupported language: ${options.language}. Supported: ${supported.join(', ')}`);
       }
@@ -427,7 +427,7 @@ class TTSEnhancedService {
       }
 
       const jobs = await this.queueService.deadLetterQueue.getJobs(['failed'], 0, limit);
-      
+
       return jobs.map(job => ({
         id: job.id,
         originalJobId: job.data.originalJobId,
@@ -461,7 +461,7 @@ class TTSEnhancedService {
 
       const availableProviders = this.queueService.getAvailableProviders();
       const queueStats = await this.queueService.getQueueStats();
-      
+
       return {
         healthy: availableProviders.length > 0,
         availableProviders,
@@ -490,11 +490,11 @@ class TTSEnhancedService {
       if (this.workerService) {
         await this.workerService.stop();
       }
-      
+
       if (this.queueService) {
         await this.queueService.shutdown();
       }
-      
+
       logger.info('TTS Enhanced Service shutdown completed');
     } catch (error) {
       logger.error('Error during TTS Enhanced Service shutdown:', error);

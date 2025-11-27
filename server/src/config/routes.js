@@ -23,6 +23,7 @@ const API_ROUTES = {
   SETTINGS: '/settings',
   SECURITY: '/security',
   COLLABORATIONS: '/collaborations',
+  SUPPORT: '/support',
 
   // Complete route definitions
   ROUTES: {

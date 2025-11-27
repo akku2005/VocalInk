@@ -57,7 +57,7 @@ const schema = yup
       .required("Please confirm your password"),
     role: yup
       .string()
-      .oneOf(["reader", "writer", "admin"], "Invalid role selected")
+      .oneOf(["reader", "writer"], "Invalid role selected")
       .default("reader"),
     agreeToTerms: yup
       .boolean()
@@ -393,17 +393,12 @@ const Register = () => {
                 >
                   <option value="reader">Reader - Browse and read blogs</option>
                   <option value="writer">Writer - Create and publish content</option>
-                  <option value="admin">Admin - Full system access (auto-verified)</option>
                 </select>
                 {errors.role && (
                   <p className="text-sm text-error">
                     {errors.role.message}
                   </p>
                 )}
-                <p className="text-xs text-text-secondary">
-                  <strong>Note:</strong> Admin accounts are automatically verified and require no email confirmation.
-                  First admin can self-register; subsequent admins require existing admin approval.
-                </p>
               </div>
 
               <div className="space-y-2">
@@ -452,8 +447,8 @@ const Register = () => {
                           <div
                             key={level}
                             className={`h-2 w-8 rounded-full ${level <= passwordStrength.score
-                                ? "bg-green-500"
-                                : "bg-gray-200"
+                              ? "bg-green-500"
+                              : "bg-gray-200"
                               }`}
                           />
                         ))}

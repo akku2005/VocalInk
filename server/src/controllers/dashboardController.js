@@ -36,8 +36,14 @@ exports.getDashboardData = async (req, res) => {
     // Get total engagement metrics
     const blogs = await Blog.find({ author: userId, status: 'published' });
     const totalViews = blogs.reduce((sum, blog) => sum + (blog.views || 0), 0);
-    const totalLikes = blogs.reduce((sum, blog) => sum + (blog.likes?.length || 0), 0);
-    const totalBookmarks = blogs.reduce((sum, blog) => sum + (blog.bookmarks?.length || 0), 0);
+    const totalLikes = blogs.reduce((sum, blog) => {
+      if (typeof blog.likes === 'number') return sum + blog.likes;
+      return sum + (blog.likes?.length || blog.likedBy?.length || 0);
+    }, 0);
+    const totalBookmarks = blogs.reduce((sum, blog) => {
+      if (typeof blog.bookmarks === 'number') return sum + blog.bookmarks;
+      return sum + (blog.bookmarks?.length || 0);
+    }, 0);
 
     // Get total comments on user's blogs
     const blogIds = blogs.map(blog => blog._id);
@@ -249,7 +255,15 @@ exports.getAnalytics = async (req, res) => {
           },
           blogs: { $sum: 1 },
           views: { $sum: '$views' },
-          likes: { $sum: { $size: { $ifNull: ['$likes', []] } } },
+          likes: {
+            $sum: {
+              $cond: [
+                { $isNumber: '$likes' },
+                '$likes',
+                { $size: { $ifNull: ['$likes', []] } }
+              ]
+            }
+          },
           comments: { $sum: { $size: { $ifNull: ['$comments', []] } } },
         },
       },
