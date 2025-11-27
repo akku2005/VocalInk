@@ -3,6 +3,7 @@ const logger = require('./src/utils/logger');
 const webSocketService = require('./src/services/WebSocketService');
 const { runStartupCleanup } = require('./src/utils/startupCleanup');
 
+// Force restart trigger: 2025-11-27
 const DESIRED_PORT = parseInt(process.env.PORT, 10) || 5000;
 const MAX_ATTEMPTS = 10;
 
@@ -19,6 +20,7 @@ const MAX_ATTEMPTS = 10;
 function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
   const server = app.listen(startPort, () => {
     logger.success(`🚀 Server is running on port ${startPort}`);
+    logger.info('Server restarted with updates [2025-11-27]');
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`API Documentation: http://localhost:${startPort}/api-docs`);
     logger.info(`API Base URL: http://localhost:${startPort}/api`);

@@ -180,6 +180,23 @@ class UserService {
     }
   }
 
+  async removeFollower(followerId) {
+    try {
+      const response = await api.delete(`${this.baseURL}/followers/${followerId}`);
+      if (response.data.success) {
+        return response.data.data;
+      }
+      throw new Error(response.data.message || 'Failed to remove follower');
+    } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        const errorData = error.response.data;
+        const customError = new Error(errorData.message || 'Failed to remove follower');
+        throw customError;
+      }
+      throw error;
+    }
+  }
+
   // Search users
   async searchUsers(query) {
     try {

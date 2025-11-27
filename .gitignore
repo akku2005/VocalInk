@@ -1,10 +1,10 @@
 .env
 node_modules/
 server/logs/
-server/public/uploads/
-server/public/audio/
-server/public/transcripts/
-server/public/tts/
+# server/public/uploads/
+# server/public/audio/
+# server/public/transcripts/
+# server/public/tts/
 
 # Audio file formats (all audio extensions - DO NOT PUSH)
 *.mp3
@@ -15,8 +15,7 @@ server/public/tts/
 *.aac
 *.wma
 
-# Audio-related folders anywhere in project
-audio/
-audiofiles/
-tts/
-transcripts/
+# Audio-related server folders (generated files only)
+# audiofiles/
+# tts/
+# transcripts/

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Volume2, MessageCircle, BookmarkIcon, ShareIcon, Edit, Trash2, MoreVertical, Sparkles, RefreshCw, ChevronDown, User, Tag } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
-import IconButton from "../ui/IconButton.jsx";
-import Button from "../ui/Button.jsx";
 import EngagementButtons from "../engagement/EngagementButtons";
 import AudioPlayer from "../audio/AudioPlayer";
 import CommentList from "../comment/CommentList";
@@ -55,6 +53,7 @@ export default function ArticleView() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [toc, setToc] = useState([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [normalizedContent, setNormalizedContent] = useState('');
 
   const commentsSectionRef = useRef(null);
   const { showInfo, showError } = useToast();
@@ -113,7 +112,10 @@ export default function ArticleView() {
       try {
         setLoading(true);
         setError(null);
-        const response = await blogService.getBlogBySlug(slug);
+        const isMongoId = /^[a-f\d]{24}$/i.test(slug);
+        const response = isMongoId
+          ? await blogService.getBlogById(slug)
+          : await blogService.getBlogBySlug(slug);
         const blogData = response?.data || response;
 
         if (blogData) {
@@ -144,11 +146,13 @@ export default function ArticleView() {
             }
           }
 
+          const normalizedHtml = normalizeArticleContent(blogData.content || '');
+
           setArticle({
             id: blogData._id,
             slug: blogData.slug || slug, // Store slug
             title: blogData.title,
-            content: blogData.content,
+            content: normalizedHtml,
             author: authorName,
             authorId: authorId,
             authorBio: authorBio,
@@ -173,6 +177,11 @@ export default function ArticleView() {
           if (blogData.ttsUrl) {
             setAudioUrl(blogData.ttsUrl);
           }
+
+          // If we loaded via ID, redirect to canonical slug
+          if (isMongoId && blogData.slug) {
+            navigate(`/article/${blogData.slug}`, { replace: true });
+          }
         } else {
           setError('Blog not found');
         }
@@ -193,27 +202,64 @@ export default function ArticleView() {
     fetchBlog();
   }, [slug]);
 
+  const buildTocAndInjectIds = (html) => {
+    if (!html) {
+      return { tocItems: [], html: '' };
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const headings = Array.from(doc.querySelectorAll('h2, h3'));
+    const usedIds = new Set();
+    const tocItems = [];
+
+    const slugify = (text) =>
+      text
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    headings.forEach((heading, index) => {
+      const text = (heading.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!text) return;
+
+      const baseId = heading.id ? heading.id.trim() : slugify(text) || `heading-${index + 1}`;
+      let candidateId = baseId;
+      let counter = 1;
+      while (usedIds.has(candidateId)) {
+        candidateId = `${baseId}-${counter}`;
+        counter += 1;
+      }
+      heading.id = candidateId;
+      usedIds.add(candidateId);
+
+      tocItems.push({
+        id: candidateId,
+        text,
+        level: heading.tagName.toLowerCase(),
+      });
+    });
+
+    return {
+      tocItems,
+      html: doc.body.innerHTML,
+    };
+  };
+
   // Parse Table of Contents
   useEffect(() => {
     if (article?.content) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(article.content, 'text/html');
-      const headings = Array.from(doc.querySelectorAll('h2, h3'));
-      const tocItems = headings.map((heading, index) => {
-        const id = heading.id || `heading-${index}`;
-        // We need to ensure the actual rendered HTML has these IDs. 
-        // Since we use dangerouslySetInnerHTML, we can't easily inject IDs into the DOM *before* render without modifying the HTML string.
-        // For now, we'll assume the content might not have IDs and we'll just use the text for display. 
-        // To make scrolling work, we'd need to modify the HTML content to include IDs.
-        return {
-          id,
-          text: heading.textContent,
-          level: heading.tagName.toLowerCase()
-        };
-      });
+      const { tocItems, html } = buildTocAndInjectIds(article.content);
       setToc(tocItems);
+      setNormalizedContent(html);
+    } else {
+      setToc([]);
+      setNormalizedContent('');
     }
-  }, [article]);
+  }, [article?.content]);
 
   // Handle hash navigation
   useEffect(() => {
@@ -388,7 +434,7 @@ export default function ArticleView() {
                   )}
                 </div>
                 <div>
-                  <div className="font-medium text-text-primary">{article.author}</div>
+                  <div className="font-medium text-text-primary cursor-pointer hover:text-primary-500 transition-colors" onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}>{article.author}</div>
                   <div className="text-sm text-text-secondary">{formattedDate}</div>
                 </div>
               </div>
@@ -445,7 +491,7 @@ export default function ArticleView() {
             <div className="relative mb-12">
               <div
                 className={`article-content prose prose-lg max-w-none dark:prose-invert prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-primary-500 hover:prose-a:text-primary-600 prose-strong:text-text-primary prose-code:text-primary-500 ${!isExpanded ? 'max-h-[600px] overflow-hidden' : ''}`}
-                dangerouslySetInnerHTML={{ __html: normalizeArticleContent(article.content || '') }}
+                dangerouslySetInnerHTML={{ __html: normalizedContent || normalizeArticleContent(article.content || '') }}
               />
 
               {!isExpanded && (
@@ -539,7 +585,7 @@ export default function ArticleView() {
                       </div>
                     )}
                   </div>
-                  <h3 className="text-xl font-bold text-text-primary mb-1">{article.author}</h3>
+                  <h3 className="text-xl font-bold text-text-primary mb-1 cursor-pointer hover:text-primary-500 transition-colors" onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}>{article.author}</h3>
                   <p className="text-sm text-text-secondary mb-6 line-clamp-3 leading-relaxed">
                     {article.authorBio || `Writer at VocalInk. Passionate about sharing stories and insights.`}
                   </p>
@@ -550,7 +596,10 @@ export default function ArticleView() {
                     >
                       View Profile
                     </button>
-                    <button className="flex-1 py-2.5 px-4 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors text-sm shadow-lg shadow-primary-500/20">
+                    <button
+                      onClick={() => showInfo('Chat feature coming soon!')}
+                      className="flex-1 py-2.5 px-4 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium transition-colors text-sm shadow-lg shadow-primary-500/20 cursor-pointer"
+                    >
                       Chat
                     </button>
                   </div>
@@ -575,8 +624,7 @@ export default function ArticleView() {
                             href={`#${item.id}`}
                             onClick={(e) => {
                               e.preventDefault();
-                              const elements = Array.from(document.querySelectorAll(item.level));
-                              const target = elements.find(el => el.textContent === item.text);
+                              const target = document.getElementById(item.id);
                               if (target) {
                                 target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                               }

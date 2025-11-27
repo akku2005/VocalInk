@@ -12,44 +12,43 @@ const AuthCheck = ({ children }) => {
     if (!loading && !isAuthenticated) {
       // Define protected routes that require authentication
       const protectedRoutes = [
-        '/dashboard', 
-        '/profile', 
-        '/analytics', 
-        '/rewards', 
-        '/notifications', 
-        '/create-blog', 
-        '/create-series', 
-        '/edit-blog', 
-        '/series/timeline', 
+        '/dashboard',
+        '/analytics',
+        '/rewards',
+        '/notifications',
+        '/create-blog',
+        '/create-series',
+        '/edit-blog',
+        '/series/timeline',
         '/settings',
         '/2fa-setup',
         '/test'
       ];
-      
+
       // Define guest-only routes
       const guestRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
-      
+
       const currentPath = location.pathname;
-      
+
       // Check if current path is a protected route
-      const isProtectedRoute = protectedRoutes.some(route => 
-        currentPath.startsWith(route) || 
+      const isProtectedRoute = protectedRoutes.some(route =>
+        currentPath.startsWith(route) ||
         (route.includes('/:') && currentPath.match(new RegExp(route.replace('/:.*', '/.*'))))
       );
-      
+
       // Check if current path is a guest route
       const isGuestRoute = guestRoutes.some(route => currentPath.startsWith(route));
-      
+
       // Only redirect to login if trying to access a protected route
       if (isProtectedRoute) {
-        navigate('/login', { 
-          state: { 
+        navigate('/login', {
+          state: {
             from: location.pathname,
-            message: 'Please log in to access this feature.' 
-          } 
+            message: 'Please log in to access this feature.'
+          }
         });
       }
-      
+
       // Redirect authenticated users away from guest routes
       if (isGuestRoute && isAuthenticated) {
         navigate('/dashboard', { replace: true });

@@ -48,6 +48,11 @@ const SeriesTimelinePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [series, setSeries] = useState(null);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [viewCount, setViewCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [menuEpisodeId, setMenuEpisodeId] = useState(null);
@@ -75,6 +80,11 @@ const SeriesTimelinePage = () => {
         hasFetchedRef.current = true; // Mark as fetched before the call
         const data = await seriesService.getSeriesById(id);
         setSeries(data);
+        setIsLiked(Boolean(data.isLiked));
+        setIsSaved(Boolean(data.isSaved));
+        setLikeCount(data.analytics?.likes || 0);
+        setBookmarkCount(data.analytics?.bookmarks || 0);
+        setViewCount(data.analytics?.totalViews || data.analytics?.views || 0);
       } catch (err) {
         console.error('Error fetching series:', err);
         setError(err.message || 'Failed to load series');
@@ -164,7 +174,7 @@ const SeriesTimelinePage = () => {
     "Unknown Author";
 
   const authorUsername =
-    series.authorId?.username || series.author?.username || "unknown";
+    series.authorId?.username || series.author?.username || series.authorId?._id || "unknown";
 
   const authorAvatar =
     series.authorId?.profilePicture || series.author?.avatar || series.authorId?.avatar;
@@ -298,17 +308,33 @@ const SeriesTimelinePage = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-pink-400" />
-                <span className="font-medium">{(series.analytics?.totalViews || 0).toLocaleString()} Views</span>
+                <span className="font-medium">{viewCount.toLocaleString()} Views</span>
               </div>
               <div className="flex items-center gap-2">
                 <Heart className="w-5 h-5 text-red-400" />
-                <span className="font-medium">{(series.analytics?.likes || 0).toLocaleString()} Likes</span>
+                <span className="font-medium">{likeCount.toLocaleString()} Likes</span>
               </div>
             </div>
           </div>
         </div>
 
         <div className="absolute top-6 right-6 flex items-center gap-3">
+          <Button
+            variant={isLiked ? "primary" : "outline"}
+            className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors"
+            onClick={async () => {
+              try {
+                const result = await seriesService.toggleLike(series._id || series.slug || id);
+                setIsLiked(result.liked);
+                setLikeCount(result.likes ?? likeCount);
+              } catch (err) {
+                console.error('Error toggling like:', err);
+              }
+            }}
+          >
+            <Heart className="w-4 h-4 mr-2" />
+            {isLiked ? 'Liked' : 'Like'}
+          </Button>
           {user && (series.authorId?._id === user.id || series.authorId === user.id) && (
             <Button
               variant="outline"
@@ -319,13 +345,32 @@ const SeriesTimelinePage = () => {
               Manage Team
             </Button>
           )}
-          <Button variant="outline" className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors">
+          <Button
+            variant="outline"
+            className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors"
+            onClick={() => {
+              const url = window.location.href;
+              navigator.clipboard?.writeText(url).catch(() => {});
+            }}
+          >
             <Share className="w-4 h-4 mr-2" />
             Share
           </Button>
-          <Button variant="outline" className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors">
+          <Button
+            variant={isSaved ? "primary" : "outline"}
+            className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors"
+            onClick={async () => {
+              try {
+                const result = await seriesService.toggleSave(series._id || series.slug || id);
+                setIsSaved(result.saved);
+                setBookmarkCount(result.bookmarks ?? bookmarkCount);
+              } catch (err) {
+                console.error('Error saving series:', err);
+              }
+            }}
+          >
             <Bookmark className="w-4 h-4 mr-2" />
-            Save Series
+            {isSaved ? 'Saved' : 'Save Series'}
           </Button>
         </div>
       </div>
@@ -576,7 +621,7 @@ const SeriesTimelinePage = () => {
                   <Eye className="w-4 h-4" /> Total Views
                 </span>
                 <span className="font-bold text-text-primary">
-                  {(series.analytics?.totalViews || 0).toLocaleString()}
+                  {viewCount.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
@@ -584,7 +629,7 @@ const SeriesTimelinePage = () => {
                   <Heart className="w-4 h-4" /> Total Likes
                 </span>
                 <span className="font-bold text-text-primary">
-                  {(series.analytics?.likes || 0).toLocaleString()}
+                  {likeCount.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
@@ -618,7 +663,7 @@ const SeriesTimelinePage = () => {
                   {authorName}
                   {series.authorId?.verified && <Shield className="w-4 h-4 text-sky-500 fill-sky-500" />}
                 </div>
-                <div className="text-sm text-text-secondary">@{authorUsername}</div>
+                <div className="text-sm text-text-secondary">@{authorUsername || 'unknown'}</div>
               </div>
             </div>
 
@@ -626,7 +671,7 @@ const SeriesTimelinePage = () => {
               <Button
                 variant="outline"
                 className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                onClick={() => navigate(`/profile/${authorUsername}`)}
+                onClick={() => navigate(`/profile/${series.authorId?._id || authorUsername}`)}
               >
                 View Profile
               </Button>

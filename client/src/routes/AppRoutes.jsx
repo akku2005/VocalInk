@@ -111,16 +111,9 @@ export default function AppRoutes() {
               <TestPage />
             </ProtectedRoute>
           } />
-          <Route path="profile" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
-          <Route path="profile/:username" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
+          {/* Profile Routes - Public viewing, protected editing */}
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="profile/:username" element={<ProfilePage />} />
           <Route path="profile/edit" element={
             <ProtectedRoute>
               <ProfileEditPage />

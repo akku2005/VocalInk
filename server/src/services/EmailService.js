@@ -461,6 +461,41 @@ class EmailService {
       throw error;
     }
   }
+  /**
+   * Send notification when someone follows a user
+   */
+  async sendFollowerNotificationEmail(targetEmail, targetName, followerName, followerProfileUrl) {
+    try {
+      const html = generateEmailHtml({
+        title: 'New Follower Alert',
+        content: `
+          <p class="text">Hello ${targetName},</p>
+          <p class="text"><strong>${followerName}</strong> just started following you on VocalInk.</p>
+          <p class="text">Check out their profile to see what they're writing about.</p>
+        `,
+        actionText: 'View Profile',
+        actionUrl: followerProfileUrl,
+        previewText: `${followerName} is now following you`,
+        themeColor: emailConfig.colors.primary
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: targetEmail,
+        subject: `New Follower: ${followerName}`,
+        html,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Follower notification email sent successfully', { email: targetEmail });
+    } catch (error) {
+      logger.error('Error sending follower notification email:', {
+        error: error.message,
+        email: targetEmail
+      });
+      // Don't throw - notification failure shouldn't fail the follow action
+    }
+  }
 }
 
 // Create singleton instance

@@ -34,24 +34,6 @@ const metricOptions = [
   { id: "engagement", name: "Engagement" },
 ];
 
-const ageGroups = [
-  { range: "13-17", value: 8 },
-  { range: "18-24", value: 28 },
-  { range: "25-34", value: 32 },
-  { range: "35-44", value: 20 },
-  { range: "45-54", value: 7 },
-  { range: "55-64", value: 4 },
-  { range: "65+", value: 1 },
-];
-
-const locations = [
-  { label: "New York", value: 28 },
-  { label: "San Francisco", value: 22 },
-  { label: "London", value: 18 },
-  { label: "Toronto", value: 10 },
-  { label: "Bengaluru", value: 8 },
-];
-
 const bestTimes = [
   { label: "8 AM", percentage: 85 },
   { label: "12 PM", percentage: 72 },
@@ -182,7 +164,7 @@ const AnalyticsPage = () => {
   }, [dashboardOverview]);
 
   const normalizedAgeGroups = useMemo(() => {
-    const groups = personalAnalytics?.audience?.ageGroups || ageGroups;
+    const groups = personalAnalytics?.audience?.ageGroups || [];
     const total = groups.reduce((sum, group) => sum + (group.value || 0), 0);
 
     return groups.map((group) => {
@@ -197,7 +179,7 @@ const AnalyticsPage = () => {
   }, [personalAnalytics]);
 
   const normalizedLocations = useMemo(() => {
-    const locs = personalAnalytics?.audience?.locations || locations;
+    const locs = personalAnalytics?.audience?.locations || [];
     const total = locs.reduce((sum, loc) => sum + (loc.value || 0), 0);
 
     return locs.map((loc) => {
@@ -210,6 +192,20 @@ const AnalyticsPage = () => {
       };
     });
   }, [personalAnalytics]);
+
+  // Normalize timeline data for chart
+  const growthData = useMemo(() => {
+    const timeline = personalAnalytics?.timeline || [];
+    const metricKey = preferredMetric === 'engagement' ? 'likes' : preferredMetric; // engagement fallback to likes
+
+    return timeline.map((point) => ({
+      date: point.label || point.date || '',
+      value:
+        (metricKey && point[metricKey] !== undefined)
+          ? point[metricKey]
+          : point.views || 0,
+    }));
+  }, [personalAnalytics, preferredMetric]);
 
   return (
     <div className="relative min-h-screen pb-20 overflow-hidden bg-background text-text-primary">
@@ -262,7 +258,7 @@ const AnalyticsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 h-[500px]">
             <GrowthChart
-              data={personalAnalytics?.timeline || []}
+              data={growthData}
               title={`Growth Trend (${timeRange})`}
               color="#6366f1"
             />

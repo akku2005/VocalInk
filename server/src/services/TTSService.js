@@ -182,43 +182,61 @@ class TTSService {
         hasFrameHeader: isMP3Frame
       });
 
-      // Save audio file locally
-      await fs.writeFile(audioPath, response.data);
+      // Check if we should skip disk storage (for IndexedDB-only mode)
+      const skipDiskStorage = options.skipDiskStorage === true;
 
-      let url = `/tts/${filename}`;
-      let storage = 'local';
+      let url = null;
+      let storage = 'memory';
       let authToken = null;
 
-      // Optionally upload to B2 S3 or native
-      const uploader = await ensureB2Uploader();
-      if (uploader) {
-        try {
-          const objectKey = `tts/${filename}`;
-          const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
-          if (typeof uploadRes === 'string') {
-            url = uploadRes;
-          } else if (uploadRes && uploadRes.url) {
-            url = uploadRes.url;
-            authToken = uploadRes.token || null;
+      if (!skipDiskStorage) {
+        // Save audio file locally (traditional mode)
+        const localPath = path.join(this.ttsDir, filename);
+        await fs.writeFile(localPath, response.data);
+        audioPath = localPath;
+        url = `/tts/${filename}`;
+        storage = 'local';
+
+        // Optionally upload to B2 S3 or native
+        const uploader = await ensureB2Uploader();
+        if (uploader) {
+          try {
+            const objectKey = `tts/${filename}`;
+            const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
+            if (typeof uploadRes === 'string') {
+              url = uploadRes;
+            } else if (uploadRes && uploadRes.url) {
+              url = uploadRes.url;
+              authToken = uploadRes.token || null;
+            }
+            storage = 'b2';
+          } catch (e) {
+            logger.warn('B2 upload failed, serving locally', { message: e.message });
           }
-          storage = 'b2';
-        } catch (e) {
-          logger.warn('B2 upload failed, serving locally', { message: e.message });
         }
-      }
 
-      // Verify file exists before returning
-      const fileExists = await fs.access(audioPath).then(() => true).catch(() => false);
-      if (!fileExists) {
-        logger.error('Audio file was not created', { audioPath, filename });
-        throw new Error(`Audio file was not created at ${audioPath}`);
-      }
+        // Verify file exists
+        const fileExists = await fs.access(audioPath).then(() => true).catch(() => false);
+        if (!fileExists) {
+          logger.error('Audio file was not created', { audioPath, filename });
+          throw new Error(`Audio file was not created at ${audioPath}`);
+        }
 
-      logger.info('ElevenLabs audio generated successfully', { url, storage, voiceId, textLength: cleanText.length, audioPath, fileExists });
+        logger.info('ElevenLabs audio generated successfully', { url, storage, voiceId, textLength: cleanText.length, audioPath, fileExists });
+      } else {
+        // Memory-only mode - return buffer without saving
+        logger.info('ElevenLabs audio generated (memory-only)', {
+          storage,
+          voiceId,
+          textLength: cleanText.length,
+          bufferSize: response.data.length
+        });
+      }
 
       return {
         url,
         path: audioPath,
+        audioData: skipDiskStorage ? response.data : null, // Return buffer in memory mode
         provider: 'elevenlabs',
         voiceId,
         duration: this.estimateDuration(cleanText, 150),
@@ -485,30 +503,48 @@ class TTSService {
           timeout: 30000,
         });
 
-        await fs.writeFile(audioPath, response.data);
-
-        let audioUrl = `/audio/${filename}`;
-        let storage = 'local';
+        const skipDiskStorage = options.skipDiskStorage === true;
+        let audioUrl = null;
+        let actualPath = null;
+        let storage = 'memory';
         let authToken = null;
+        let audioData = null;
 
-        const uploader = await ensureB2Uploader();
-        if (uploader) {
-          try {
-            const objectKey = `audio/${filename}`;
-            const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
-            if (typeof uploadRes === 'string') {
-              audioUrl = uploadRes;
-            } else if (uploadRes && uploadRes.url) {
-              audioUrl = uploadRes.url;
-              authToken = uploadRes.token || null;
+        if (!skipDiskStorage) {
+          await fs.writeFile(audioPath, response.data);
+          actualPath = audioPath;
+          audioUrl = `/audio/${filename}`;
+          storage = 'local';
+
+          const uploader = await ensureB2Uploader();
+          if (uploader) {
+            try {
+              const objectKey = `audio/${filename}`;
+              const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/mpeg');
+              if (typeof uploadRes === 'string') {
+                audioUrl = uploadRes;
+              } else if (uploadRes && uploadRes.url) {
+                audioUrl = uploadRes.url;
+                authToken = uploadRes.token || null;
+              }
+              storage = 'b2';
+            } catch (e) {
+              logger.warn('B2 upload failed, serving locally', { message: e.message });
             }
-            storage = 'b2';
-          } catch (e) {
-            logger.warn('B2 upload failed, serving locally', { message: e.message });
           }
+        } else {
+          // Memory-only mode
+          audioData = response.data;
         }
 
-        segments.push({ url: audioUrl, path: audioPath, length: chunk.length, storage, authToken });
+        segments.push({
+          url: audioUrl,
+          path: actualPath,
+          audioData,
+          length: chunk.length,
+          storage,
+          authToken
+        });
       }
 
       const totalDuration = this.estimateDuration(cleanText, 150);
@@ -577,20 +613,38 @@ class TTSService {
       // Generate speech
       const [response] = await this.googleCloudClient.synthesizeSpeech(request);
 
-      // Save audio file
-      await fs.writeFile(audioPath, response.audioContent, 'binary');
+      const skipDiskStorage = options.skipDiskStorage === true;
+      let audioUrl = null;
+      let actualPath = null;
+      let storage = 'memory';
 
-      const audioUrl = `/tts/${filename}`;
-      logger.info('Google Cloud TTS audio generated successfully', {
-        audioUrl,
-        voiceName,
-        languageCode,
-        textLength: cleanText.length
-      });
+      if (!skipDiskStorage) {
+        // Save audio file
+        await fs.writeFile(audioPath, response.audioContent, 'binary');
+        actualPath = audioPath;
+        audioUrl = `/tts/${filename}`;
+        storage = 'local';
+
+        logger.info('Google Cloud TTS audio generated successfully', {
+          audioUrl,
+          voiceName,
+          languageCode,
+          textLength: cleanText.length
+        });
+      } else {
+        // Memory-only mode
+        logger.info('Google Cloud TTS audio generated (memory-only)', {
+          voiceName,
+          languageCode,
+          textLength: cleanText.length,
+          bufferSize: response.audioContent.length
+        });
+      }
 
       return {
         url: audioUrl,
-        path: audioPath,
+        path: actualPath,
+        audioData: skipDiskStorage ? response.audioContent : null,
         provider: 'googlecloud',
         voiceName,
         languageCode,
@@ -599,7 +653,8 @@ class TTSService {
           speakingRate,
           pitch,
           volumeGainDb,
-          effectsProfileId
+          effectsProfileId,
+          storage
         }
       };
     } catch (error) {
@@ -795,7 +850,8 @@ class TTSService {
             similarityBoost,
             style,
             useSpeakerBoost,
-            signal: options.signal
+            signal: options.signal,
+            skipDiskStorage: options.skipDiskStorage
           });
           break;
         case 'googlecloud':
@@ -806,14 +862,15 @@ class TTSService {
             speakingRate,
             pitch,
             volumeGainDb,
-            effectsProfileId
+            effectsProfileId,
+            skipDiskStorage: options.skipDiskStorage
           });
           break;
         case 'espeak':
-          result = await this.generateWithESpeak(text, { voice, speed, signal: options.signal });
+          result = await this.generateWithESpeak(text, { voice, speed, signal: options.signal, skipDiskStorage: options.skipDiskStorage });
           break;
         case 'gtts':
-          result = await this.generateWithGTTS(text, { language });
+          result = await this.generateWithGTTS(text, { language, skipDiskStorage: options.skipDiskStorage });
           break;
         case 'responsivevoice':
           result = await this.generateWithResponsiveVoice(text, { voice });

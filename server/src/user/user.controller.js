@@ -4,7 +4,8 @@ const User = require('../models/user.model');
 const Blog = require('../models/blog.model');
 const Badge = require('../models/badge.model');
 const Notification = require('../models/notification.model');
-const Series = require('../models/series.model'); // Add this line
+const EmailService = require('../services/EmailService');
+const Series = require('../models/series.model');
 const bcrypt = require('bcryptjs');
 const {
   ValidationError,
@@ -68,8 +69,8 @@ exports.getMyProfile = async (req, res) => {
         '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
       )
       .populate('badges', 'name description icon')
-      .populate('followers', 'name email avatar')
-      .populate('following', 'name email avatar');
+      .populate('followers', 'firstName lastName name email avatar profilePicture username')
+      .populate('following', 'firstName lastName name email avatar profilePicture username');
 
     if (!user) {
       logger.warn('User not found for ID:', req.user.id);
@@ -85,9 +86,12 @@ exports.getMyProfile = async (req, res) => {
       status: 'published',
     });
     logger.info('Calculating seriesCount...');
+    const publishedSeriesStatuses = ['active', 'completed', 'published']; // include legacy string
     profile.seriesCount = await Series.countDocuments({
-      authorId: user._id,
-      status: 'published',
+      $or: [
+        { authorId: user._id, status: { $in: publishedSeriesStatuses } },
+        { savedBy: user._id }
+      ],
     });
     profile.followerCount = user.followers.length;
     profile.followingCount = user.following.length;
@@ -99,10 +103,10 @@ exports.getMyProfile = async (req, res) => {
     // Calculate engagement score
     logger.info('Calculating engagementScore...');
     profile.engagementScore = Math.min(100, Math.floor(
-      (profile.totalLikes * 0.3 + 
-       profile.totalComments * 0.4 + 
-       profile.totalBookmarks * 0.2 + 
-       profile.totalShares * 0.1) / 10
+      (profile.totalLikes * 0.3 +
+        profile.totalComments * 0.4 +
+        profile.totalBookmarks * 0.2 +
+        profile.totalShares * 0.1) / 10
     ));
 
     // Calculate level based on XP
@@ -130,7 +134,7 @@ exports.getMyProfile = async (req, res) => {
     } else {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: 'An error occurred while fetching user profile',
+        message: 'An error occurred while fetching profile',
       });
     }
   }
@@ -144,8 +148,8 @@ exports.getProfile = async (req, res) => {
         '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
       )
       .populate('badges', 'name description icon')
-      .populate('followers', 'name email avatar')
-      .populate('following', 'name email avatar');
+      .populate('followers', 'firstName lastName name email avatar profilePicture username')
+      .populate('following', 'firstName lastName name email avatar profilePicture username');
 
     if (!user) {
       throw new NotFoundError('User not found');
@@ -157,19 +161,61 @@ exports.getProfile = async (req, res) => {
       author: user._id,
       status: 'published',
     });
-    profile.seriesCount = await Series.countDocuments({
+    const publishedSeriesStatuses = ['active', 'completed', 'published']; // include legacy string
+    const seriesCountQuery = {
       authorId: user._id,
-      status: 'published',
-    });
+      status: { $in: publishedSeriesStatuses },
+    };
+
+    // If viewing own profile, include saved series in count
+    if (req.user && req.user.id.toString() === user._id.toString()) {
+      profile.seriesCount = await Series.countDocuments({
+        $or: [
+          seriesCountQuery,
+          { savedBy: user._id },
+        ],
+      });
+    } else {
+      profile.seriesCount = await Series.countDocuments(seriesCountQuery);
+    }
     profile.followerCount = user.followers.length;
     profile.followingCount = user.following.length;
 
     // Add view counts
     profile.totalViews = await getTotalViewsForUser(user._id);
 
+    // Check if current user is following
+    if (req.user) {
+      logger.info('getProfile - Viewer:', req.user._id);
+      logger.info('getProfile - Target:', user._id);
+      logger.info('getProfile - Viewer Following Count:', req.user.following?.length);
+
+      // Use req.user.following as source of truth since that's what followUser checks
+      // req.user.following is an array of IDs (ref: 'User')
+      profile.isFollowing = req.user.following.some(
+        (followingId) => {
+          const isMatch = followingId.toString() === user._id.toString();
+          if (isMatch) logger.info('getProfile - Found match in following list');
+          return isMatch;
+        }
+      );
+      logger.info('getProfile - Calculated isFollowing:', profile.isFollowing);
+    } else {
+      logger.info('getProfile - No req.user, isFollowing = false');
+      profile.isFollowing = false;
+    }
+
+    // DEBUG: Inject debug info into response
+    profile.debug_reqUser = req.user ? 'Present' : 'Missing';
+    profile.debug_viewerId = req.user ? req.user._id : null;
+    profile.debug_followingCount = req.user && req.user.following ? req.user.following.length : 'N/A';
+    profile.debug_isFollowing = profile.isFollowing;
+
     res.status(StatusCodes.OK).json({
       success: true,
       data: profile,
+      _debug_server_timestamp: new Date().toISOString(),
+      _debug_controller_version: 'v2-fix-check'
     });
   } catch (error) {
     logger.error('Error in getProfile:', error);
@@ -331,12 +377,28 @@ exports.followUser = async (req, res) => {
     await NotificationTriggers.createFollowNotification(targetUserId, followerId)
       .catch(err => logger.error('Failed to create follow notification', err));
 
+    // Send email notification
+    // Check both global email toggle and specific new follower toggle
+    if (targetUser.notificationSettings?.emailNotifications && targetUser.notificationSettings?.newFollowers) {
+      const followerProfileUrl = `${process.env.FRONTEND_URL}/profile/${followerId}`;
+      await EmailService.sendFollowerNotificationEmail(
+        targetUser.email,
+        targetUser.name,
+        follower.name,
+        followerProfileUrl
+      ).catch(err => logger.error('Failed to send follower email notification', err));
+    }
+
     // Award XP for following (engagement)
     await awardXP(followerId, 5, 'follow_user');
 
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Successfully followed user',
+      data: {
+        isFollowing: true,
+        followerCount: targetUser.followers.length + 1
+      }
     });
   } catch (error) {
     logger.error('Error in followUser:', error);
@@ -394,6 +456,10 @@ exports.unfollowUser = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Successfully unfollowed user',
+      data: {
+        isFollowing: false,
+        followerCount: Math.max(0, targetUser.followers.length - 1)
+      }
     });
   } catch (error) {
     logger.error('Error in unfollowUser:', error);
@@ -411,6 +477,56 @@ exports.unfollowUser = async (req, res) => {
   }
 };
 
+// Remove a follower from current user's followers list
+exports.removeFollower = async (req, res) => {
+  try {
+    const { followerId } = req.params;
+    const currentUserId = req.user.id;
+
+    // Ensure user exists
+    const follower = await User.findById(followerId);
+    if (!follower) {
+      throw new NotFoundError('Follower not found');
+    }
+
+    // Remove follower from current user's followers
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { followers: followerId },
+    });
+
+    // Remove current user from follower's following
+    await User.findByIdAndUpdate(followerId, {
+      $pull: { following: currentUserId },
+    });
+
+    // Recalculate follower count
+    const updatedUser = await User.findById(currentUserId).select('followers');
+    const followerCount = updatedUser?.followers?.length || 0;
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Follower removed successfully',
+      data: {
+        followerCount,
+        removedFollowerId: followerId,
+      },
+    });
+  } catch (error) {
+    logger.error('Error in removeFollower:', error);
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    } else {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'An error occurred while removing follower',
+      });
+    }
+  }
+};
+
 // Get user's blogs
 exports.getUserBlogs = async (req, res) => {
   try {
@@ -422,17 +538,77 @@ exports.getUserBlogs = async (req, res) => {
       throw new NotFoundError('User not found');
     }
 
-    const query = { author: id };
+    const authorObjectId = new mongoose.Types.ObjectId(id);
+    const query = { author: authorObjectId };
     if (status !== 'all') {
       query.status = status;
     }
 
-    const blogs = await Blog.find(query)
-      .populate('author', 'name email avatar')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .exec();
+    const numericLimit = Math.max(1, parseInt(limit, 10) || 10);
+    const numericPage = Math.max(1, parseInt(page, 10) || 1);
+    const skip = (numericPage - 1) * numericLimit;
+
+    const blogs = await Blog.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: numericLimit },
+      {
+        $lookup: {
+          from: 'comments',
+          let: { blogId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$blogId', '$$blogId'] }, status: 'active' } },
+            { $count: 'count' }
+          ],
+          as: 'commentStats'
+        }
+      },
+      {
+        $addFields: {
+          commentCount: { $ifNull: [{ $arrayElemAt: ['$commentStats.count', 0] }, 0] },
+          views: {
+            $ifNull: [
+              '$views',
+              '$analytics.totalViews',
+              0
+            ]
+          },
+          totalViews: {
+            $ifNull: [
+              '$analytics.totalViews',
+              '$views',
+              0
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          title: 1,
+          slug: 1,
+          content: 1,
+          summary: 1,
+          coverImage: 1,
+          tags: 1,
+          mood: 1,
+          language: 1,
+          status: 1,
+          publishedAt: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          likes: 1,
+          commentCount: 1,
+          views: 1,
+          totalViews: 1,
+          shares: 1,
+          bookmarks: 1,
+          likedBy: 1,
+          bookmarkedBy: 1,
+          author: 1,
+        }
+      }
+    ]);
 
     const total = await Blog.countDocuments(query);
 
@@ -441,11 +617,11 @@ exports.getUserBlogs = async (req, res) => {
       data: {
         blogs,
         pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
+          currentPage: numericPage,
+          totalPages: Math.ceil(total / numericLimit),
           totalBlogs: total,
-          hasNext: page * limit < total,
-          hasPrev: page > 1,
+          hasNext: numericPage * numericLimit < total,
+          hasPrev: numericPage > 1,
         },
       },
     });
@@ -897,15 +1073,15 @@ exports.searchUsers = async (req, res) => {
 
     const visibilityClause = viewerObjectId
       ? {
-          $or: [
-            { 'privacySettings.profileVisibility': 'public' },
-            { _id: viewerObjectId },
-            {
-              'privacySettings.profileVisibility': { $in: ['followers', 'private'] },
-              followers: viewerObjectId,
-            },
-          ],
-        }
+        $or: [
+          { 'privacySettings.profileVisibility': 'public' },
+          { _id: viewerObjectId },
+          {
+            'privacySettings.profileVisibility': { $in: ['followers', 'private'] },
+            followers: viewerObjectId,
+          },
+        ],
+      }
       : { 'privacySettings.profileVisibility': 'public' };
 
     const match = {
@@ -1203,7 +1379,7 @@ exports.changePassword = async (req, res) => {
     user.password = newPassword;
     user.passwordChangedAt = new Date();
     await user.save();
-    
+
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Password changed successfully',
@@ -1228,23 +1404,51 @@ exports.changePassword = async (req, res) => {
 exports.getUserSeries = async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 10, status = 'published' } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
+    const requesterId = req.user?.id;
+    const isOwnerOrAdmin = requesterId && (requesterId.toString() === id.toString() || req.user?.role === 'admin');
 
     const user = await User.findById(id);
     if (!user) {
       throw new NotFoundError('User not found');
     }
 
-    const query = { authorId: id };
-    if (status !== 'all') {
-      query.status = status;
+    // Default to publicly viewable, published series for other users
+    const publishedSeriesStatuses = ['active', 'completed', 'published'];
+    const allowedStatuses = ['draft', 'active', 'completed', 'archived', 'suspended', 'published'];
+
+    const query = isOwnerOrAdmin
+      ? {
+        $or: [
+          { authorId: id },
+          { savedBy: id }
+        ]
+      }
+      : { authorId: id };
+
+    if (isOwnerOrAdmin) {
+      if (status === 'all') {
+        // no additional status filter
+      } else if (status && allowedStatuses.includes(status)) {
+        query.status = status;
+      } else {
+        // Default for owner: show everything they created
+        // (no status filter so drafts/archived are visible to the creator)
+      }
+    } else {
+      // Public viewers only see public, published series
+      query.visibility = 'public';
+      query.status = { $in: publishedSeriesStatuses };
     }
+
+    const numericPage = Math.max(1, parseInt(page, 10) || 1);
+    const numericLimit = Math.min(50, Math.max(5, parseInt(limit, 10) || 10));
 
     const series = await Series.find(query)
       .populate('authorId', 'name email avatar username')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(numericLimit)
+      .skip((numericPage - 1) * numericLimit)
       .exec();
 
     const total = await Series.countDocuments(query);
@@ -1254,11 +1458,11 @@ exports.getUserSeries = async (req, res) => {
       data: {
         series,
         pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
+          currentPage: numericPage,
+          totalPages: Math.ceil(total / numericLimit),
           totalSeries: total,
-          hasNext: page * limit < total,
-          hasPrev: page > 1,
+          hasNext: numericPage * numericLimit < total,
+          hasPrev: numericPage > 1,
         },
       },
     });

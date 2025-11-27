@@ -227,7 +227,11 @@ const seriesSchema = new mongoose.Schema(
       changes: { type: String },
       changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       changedAt: { type: Date, default: Date.now }
-    }]
+    }],
+
+    // Engagement
+    likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   {
     timestamps: true,
