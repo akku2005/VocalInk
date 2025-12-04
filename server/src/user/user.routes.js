@@ -5,9 +5,14 @@ const { protect, requireAdmin, optionalAuth } = require('../middleware/auth');
 
 const userController = require('./user.controller');
 
+// Leaderboard (place before dynamic :id route)
+router.get('/leaderboard', userController.getLeaderboard);
+router.get('/:id/leaderboard', userController.getUserLeaderboard);
+
 // Profile routes
 router.get('/me', protect, userController.getMyProfile);
 router.get('/username/availability', userController.checkUsernameAvailability);
+router.get('/search', userController.searchUsers);
 router.get('/:id', optionalAuth, userController.getProfile);
 router.put('/:id', protect, userController.updateProfile);
 router.patch('/me', protect, userController.updateProfile);
@@ -40,13 +45,7 @@ router.patch(
   userController.markAllNotificationsRead
 );
 
-// Leaderboard
-router.get('/leaderboard', userController.getLeaderboard);
-router.get('/:id/leaderboard', userController.getUserLeaderboard);
-
 // Search
-router.get('/search', userController.searchUsers);
-
 // Role management
 router.patch(
   '/:id/promote',

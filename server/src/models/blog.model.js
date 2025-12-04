@@ -21,7 +21,10 @@ const blogSchema = new mongoose.Schema(
     },
     mood: {
       type: String,
-      enum: ['Motivational', 'Thoughtful', 'Educational', 'Humorous', 'Inspirational', 'Technical', 'Other'],
+      enum: [
+        'Motivational', 'Thoughtful', 'Educational', 'Humorous', 'Inspirational', 'Technical', 'Other',
+        'motivational', 'thoughtful', 'educational', 'humorous', 'inspirational', 'technical', 'other'
+      ],
       default: 'Other'
     },
     language: { type: String, default: 'en' },
@@ -89,7 +92,7 @@ const blogSchema = new mongoose.Schema(
     // TTS & Audio
     audioUrl: { type: String }, // Legacy single file URL
     audioSegments: [{
-      url: { type: String, required: true },
+      url: { type: String }, // Optional: URL if stored on server/cloud, undefined if stored in IndexedDB
       path: { type: String }, // Local path
       text: { type: String }, // Text content of segment
       duration: { type: Number }, // Duration in seconds

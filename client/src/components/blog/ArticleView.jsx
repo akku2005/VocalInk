@@ -11,7 +11,9 @@ import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import { buildQuotaToastPayload } from "../../utils/quotaToast";
 import blogService from "../../services/blogService";
+import { userService } from "../../services/userService";
 import { resolveAssetUrl } from "../../constants/apiConfig";
+import { getProfilePath } from "../../utils/profileUrl";
 import { getCleanExcerpt, stripHtml } from "../../utils/textUtils";
 
 const normalizeArticleContent = (html) => {
@@ -119,32 +121,64 @@ export default function ArticleView() {
         const blogData = response?.data || response;
 
         if (blogData) {
-          // Extract author information properly
-          let authorName = 'Anonymous';
-          let authorId = null;
-          let authorBio = null;
-          let authorAvatar = null;
+          const resolveAuthorDetails = async (rawAuthor) => {
+            const pickHandle = (username) => username || null;
 
-          if (blogData.author) {
-            if (typeof blogData.author === 'object' && blogData.author !== null) {
-              if (blogData.author.displayName) {
-                authorName = blogData.author.displayName;
-              } else if (blogData.author.firstName || blogData.author.lastName) {
-                authorName = `${blogData.author.firstName || ''} ${blogData.author.lastName || ''}`.trim();
-              } else if (blogData.author.username) {
-                authorName = blogData.author.username;
-              } else if (blogData.author.email) {
-                authorName = blogData.author.email.split('@')[0];
+            const buildName = (author) => {
+              if (!author) return "Anonymous";
+              if (author.displayName) return author.displayName;
+              if (author.firstName || author.lastName) {
+                return `${author.firstName || ""} ${author.lastName || ""}`.trim();
               }
+              if (author.username) return author.username;
+              if (author.email) return author.email.split("@")[0];
+              return "Anonymous";
+            };
 
-              authorId = blogData.author._id || blogData.author.id;
-              authorBio = blogData.author.bio;
-              authorAvatar = blogData.author.avatar;
-            } else if (typeof blogData.author === 'string') {
-              authorId = blogData.author;
-              authorName = 'User';
+            if (rawAuthor && typeof rawAuthor === "object") {
+              const id = rawAuthor._id || rawAuthor.id || null;
+              return {
+                authorName: buildName(rawAuthor),
+                authorHandle: pickHandle(rawAuthor.username),
+                authorId: id,
+                authorBio: rawAuthor.bio || null,
+                authorAvatar: rawAuthor.avatar || null,
+              };
             }
-          }
+
+            if (typeof rawAuthor === "string" && rawAuthor.trim()) {
+              const rawId = rawAuthor.trim();
+              try {
+                const profile = await userService.getUserProfile(rawId);
+                const id = profile._id || profile.id || rawId;
+                return {
+                  authorName: buildName(profile),
+                  authorHandle: pickHandle(profile.username),
+                  authorId: id,
+                  authorBio: profile.bio || null,
+                  authorAvatar: profile.avatar || null,
+                };
+              } catch (err) {
+                return {
+                  authorName: `User ${rawId.slice(-6)}`,
+                  authorHandle: null,
+                  authorId: rawId,
+                  authorBio: null,
+                  authorAvatar: null,
+                };
+              }
+            }
+
+            return {
+              authorName: "Anonymous",
+              authorHandle: null,
+              authorId: null,
+              authorBio: null,
+              authorAvatar: null,
+            };
+          };
+
+          const authorDetails = await resolveAuthorDetails(blogData.author);
 
           const normalizedHtml = normalizeArticleContent(blogData.content || '');
 
@@ -153,10 +187,11 @@ export default function ArticleView() {
             slug: blogData.slug || slug, // Store slug
             title: blogData.title,
             content: normalizedHtml,
-            author: authorName,
-            authorId: authorId,
-            authorBio: authorBio,
-            authorAvatar: authorAvatar,
+            author: authorDetails.authorName,
+            authorHandle: authorDetails.authorHandle,
+            authorId: authorDetails.authorId,
+            authorBio: authorDetails.authorBio,
+            authorAvatar: authorDetails.authorAvatar,
             summary: blogData.summary,
             tags: blogData.tags || [],
             mood: blogData.mood,
@@ -434,8 +469,17 @@ export default function ArticleView() {
                   )}
                 </div>
                 <div>
-                  <div className="font-medium text-text-primary cursor-pointer hover:text-primary-500 transition-colors" onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}>{article.author}</div>
-                  <div className="text-sm text-text-secondary">{formattedDate}</div>
+                  <button
+                    type="button"
+                    className="font-medium text-text-primary cursor-pointer hover:text-primary-500 transition-colors text-left"
+                    onClick={() => article.authorId && navigate(getProfilePath({ username: article.authorHandle, _id: article.authorId }))}
+                  >
+                    {article.author}
+                  </button>
+                  <div className="text-sm text-text-secondary flex flex-col">
+                    {article.authorHandle && <span>@{article.authorHandle}</span>}
+                    <span>{formattedDate}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -579,19 +623,28 @@ export default function ArticleView() {
                   <div className="w-24 h-24 rounded-full bg-surface-hover overflow-hidden mb-4 ring-4 ring-surface shadow-md">
                     {article.authorAvatar ? (
                       <img src={resolveAssetUrl(article.authorAvatar)} alt={article.author} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-primary-500/10 text-primary-500">
-                        <User className="w-10 h-10" />
-                      </div>
-                    )}
-                  </div>
-                  <h3 className="text-xl font-bold text-text-primary mb-1 cursor-pointer hover:text-primary-500 transition-colors" onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}>{article.author}</h3>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-primary-500/10 text-primary-500">
+                      <User className="w-10 h-10" />
+                    </div>
+                  )}
+                </div>
+                  <button
+                    type="button"
+                    className="text-xl font-bold text-text-primary mb-1 cursor-pointer hover:text-primary-500 transition-colors"
+                    onClick={() => article.authorId && navigate(getProfilePath({ username: article.authorHandle, _id: article.authorId }))}
+                  >
+                    {article.author}
+                  </button>
+                  {article.authorHandle && (
+                    <span className="text-sm text-text-secondary mb-2">@{article.authorHandle}</span>
+                  )}
                   <p className="text-sm text-text-secondary mb-6 line-clamp-3 leading-relaxed">
                     {article.authorBio || `Writer at VocalInk. Passionate about sharing stories and insights.`}
                   </p>
                   <div className="flex gap-3 w-full">
                     <button
-                      onClick={() => article.authorId && navigate(`/profile/${article.authorId}`)}
+                      onClick={() => article.authorId && navigate(getProfilePath({ username: article.authorHandle, _id: article.authorId }))}
                       className="flex-1 py-2.5 px-4 bg-surface-hover hover:bg-surface-active text-text-primary rounded-xl font-medium transition-colors text-sm border border-[var(--border-color)]"
                     >
                       View Profile

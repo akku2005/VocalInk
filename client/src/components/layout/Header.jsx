@@ -18,7 +18,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
-  const { theme, toggleTheme } = useTheme();
+  const { actualTheme, toggleTheme } = useTheme();
   const { user, logout, isAuthenticated } = useAuth();
   const { hasUnread } = useNotification();
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,9 +73,11 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
           {/* Show VocalInk logo when sidebar is collapsed on desktop */}
           {sidebarCollapsed && (
             <Link to="/" className="hidden lg:flex items-center gap-2">
-              <h1 className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                VocalInk
-              </h1>
+              <img
+                src={actualTheme === "dark" ? "/vocalink-high_dark_theme.png" : "/vocalink_transparent_logo.png"}
+                alt="VocalInk"
+                className="h-8"
+              />
             </Link>
           )}
         </div>
@@ -165,7 +167,7 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
             className="p-2 sm:p-2.5 rounded-lg transition-all duration-200 hover:bg-[var(--secondary-btn-hover)] text-[var(--text-color)] cursor-pointer touch-target"
             aria-label="Toggle theme"
           >
-            {theme === "light" ? (
+            {actualTheme === "light" ? (
               <Moon className="w-5 h-5" />
             ) : (
               <Sun className="w-5 h-5" />

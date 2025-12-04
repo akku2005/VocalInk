@@ -8,12 +8,15 @@ import Button from '../components/ui/Button';
 import BlogCard from '../components/blog/BlogCard';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../components/context/ThemeContext';
 import statsService from "../services/statsService";
 import blogService from "../services/blogService";
 import { getCleanExcerpt } from "../utils/textUtils";
+import { getProfilePath } from "../utils/profileUrl";
 
 const Home = () => {
   const { isAuthenticated } = useAuth();
+  const { actualTheme } = useTheme();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalBlogs: 0,
@@ -78,11 +81,13 @@ const Home = () => {
       {/* Hero Section */}
       <div className="text-center py-8 lg:py-16">
         <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-4xl lg:text-6xl font-bold text-text-primary mb-6 leading-tight">
+          <h1 className="text-4xl lg:text-6xl font-bold text-text-primary mb-6 leading-tight flex items-center justify-center gap-3">
             Welcome to{" "}
-            <span className="text-primary-500 bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent">
-              VocalInk
-            </span>
+            <img
+              src={actualTheme === "dark" ? "/vocalink-high_dark_theme.png" : "/vocalink_transparent_logo.png"}
+              alt="VocalInk"
+              className="h-12 lg:h-16 inline-block"
+            />
           </h1>
           <p className="text-lg lg:text-xl text-text-secondary mb-8 leading-relaxed">
             Create, discover, and experience content like never before with
@@ -311,10 +316,10 @@ const Home = () => {
                       <div
                         className={`flex items-center space-x-2 ${blog.author?._id ? 'cursor-pointer hover:opacity-80' : ''}`}
                         onClick={(e) => {
-                          if (blog.author?._id) {
+                          if (blog.author) {
                             e.preventDefault();
                             e.stopPropagation();
-                            navigate(`/profile/${blog.author._id}`);
+                            navigate(getProfilePath(blog.author));
                           }
                         }}
                       >

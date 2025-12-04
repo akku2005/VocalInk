@@ -13,6 +13,7 @@ const AnalyticsService = require('../services/analyticsService');
 const slugify = require('slugify');
 const { UsageService, UsageLimitError, USAGE_TYPES } = require('../services/usageService');
 const { sanitizeHtml } = require('../utils/sanitize');
+const { generateEmailHtml } = require('../utils/emailTemplates');
 
 // Get singleton email service instance
 const emailService = EmailService;
@@ -617,9 +618,19 @@ exports.generateTTS = async (req, res) => {
       const words = escapedSentence.split(/\s+/);
       if (words.length > 1) {
         // Create pattern that allows tags before, after, and between words
-        // Pattern: (?:<[^>]*>)*word1(?:<[^>]*>)*(?:\s+(?:<[^>]*>)*)?word2(?:<[^>]*>)*...
+        // Pattern: (?:<[^>]*>)*word1(?:<[^>]*>)*(?:\s+|&nbsp;|&#160;)*(?:<[^>]*>)*word2...
+        // We allow whitespace OR entities between words, and optional tags
         const wordPatterns = words.map(word => `(?:<[^>]*>)*${word}(?:<[^>]*>)*`);
-        const pattern = wordPatterns.join('(?:\\s+)?');
+
+        // Join words with flexible whitespace/entity pattern
+        // Matches: whitespace, &nbsp;, &#160;, or tags (which are already handled by wordPatterns surrounding logic, but we need to be careful)
+        // Actually, the joiner should be: (?:<[^>]*>|\s|&nbsp;|&#160;)+
+        // But we already have tags around words. So we just need to handle the separator.
+        // The separator in the sentence was whitespace. In HTML it could be whitespace, &nbsp;, or a tag that implies space (like <br>).
+        // Let's try a robust separator: (?:<[^>]*>|\s|&nbsp;|&#160;)+
+        const separator = '(?:<[^>]*>|\\s|&nbsp;|&#160;)+';
+        const pattern = wordPatterns.join(separator);
+
         const flexibleRegex = new RegExp(`(${pattern})`, 'i');
 
         if (flexibleRegex.test(html)) {
@@ -897,22 +908,12 @@ exports.likeBlog = async (req, res) => {
       ).populate('author');
       logger.info(`Blog liked`, { user: req.user._id.toString(), blog: blog._id });
 
-      // Create in-app notification for blog author
+      // Create in-app notification for blog author (no email for likes)
       if (updatedBlog.author && updatedBlog.author._id.toString() !== userId) {
         const NotificationTriggers = require('../utils/notificationTriggers');
         NotificationTriggers.createLikeNotification(updatedBlog._id, userId).catch(err =>
           logger.error('Failed to create like notification', err)
         );
-      }
-
-      // Email notification to blog author (FIXED: Use notificationSettings)
-      if (updatedBlog.author &&
-        updatedBlog.author.notificationSettings?.emailNotifications !== false &&
-        updatedBlog.author._id.toString() !== userId) {
-        const subject = `Your blog was liked: ${updatedBlog.title}`;
-        const html = `<p>Hi ${updatedBlog.author.name},</p>
-          <p>Your blog <strong>${updatedBlog.title}</strong> was liked by a user.</p>`;
-        emailService.sendNotificationEmail(updatedBlog.author.email, subject, html).catch(err => logger.error('Failed to send like notification email', err));
       }
     }
 
@@ -1063,11 +1064,28 @@ exports.addBlogComment = async (req, res) => {
     // Email notification to blog author (FIXED: Use notificationSettings)
     const blog = await Blog.findById(req.params.id).populate('author');
     if (blog && blog.author && blog.author.notificationSettings?.emailNotifications !== false) {
-      const subject = `New comment on your blog: ${blog.title}`;
-      const html = `<p>Hi ${blog.author.name},</p>
-        <p>You have a new comment on your blog <strong>${blog.title}</strong>:</p>
-        <blockquote>${content}</blockquote>
-        <p>From: ${comment.userId.name}</p>`;
+      const subject = `New comment on your blog`;
+      const blogUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/article/${blog.slug || blog._id}`;
+      const commenterName = comment.userId.displayName ||
+        (comment.userId.firstName && comment.userId.lastName ?
+          `${comment.userId.firstName} ${comment.userId.lastName}` :
+          comment.userId.username || comment.userId.name || 'A user');
+
+      const html = generateEmailHtml({
+        title: 'New Comment on Your Blog 💬',
+        content: `
+          <p class="text">Hi ${blog.author.name},</p>
+          <p class="text">You have a new comment on your blog <strong>"${blog.title}"</strong>:</p>
+          <div class="info-box">
+            <p class="text" style="font-style: italic; margin: 0;">${content}</p>
+          </div>
+          <p class="text" style="font-size: 14px; color: #757575;">From: ${commenterName}</p>
+        `,
+        actionText: 'View Comment',
+        actionUrl: blogUrl,
+        previewText: `${commenterName} commented on "${blog.title}"`,
+        themeColor: '#10B981' // Green for comments
+      });
       emailService.sendNotificationEmail(blog.author.email, subject, html).catch(err => logger.error('Failed to send comment notification email', err));
     }
 

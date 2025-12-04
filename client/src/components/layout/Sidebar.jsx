@@ -17,10 +17,12 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../context/ThemeContext";
 
 const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+  const { actualTheme } = useTheme();
 
   // Public navigation items (always visible)
   const publicNavigation = [
@@ -86,9 +88,11 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
           <div className="flex items-center justify-between p-4 border-b border-border h-14 sm:h-16">
             {!collapsed ? (
               <>
-                <h1 className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                  VocalInk
-                </h1>
+                <img
+                  src={actualTheme === "dark" ? "/vocalink-high_dark_theme.png" : "/vocalink_transparent_logo.png"}
+                  alt="VocalInk"
+                  className="h-8"
+                />
                 <div className="flex items-center gap-2">
                   {/* Mobile close button */}
                   <button

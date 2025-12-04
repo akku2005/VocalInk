@@ -31,13 +31,13 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const updateActualTheme = () => {
       let newTheme = 'light';
-      
+
       if (appearanceSettings.theme === 'system') {
         newTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       } else {
         newTheme = appearanceSettings.theme;
       }
-      
+
       setActualTheme(newTheme);
     };
 
@@ -52,11 +52,11 @@ export const ThemeProvider = ({ children }) => {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    
+
     // Apply theme with force
     root.removeAttribute('data-theme');
     root.classList.remove('dark', 'light');
-    
+
     if (actualTheme === 'dark') {
       root.setAttribute('data-theme', 'dark');
       root.classList.add('dark');
@@ -80,10 +80,9 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const toggleTheme = () => {
-    const themes = ['light', 'dark', 'system'];
-    const currentIndex = themes.indexOf(appearanceSettings.theme);
-    const nextTheme = themes[(currentIndex + 1) % themes.length];
-    updateAppearanceSettings({ theme: nextTheme });
+    // Toggle directly between light and dark (skip system)
+    const newTheme = actualTheme === 'dark' ? 'light' : 'dark';
+    updateAppearanceSettings({ theme: newTheme });
   };
 
   // Load settings from backend when component mounts
@@ -107,12 +106,12 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ 
+    <ThemeContext.Provider value={{
       theme: appearanceSettings.theme,
       actualTheme,
       appearanceSettings,
       updateAppearanceSettings,
-      toggleTheme 
+      toggleTheme
     }}>
       {children}
     </ThemeContext.Provider>

@@ -64,7 +64,7 @@ const GamificationTab = ({
     setSettings((prev) => ({
       ...prev,
       gamification: {
-        ...prev.gamification,
+        ...(prev.gamification || {}),
         [field]: value
       }
     }));

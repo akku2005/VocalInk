@@ -305,7 +305,14 @@ const SeriesPage = () => {
   };
 
   const getTotalReadTime = (episodes) => {
-    return episodes.reduce((total, ep) => total + (ep.readTime || 0), 0);
+    return episodes.reduce((total, ep) => {
+      // If episodeId is populated, get readingTime from it
+      if (ep.episodeId && typeof ep.episodeId === 'object') {
+        return total + (ep.episodeId.readingTime || 0);
+      }
+      // Fallback to readingTime on episode itself
+      return total + (ep.readingTime || 0);
+    }, 0);
   };
 
   const getSeriesProgress = (episodes) => {
@@ -355,10 +362,12 @@ const SeriesPage = () => {
     );
   };
 
+
   // SeriesCard component with improved mobile design
   const SeriesCard = ({ series, viewMode }) => {
     const publishedEpisodes = getPublishedEpisodesCount(series.episodes || []);
-    const totalReadTime = getTotalReadTime(
+    // Use totalReadingTime from backend if available, otherwise calculate client-side
+    const totalReadTime = series.totalReadingTime || getTotalReadTime(
       (series.episodes || []).filter((ep) => ep.status === "published")
     );
     const progress = getSeriesProgress(series.episodes || []);

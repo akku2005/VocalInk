@@ -140,16 +140,41 @@ exports.getMyProfile = async (req, res) => {
   }
 };
 
-// Get user profile by ID
+// Get user profile by ID or username
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select(
-        '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
-      )
-      .populate('badges', 'name description icon')
-      .populate('followers', 'firstName lastName name email avatar profilePicture username')
-      .populate('following', 'firstName lastName name email avatar profilePicture username');
+    const idOrUsername = req.params.id;
+
+    // Resolve lookup: prefer ObjectId when valid, otherwise treat as username/display name handle
+    const orQueries = [];
+    const objectId = buildObjectId(idOrUsername);
+    if (objectId) {
+      orQueries.push({ _id: objectId });
+    } else {
+      const normalizedUsername = sanitizeUsername(
+        idOrUsername.startsWith('@') ? idOrUsername.slice(1) : idOrUsername
+      );
+      if (normalizedUsername) {
+        orQueries.push(
+          { username: normalizedUsername },
+          { displayName: new RegExp(`^${normalizedUsername}$`, 'i') },
+          { name: new RegExp(`^${normalizedUsername}$`, 'i') }
+        );
+      }
+    }
+
+    const findQuery = orQueries.length ? { $or: orQueries } : null;
+
+    let user = null;
+    if (findQuery) {
+      user = await User.findOne(findQuery)
+        .select(
+          '-password -resetPasswordToken -resetPasswordCode -resetPasswordExpires -twoFactorSecret'
+        )
+        .populate('badges', 'name description icon')
+        .populate('followers', 'firstName lastName name email avatar profilePicture username')
+        .populate('following', 'firstName lastName name email avatar profilePicture username');
+    }
 
     if (!user) {
       throw new NotFoundError('User not found');
@@ -903,6 +928,25 @@ exports.getLeaderboard = async (req, res) => {
           blogCount: { $size: '$blogs' },
           followerCount: { $size: '$followers' },
           followingCount: { $size: '$following' },
+          xp: { $ifNull: ['$xp', 0] },
+          // Prefer an existing display name, otherwise build one from user fields
+          name: {
+            $ifNull: [
+              '$displayName',
+              {
+                $cond: [
+                  { $and: [{ $ifNull: ['$firstName', false] }, { $ifNull: ['$lastName', false] }] },
+                  { $concat: ['$firstName', ' ', '$lastName'] },
+                  {
+                    $ifNull: [
+                      '$firstName',
+                      { $ifNull: ['$username', 'Anonymous'] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
         },
       },
       {
@@ -915,8 +959,13 @@ exports.getLeaderboard = async (req, res) => {
         $project: {
           _id: 1,
           name: 1,
+          displayName: 1,
+          username: 1,
+          firstName: 1,
+          lastName: 1,
           email: 1,
           avatar: 1,
+          profilePicture: 1,
           role: 1,
           xp: 1,
           blogCount: 1,

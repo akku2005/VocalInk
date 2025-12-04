@@ -598,7 +598,7 @@ const BadgeGalleryPage = () => {
                 {/* Badge Icon and Status */}
                 <div className="relative">
                   <div className="text-4xl mb-2">{badge.icon}</div>
-                  {badge.earnedAt ? (
+                  {badge.earned || badge.earnedAt ? (
                     <div className="absolute -top-2 -right-2">
                       <CheckCircle className="w-6 h-6 text-success" />
                     </div>
@@ -710,20 +710,27 @@ const BadgeGalleryPage = () => {
                   {/* Stats */}
                   <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                     <div className="flex items-center justify-between text-xs text-text-secondary">
-                      <span>
-                        {(badge.analytics?.totalEarned ?? badge.earnedBy ?? 0).toLocaleString()} earned
-                      </span>
-                      {typeof badge.analytics?.popularityScore === "number" && (
-                        <span>
-                          {Math.round(
-                            Math.min(
-                              badge.analytics.popularityScore * 100,
-                              100
-                            )
-                          )}
-                          % adoption
-                        </span>
-                      )}
+                      {(() => {
+                        const earnedCount = (badge.analytics?.totalEarned ?? badge.earnedBy ?? 0);
+                        const rawAdoption =
+                          typeof badge.analytics?.popularityScore === "number"
+                            ? badge.analytics.popularityScore
+                            : typeof badge.analytics?.adoptionRate === "number"
+                              ? badge.analytics.adoptionRate
+                              : null;
+                        const adoptionPercent =
+                          Number.isFinite(rawAdoption) && rawAdoption > 0
+                            ? Math.round(Math.min(rawAdoption * 100, 100))
+                            : null;
+                        return (
+                          <>
+                            <span>{earnedCount.toLocaleString()} earned</span>
+                            {adoptionPercent !== null && (
+                              <span>{adoptionPercent}% adoption</span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 

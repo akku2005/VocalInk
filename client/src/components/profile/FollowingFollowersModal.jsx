@@ -4,6 +4,7 @@ import { X, UserMinus } from 'lucide-react';
 import Button from '../ui/Button';
 import { userService } from '../../services/userService';
 import { useToast } from '../../hooks/useToast';
+import { getProfilePath } from '../../utils/profileUrl';
 
 const FollowingFollowersModal = ({ isOpen, onClose, users, type, onUnfollow, onRemoveFollower, currentUserId }) => {
     const [unfollowingId, setUnfollowingId] = useState(null);
@@ -26,8 +27,8 @@ const FollowingFollowersModal = ({ isOpen, onClose, users, type, onUnfollow, onR
         }
     };
 
-    const handleUserClick = (userId) => {
-        navigate(`/profile/${userId}`);
+    const handleUserClick = (userLike) => {
+        navigate(getProfilePath(userLike));
         onClose();
     };
 
@@ -107,7 +108,7 @@ const FollowingFollowersModal = ({ isOpen, onClose, users, type, onUnfollow, onR
                                         {/* Avatar */}
                                         <div
                                             className="flex-shrink-0 cursor-pointer"
-                                            onClick={() => handleUserClick(user._id || user.id)}
+                                            onClick={() => handleUserClick(user)}
                                         >
                                             {user.avatar || user.profilePicture ? (
                                                 <img

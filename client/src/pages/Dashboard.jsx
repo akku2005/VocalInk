@@ -34,6 +34,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import dashboardService from "../services/dashboardService";
 import { getCleanExcerpt } from "../utils/textUtils";
+import { getProfilePath } from "../utils/profileUrl";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -112,7 +113,7 @@ const Dashboard = () => {
     {
       name: "View Profile",
       icon: User,
-      action: () => navigate(`/profile/${user?.id || user?._id}`),
+      action: () => navigate(getProfilePath(user)),
       color: "text-blue-500",
     },
     {

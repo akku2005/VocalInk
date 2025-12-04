@@ -1,10 +1,58 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
+import { userService } from "../../services/userService";
 
 export default function Breadcrumb() {
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
+  const [profileLabel, setProfileLabel] = useState(null);
+
+  useEffect(() => {
+    const fetchProfileLabel = async () => {
+      if (pathnames[0] !== "profile" || !pathnames[1]) {
+        setProfileLabel(null);
+        return;
+      }
+
+      const identifier = pathnames[1];
+      const sanitized = identifier.replace(/^@/, "");
+      const fallbackHandle = sanitized || "user";
+
+      // Skip legacy pseudo handles
+      if (/^user-[a-f\d]{6}$/i.test(sanitized)) {
+        setProfileLabel(fallbackHandle);
+        return;
+      }
+
+      try {
+        const profile = await userService.getUserProfile(sanitized);
+        const handle =
+          profile.username ||
+          (profile._id ? String(profile._id) : fallbackHandle);
+        const display =
+          profile.displayName ||
+          (profile.firstName || profile.lastName
+            ? `${profile.firstName || ""} ${profile.lastName || ""}`.trim()
+            : profile.name ||
+              profile.username ||
+              (profile.email ? profile.email.split("@")[0] : null) ||
+              null);
+
+        const crumb = display
+          ? profile.username
+            ? `${display} (@${handle})`
+            : display
+          : handle;
+        setProfileLabel(crumb);
+      } catch (err) {
+        // Fallback: show handle with @ prefix for uniqueness
+        setProfileLabel(fallbackHandle);
+      }
+    };
+
+    fetchProfileLabel();
+  }, [pathnames]);
 
   const getBreadcrumbName = (path) => {
     const breadcrumbMap = {
@@ -26,6 +74,11 @@ export default function Breadcrumb() {
       badges: "Badges",
       timeline: "Timeline",
     };
+
+    // Special-case profile user segment
+    if (pathnames[0] === "profile" && pathnames[1] === path) {
+      return profileLabel || "Profile";
+    }
 
     if (breadcrumbMap[path]) return breadcrumbMap[path];
 

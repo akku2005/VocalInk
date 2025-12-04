@@ -7,6 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import imageUploadService from '../../services/imageUploadService';
 import settingsService from '../../services/settingsService';
 import { userService } from '../../services/userService';
+import { useAuth } from '../../hooks/useAuth';
 
 // Language options matching reference
 const languages = [
@@ -49,6 +50,8 @@ const ProfileTab = ({
   loadSettings
 }) => {
   const profile = settings?.profile || {};
+  const { userProfile } = useAuth();
+  const profileUsername = profile.username || userProfile?.username || '';
   const coverImageInputRef = useRef(null);
   const [processingImage, setProcessingImage] = useState(false);
   const [avatarBlobUrl, setAvatarBlobUrl] = useState(null);
@@ -60,7 +63,7 @@ const ProfileTab = ({
     setSettings((prev) => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || {}),
         [field]: value,
       },
     }));
@@ -72,7 +75,7 @@ const ProfileTab = ({
   };
 
   const handleUsernameBlur = async (value) => {
-    if (!value || value === (profile.username || '')) {
+    if (!value || value === profileUsername) {
       setUsernameFeedback('');
       return;
     }
@@ -421,13 +424,13 @@ const ProfileTab = ({
                 Username
               </label>
               <Input
-                value={profile.username || ''}
+                value={profileUsername}
                 onChange={(e) => handleInputChange('profile', 'username', e.target.value)}
                 onBlur={(e) => handleUsernameBlur(e.target.value)}
                 placeholder="Enter username"
               />
               {checkingUsername && (
-                <p className="text-xs text-text-secondary mt-1">Checking availability…</p>
+                <p className="text-xs text-text-secondary mt-1">Checking availability...</p>
               )}
               {usernameFeedback.message && !checkingUsername && (
                 <p
