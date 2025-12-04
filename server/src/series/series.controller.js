@@ -109,6 +109,10 @@ exports.getSeries = async (req, res, next) => {
       Series.find(query)
         .populate('authorId', 'firstName lastName displayName username name email profilePicture avatar bio')
         .populate('collaborators.userId', 'firstName lastName displayName username name email profilePicture avatar bio')
+        .populate({
+          path: 'episodes.episodeId',
+          select: 'readingTime status'
+        })
         .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit)),
@@ -176,7 +180,7 @@ exports.getSeriesById = async (req, res, next) => {
       .populate('collaborators.userId', 'firstName lastName displayName username email profilePicture')
       .populate({
         path: 'episodes.episodeId',
-        select: 'title content summary coverImage status publishedAt likes bookmarks slug'
+        select: 'title content summary coverImage status publishedAt likes bookmarks slug readingTime'
       });
 
     if (!series) {
@@ -377,8 +381,11 @@ exports.addEpisode = async (req, res, next) => {
       throw new BadRequestError('This blog is already part of this series');
     }
 
+    // Determine episode status based on blog status
+    const episodeStatus = blog.status === 'published' ? 'published' : 'draft';
+
     // Add episode to series
-    await series.addEpisode(blogId, order, title);
+    await series.addEpisode(blogId, order, title, episodeStatus);
 
     // Update blog with series reference
     blog.seriesId = id;
@@ -387,8 +394,23 @@ exports.addEpisode = async (req, res, next) => {
     // Add change history
     await series.addChangeHistory(`Episode added: ${title}`, req.user.id);
 
-    // Award XP for adding episode
-    await XPService.awardXP(req.user.id, 'add_to_series', { seriesId: series._id, episodeId: blogId });
+    // Award XP for adding episode (non-blocking)
+    try {
+      const requestInfo = {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        deviceFingerprint: req.headers['x-device-fingerprint'],
+        sessionId: req.sessionID
+      };
+
+      await XPService.awardXP(req.user.id, 'add_to_series', {
+        seriesId: series._id,
+        episodeId: blogId
+      }, requestInfo);
+    } catch (xpError) {
+      // Log error but don't fail the request
+      logger.error('Failed to award XP for adding episode:', xpError);
+    }
 
     logger.info(`Episode added to series: ${title} in ${series.title}`);
 

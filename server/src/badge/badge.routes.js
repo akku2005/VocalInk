@@ -64,12 +64,6 @@ router.get('/category/:category',
   badgeController.getBadgesByCategory
 );
 
-router.get('/:id', 
-  validateBadge, 
-  cacheBadgeResponse(600), 
-  badgeController.getBadgeById
-);
-
 // User routes (require authentication)
 router.get('/user/badges', 
   protect, 
@@ -111,6 +105,13 @@ router.get('/user/progress/:userId',
   protect, 
   cacheBadgeResponse(300), 
   badgeController.getUserBadgeProgress
+);
+
+// Badge detail (must be after /user/* to avoid route conflicts)
+router.get('/:id', 
+  validateBadge, 
+  cacheBadgeResponse(600), 
+  badgeController.getBadgeById
 );
 
 router.post('/:badgeId/claim', 

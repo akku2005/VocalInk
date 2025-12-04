@@ -2,6 +2,7 @@ const Badge = require('../models/badge.model');
 const BadgeClaim = require('../models/badgeClaim.model');
 const User = require('../models/user.model');
 const Notification = require('../models/notification.model');
+const Blog = require('../models/blog.model');
 const NotificationService = require('./NotificationService');
 const XPService = require('./XPService');
 const logger = require('../utils/logger');
@@ -183,7 +184,7 @@ class BadgeService {
       if (user) {
         badgeData.userHasEarned = user.badges.includes(badge._id);
         badgeData.userEligible = await Badge.isUserEligibleForBadge(user, badge);
-        badgeData.userProgress = await this.getUserBadgeProgress(user, badge);
+        badgeData.userProgress = await this.computeBadgeProgress(user, badge);
       }
     }
 
@@ -191,12 +192,29 @@ class BadgeService {
   }
 
   /**
-   * Get user's progress toward a specific badge
+   * Get user's progress toward a specific badge (internal helper)
+   * Safely handles missing requirement fields and avoids DB lookups explosion.
    */
-  async getUserBadgeProgress(user, badge, stats = null) {
-    if (user.badges.includes(badge._id)) {
+  async computeBadgeProgress(user, badge, stats = null) {
+    const userBadges = Array.isArray(user.badges) ? user.badges : [];
+    if (userBadges.some((b) => b.toString() === badge._id.toString())) {
       return { completed: true, progress: 100, requirements: [] };
     }
+
+    const followersCount = Array.isArray(user.followers) ? user.followers.length : 0;
+    const totalLikes = typeof user.totalLikes === 'number' ? user.totalLikes : 0;
+    const totalComments = typeof user.totalComments === 'number' ? user.totalComments : 0;
+    const createdAt = user.createdAt ? new Date(user.createdAt) : new Date();
+
+    const req = badge.requirements || {};
+    const requirements = {
+      xpRequired: req.xpRequired || 0,
+      blogsRequired: req.blogsRequired || 0,
+      followersRequired: req.followersRequired || 0,
+      likesRequired: req.likesRequired || 0,
+      commentsRequired: req.commentsRequired || 0,
+      daysActiveRequired: req.daysActiveRequired || 0,
+    };
 
     const progress = {
       completed: false,
@@ -204,87 +222,97 @@ class BadgeService {
       requirements: []
     };
 
-    // Evaluate legacy requirements
-    const requirements = badge.requirements;
     const totalRequirements = 6; // XP, blogs, followers, likes, comments, days
     let completedRequirements = 0;
 
     // Check XP requirement
-    const xpProgress = Math.min(user.xp / requirements.xpRequired, 1);
+    const xpProgress = requirements.xpRequired > 0
+      ? Math.min(user.xp / requirements.xpRequired, 1)
+      : 1;
     progress.requirements.push({
       name: 'XP Required',
       current: user.xp,
       required: requirements.xpRequired,
-      completed: user.xp >= requirements.xpRequired,
+      completed: requirements.xpRequired === 0 || user.xp >= requirements.xpRequired,
       progress: xpProgress * 100
     });
-    if (user.xp >= requirements.xpRequired) completedRequirements++;
+    if (requirements.xpRequired === 0 || user.xp >= requirements.xpRequired) completedRequirements++;
 
     // Check blogs requirement
     let blogCount;
     if (stats && typeof stats.blogCount === 'number') {
       blogCount = stats.blogCount;
     } else {
-      blogCount = await this.model('Blog').countDocuments({
+      blogCount = await Blog.countDocuments({
         author: user._id,
         status: 'published',
       });
     }
 
-    const blogProgress = Math.min(blogCount / requirements.blogsRequired, 1);
+    const blogProgress = requirements.blogsRequired > 0
+      ? Math.min(blogCount / requirements.blogsRequired, 1)
+      : 1;
     progress.requirements.push({
       name: 'Blogs Required',
       current: blogCount,
       required: requirements.blogsRequired,
-      completed: blogCount >= requirements.blogsRequired,
+      completed: requirements.blogsRequired === 0 || blogCount >= requirements.blogsRequired,
       progress: blogProgress * 100
     });
-    if (blogCount >= requirements.blogsRequired) completedRequirements++;
+    if (requirements.blogsRequired === 0 || blogCount >= requirements.blogsRequired) completedRequirements++;
 
     // Check followers requirement
-    const followerProgress = Math.min(user.followers.length / requirements.followersRequired, 1);
+    const followerProgress = requirements.followersRequired > 0
+      ? Math.min(followersCount / requirements.followersRequired, 1)
+      : 1;
     progress.requirements.push({
       name: 'Followers Required',
-      current: user.followers.length,
+      current: followersCount,
       required: requirements.followersRequired,
-      completed: user.followers.length >= requirements.followersRequired,
+      completed: requirements.followersRequired === 0 || followersCount >= requirements.followersRequired,
       progress: followerProgress * 100
     });
-    if (user.followers.length >= requirements.followersRequired) completedRequirements++;
+    if (requirements.followersRequired === 0 || followersCount >= requirements.followersRequired) completedRequirements++;
 
     // Check likes requirement
-    const likeProgress = Math.min(user.totalLikes / requirements.likesRequired, 1);
+    const likeProgress = requirements.likesRequired > 0
+      ? Math.min(totalLikes / requirements.likesRequired, 1)
+      : 1;
     progress.requirements.push({
       name: 'Likes Required',
-      current: user.totalLikes,
+      current: totalLikes,
       required: requirements.likesRequired,
-      completed: user.totalLikes >= requirements.likesRequired,
+      completed: requirements.likesRequired === 0 || totalLikes >= requirements.likesRequired,
       progress: likeProgress * 100
     });
-    if (user.totalLikes >= requirements.likesRequired) completedRequirements++;
+    if (requirements.likesRequired === 0 || totalLikes >= requirements.likesRequired) completedRequirements++;
 
     // Check comments requirement
-    const commentProgress = Math.min(user.totalComments / requirements.commentsRequired, 1);
+    const commentProgress = requirements.commentsRequired > 0
+      ? Math.min(totalComments / requirements.commentsRequired, 1)
+      : 1;
     progress.requirements.push({
       name: 'Comments Required',
-      current: user.totalComments,
+      current: totalComments,
       required: requirements.commentsRequired,
-      completed: user.totalComments >= requirements.commentsRequired,
+      completed: requirements.commentsRequired === 0 || totalComments >= requirements.commentsRequired,
       progress: commentProgress * 100
     });
-    if (user.totalComments >= requirements.commentsRequired) completedRequirements++;
+    if (requirements.commentsRequired === 0 || totalComments >= requirements.commentsRequired) completedRequirements++;
 
     // Check days active requirement
-    const daysActive = Math.floor((Date.now() - user.createdAt) / (1000 * 60 * 60 * 24));
-    const daysProgress = Math.min(daysActive / requirements.daysActiveRequired, 1);
+    const daysActive = Math.floor((Date.now() - createdAt) / (1000 * 60 * 60 * 24));
+    const daysProgress = requirements.daysActiveRequired > 0
+      ? Math.min(daysActive / requirements.daysActiveRequired, 1)
+      : 1;
     progress.requirements.push({
       name: 'Days Active Required',
       current: daysActive,
       required: requirements.daysActiveRequired,
-      completed: daysActive >= requirements.daysActiveRequired,
+      completed: requirements.daysActiveRequired === 0 || daysActive >= requirements.daysActiveRequired,
       progress: daysProgress * 100
     });
-    if (daysActive >= requirements.daysActiveRequired) completedRequirements++;
+    if (requirements.daysActiveRequired === 0 || daysActive >= requirements.daysActiveRequired) completedRequirements++;
 
     progress.progress = Math.round((completedRequirements / totalRequirements) * 100);
 
@@ -301,10 +329,10 @@ class BadgeService {
     }
 
     const allBadges = await Badge.find({ status: 'active' });
-    const userBadgeIds = user.badges.map(b => b.toString());
+    const userBadgeIds = Array.isArray(user.badges) ? user.badges.map(b => b.toString()) : [];
 
     // Pre-fetch statistics to avoid N+1 queries
-    const blogCount = await this.model('Blog').countDocuments({
+    const blogCount = await Blog.countDocuments({
       author: user._id,
       status: 'published',
     });
@@ -313,17 +341,18 @@ class BadgeService {
       blogCount
     };
 
+    const totalBadges = allBadges.length || 1;
     const progressData = {
       totalBadges: allBadges.length,
-      earnedBadges: user.badges.length,
-      availableBadges: allBadges.length - user.badges.length,
-      completionPercentage: Math.round((user.badges.length / allBadges.length) * 100),
+      earnedBadges: userBadgeIds.length,
+      availableBadges: Math.max(allBadges.length - userBadgeIds.length, 0),
+      completionPercentage: Math.round((userBadgeIds.length / totalBadges) * 100),
       badges: []
     };
 
     // Get progress for each badge
     for (const badge of allBadges) {
-      const badgeProgress = await this.getUserBadgeProgress(user, badge, stats);
+      const badgeProgress = await this.computeBadgeProgress(user, badge, stats);
       progressData.badges.push({
         badgeId: badge._id,
         badgeKey: badge.badgeKey,

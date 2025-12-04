@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { userService } from "../services/userService";
 import { settingsService } from "../services/settingsService";
 import { imageService } from "../services/imageService";
+import { getProfileHandle, getProfilePath } from "../utils/profileUrl";
 import {
   Card,
   CardHeader,
@@ -34,6 +35,7 @@ import {
   Eye
 } from "lucide-react";
 import { getCleanExcerpt, calculateReadTime } from "../utils/textUtils";
+import ProfilePageSkeleton from "../components/skeletons/ProfilePageSkeleton";
 import FollowingFollowersModal from "../components/profile/FollowingFollowersModal";
 
 const ProfilePage = () => {
@@ -60,6 +62,7 @@ const ProfilePage = () => {
   const [showFollowModal, setShowFollowModal] = useState(false);
   const [modalType, setModalType] = useState('following'); // 'following' or 'followers'
   const [modalUsers, setModalUsers] = useState([]);
+  const lastFetchedKey = useRef(null);
 
   // File input refs
   const avatarInputRef = useRef(null);
@@ -71,31 +74,54 @@ const ProfilePage = () => {
     : username === 'me' || (!id && !username);
   const targetUserId = id || (profile?._id);
 
+  const profileKey = useMemo(
+    () => (username || id || 'me').replace(/^@/, ''),
+    [username, id]
+  );
+
   useEffect(() => {
+    // Always start in loading state for new route
+    setLoading(true);
+    setError(null);
+
     const fetchProfile = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        // Don't refetch the same profileKey twice
+        if (lastFetchedKey.current === profileKey && profile) {
+          setLoading(false);
+          return;
+        }
 
         let profileData;
 
         // Check if we have a URL parameter (could be username or ID)
         const urlParam = username || id;
+        const lookup = (urlParam || '').replace(/^@/, '');
 
         // If no URL parameter, fetch current user's profile
         if (!urlParam) {
           profileData = await userService.getMyProfile();
         } else {
-          // Check if the parameter looks like a MongoDB ID (24 hex characters)
-          const isMongoId = /^[a-f\d]{24}$/i.test(urlParam);
+          // Reject legacy pseudo-handles we previously generated
+          if (/^user-[a-f\d]{6}$/i.test(lookup)) {
+            throw new Error('Invalid profile link');
+          }
 
-          // Always use getUserProfile for URL parameters (works for both ID and username)
-          profileData = await userService.getUserProfile(urlParam);
+          // Allow backend to resolve by username or id
+          profileData = await userService.getUserProfile(lookup);
         }
 
         setProfile(profileData);
-        console.log('Profile data loaded:', profileData);
-        console.log('isFollowing status:', profileData.isFollowing);
+        lastFetchedKey.current = profileKey;
+
+        // Redirect to canonical id path if needed
+        const currentSegment = (username || id || '').replace(/^@/, '');
+        const canonicalHandle = getProfileHandle(profileData);
+        const canonicalPath = getProfilePath(profileData);
+
+        if (canonicalHandle && currentSegment && currentSegment !== canonicalHandle) {
+          navigate(canonicalPath, { replace: true });
+        }
       } catch (err) {
         console.error('Error fetching profile:', err);
         setError(err.message || 'Failed to load profile');
@@ -105,7 +131,7 @@ const ProfilePage = () => {
     };
 
     fetchProfile();
-  }, [id, username]);
+  }, [profileKey]);
 
   useEffect(() => {
     const fetchUserBlogs = async () => {
@@ -410,17 +436,8 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="animate-pulse">
-          <div className="h-64 bg-gray-200 rounded-lg mb-6"></div>
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="h-64 bg-gray-200 rounded"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-            <div className="h-64 bg-gray-200 rounded"></div>
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <ProfilePageSkeleton />
       </div>
     );
   }
@@ -464,9 +481,22 @@ const ProfilePage = () => {
     });
   };
 
-  // Calculate XP progress
-  const xpProgress = profile.xp ? (profile.xp % 100) : 0;
-  const nextLevelXP = profile.level ? (profile.level * 100) - profile.xp : 100;
+  // Calculate XP progress with gamification fallbacks (handles remaining XP values)
+  const gamification = profile.gamificationSettings || profile.gamification || {};
+  const level = profile.level || gamification.level || 1;
+  const totalXP = profile.xp ?? gamification.totalXP ?? 0;
+  const currentLevelXP =
+    profile.currentLevelXP ??
+    gamification.currentLevelXP ??
+    (totalXP % 100);
+  const remainingXP =
+    profile.nextLevelXP ??
+    gamification.nextLevelXP ??
+    Math.max(0, 100 - currentLevelXP);
+  const xpProgress = Math.min(
+    100,
+    Math.max(0, (currentLevelXP / (currentLevelXP + remainingXP || 1)) * 100)
+  );
 
   return (
     <>
@@ -744,7 +774,7 @@ const ProfilePage = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-[var(--light-text-color2)]">
                 <Trophy className="w-5 h-5 text-warning" />
-                Level {profile.level || 1} • {profile.xp?.toLocaleString() || 0} XP
+                Level {level} • {totalXP.toLocaleString()} XP
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -755,7 +785,7 @@ const ProfilePage = () => {
                 ></div>
               </div>
               <p className="text-sm text-text-secondary">
-                {nextLevelXP} XP until level {(profile.level || 1) + 1}
+                {Math.max(0, remainingXP)} XP until level {level + 1}
               </p>
             </CardContent>
           </Card>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useParams } from "react-router-dom";
 import BlogCard from "../components/blog/BlogCard";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -23,34 +23,21 @@ import {
 const BlogPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { category: categoryParam } = useParams();
   const params = new URLSearchParams(location.search);
 
   const [searchQuery, setSearchQuery] = useState(params.get("q") || "");
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
-    params.get("cat") || "all"
+    params.get("cat") || categoryParam || "all"
   );
-  const [viewMode, setViewMode] = useState(params.get("view") || "grid");
+  const [viewMode, setViewMode] = useState(params.get("view") || "list");
   const [sortBy, setSortBy] = useState(params.get("sort") || "recent");
   const [isLoading, setIsLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [blogs, setBlogs] = useState([]);
   const [error, setError] = useState(null);
-
-  // Force grid view on mobile
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        // sm breakpoint
-        setViewMode("grid");
-      }
-    };
-
-    handleResize(); // Check on mount
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   // Fetch blogs from API
   useEffect(() => {
@@ -127,13 +114,18 @@ const BlogPage = () => {
 
   // URL sync
   useEffect(() => {
+    // If route category changes (e.g., /tech), update selection
+    if (categoryParam && categoryParam !== selectedCategory) {
+      setSelectedCategory(categoryParam.toLowerCase());
+    }
+
     const q = searchQuery ? `q=${encodeURIComponent(searchQuery)}` : "";
     const cat =
       selectedCategory && selectedCategory !== "all"
         ? `&cat=${encodeURIComponent(selectedCategory)}`
         : "";
     const view =
-      viewMode !== "grid" ? `&view=${encodeURIComponent(viewMode)}` : "";
+      viewMode !== "list" ? `&view=${encodeURIComponent(viewMode)}` : "";
     const sort =
       sortBy !== "recent" ? `&sort=${encodeURIComponent(sortBy)}` : "";
     const query = [q, cat, view, sort].filter(Boolean).join("");
@@ -524,8 +516,8 @@ const BlogPage = () => {
         <div
           id="blog-grid"
           className={`grid gap-6 sm:gap-8 ${viewMode === "grid"
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
-            : "grid-cols-1 max-w-5xl mx-auto"
+            ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+            : "grid-cols-1 w-full"
             }`}
         >
           {filteredAndSortedBlogs.map((blog, index) => (

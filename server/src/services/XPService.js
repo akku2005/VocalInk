@@ -2,6 +2,7 @@ const XPTransaction = require('../models/xpTransaction.model');
 const User = require('../models/user.model');
 const Badge = require('../models/badge.model');
 const NotificationService = require('./NotificationService');
+const AINotificationService = require('./AINotificationService');
 const logger = require('../utils/logger');
 
 class XPService {
@@ -14,34 +15,34 @@ class XPService {
     create_series: { base: 30, dailyLimit: null, qualityMultiplier: true },
     add_to_series: { base: 10, dailyLimit: null, qualityMultiplier: false },
     upload_media: { base: 5, dailyLimit: 20, qualityMultiplier: false },
-    
+
     // Content Consumption (Medium Value)
     complete_blog_read: { base: 5, dailyLimit: 15, qualityMultiplier: false },
     bookmark_blog: { base: 2, dailyLimit: 25, qualityMultiplier: false },
     share_blog_external: { base: 15, dailyLimit: 10, qualityMultiplier: false },
     subscribe_author: { base: 8, dailyLimit: 15, qualityMultiplier: false },
     join_series: { base: 3, dailyLimit: 20, qualityMultiplier: false },
-    
+
     // Social Interaction (Variable Value)
     write_comment: { base: 10, dailyLimit: 20, qualityMultiplier: true },
     reply_comment: { base: 5, dailyLimit: 30, qualityMultiplier: true },
     receive_comment_like: { base: 1, dailyLimit: null, qualityMultiplier: false },
     receive_blog_like: { base: 2, dailyLimit: null, qualityMultiplier: false },
     start_discussion: { base: 8, dailyLimit: 5, qualityMultiplier: true },
-    
+
     // Platform Engagement (Low-Medium Value)
     daily_login: { base: 5, dailyLimit: 1, qualityMultiplier: false },
     complete_profile: { base: 20, dailyLimit: 1, qualityMultiplier: false },
     upload_profile_picture: { base: 5, dailyLimit: 1, qualityMultiplier: false },
     connect_social_media: { base: 10, dailyLimit: 1, qualityMultiplier: false },
     invite_friend: { base: 25, dailyLimit: 5, qualityMultiplier: false },
-    
+
     // Badge & Achievement
     earn_badge: { base: 0, dailyLimit: null, qualityMultiplier: false }, // XP comes from badge
     level_up: { base: 0, dailyLimit: null, qualityMultiplier: false }, // Bonus XP for leveling
     streak_bonus: { base: 0, dailyLimit: null, qualityMultiplier: false },
     quality_bonus: { base: 0, dailyLimit: null, qualityMultiplier: false },
-    
+
     // Admin Actions
     admin_grant: { base: 0, dailyLimit: null, qualityMultiplier: false },
     admin_deduct: { base: 0, dailyLimit: null, qualityMultiplier: false },
@@ -106,7 +107,7 @@ class XPService {
 
       // Calculate base XP
       let baseAmount = this.XP_CONFIG[action].base;
-      
+
       // Handle special cases
       if (action === 'earn_badge' && metadata.badgeId) {
         const badge = await Badge.findById(metadata.badgeId);
@@ -136,11 +137,11 @@ class XPService {
       const previousLevel = user.level;
       const newXP = previousXP + finalAmount;
       const newLevel = this.calculateLevel(newXP);
-      
+
       // Use atomic update to prevent race conditions
       const updatedUser = await User.findByIdAndUpdate(
         userId,
-        { 
+        {
           $inc: { xp: finalAmount },
           $set: { level: newLevel }
         },
@@ -303,11 +304,11 @@ class XPService {
    */
   static async calculateStreakBonuses(user, action) {
     const bonuses = [];
-    
+
     // This would need to be implemented with actual streak tracking
     // For now, we'll return empty array
     // In a real implementation, you'd check user's current streaks
-    
+
     return bonuses;
   }
 
@@ -378,7 +379,7 @@ class XPService {
    */
   static async createTransaction(user, action, baseAmount, finalAmount, multiplier, bonuses, metadata, requestInfo, fraudCheck) {
     const now = new Date();
-    
+
     const transaction = new XPTransaction({
       userId: user._id,
       action,
@@ -450,7 +451,7 @@ class XPService {
   static async handleLevelUp(user, previousLevel, newLevel) {
     // Award bonus XP for leveling up
     const levelUpBonus = Math.floor(newLevel * 10);
-    
+
     await this.awardXP(user._id, 'level_up', {
       previousLevel,
       newLevel,
@@ -459,6 +460,15 @@ class XPService {
 
     // Send level up notification (in-app + email)
     try {
+      // Use AINotificationService for smarter/better notifications
+      await AINotificationService.notifyLevelUp(user._id, newLevel, levelUpBonus);
+
+      // Also trigger standard notification for realtime updates if needed, 
+      // but AINotificationService handles email now.
+      // We can keep NotificationService for in-app if AINotificationService doesn't handle it,
+      // but looking at AINotificationService, it only sends email.
+      // So we should probably keep NotificationService for in-app, or update AINotificationService to do both.
+      // For now, let's call both to be safe, but rely on AINotificationService for the email.
       await NotificationService.sendLevelUpNotification(user._id, newLevel, levelUpBonus);
     } catch (error) {
       logger.error('Error sending level up notification:', error);
@@ -473,12 +483,12 @@ class XPService {
   static async checkBadgeEligibility(user) {
     try {
       const eligibleBadges = await Badge.checkUserEligibility(user._id);
-      
+
       for (const badge of eligibleBadges) {
         // Award badge (this will trigger XP award)
         user.badges.push(badge._id);
         await user.save();
-        
+
         logger.info(`User ${user._id} earned badge: ${badge.name}`);
       }
     } catch (error) {
@@ -496,7 +506,7 @@ class XPService {
 
       const totalUsers = await User.countDocuments();
       const usersWithMoreXP = await User.countDocuments({ xp: { $gt: user.xp } });
-      
+
       const rank = usersWithMoreXP + 1;
       const percentile = Math.round((rank / totalUsers) * 100);
 

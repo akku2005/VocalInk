@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -10,32 +10,18 @@ import {
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import BlogCard from "../components/blog/BlogCard";
+import BlogCardSkeleton from "../components/skeletons/BlogCardSkeleton";
 import blogService from "../services/blogService";
 import {
   Search,
   Filter,
   Grid3X3,
   List,
-  Heart,
-  MessageCircle,
-  BookOpen,
-  Clock,
-  User,
-  Tag,
   Sparkles,
-  TrendingUp,
-  Star,
-  MapPin,
-  Calendar,
-  Zap,
-  Palette,
   X,
   ChevronDown,
   ChevronUp,
-  Smile,
-  Feather,
-  Cpu,
-  Flame,
   Compass,
 } from "lucide-react";
 
@@ -47,12 +33,12 @@ const stripHtml = (html) => {
 };
 
 const SearchPage = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [allBlogs, setAllBlogs] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode, setViewMode] = useState("list");
   const [filters, setFilters] = useState({
     mood: "",
     author: "",
@@ -66,29 +52,29 @@ const SearchPage = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Handle search when component mounts or search params change
+  // Sync query param with local state
   useEffect(() => {
-    const query = searchParams.get("q");
-    if (query) {
-      setSearchQuery(query);
-      performSearch();
-    }
+    const query = searchParams.get("q") || "";
+    setSearchQuery(query);
   }, [searchParams]);
 
-  // Force grid view on mobile
+  // Fetch all blogs once
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setViewMode("grid");
+    const fetchBlogs = async () => {
+      setLoading(true);
+      try {
+        const blogs = await blogService.getBlogs({ status: "published", limit: 100 });
+        setAllBlogs(Array.isArray(blogs) ? blogs : []);
+      } catch (error) {
+        console.error("Search fetch error:", error);
+        setAllBlogs([]);
+      } finally {
+        setLoading(false);
       }
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    fetchBlogs();
   }, []);
-
-  
 
   const sortOptions = [
     { value: "relevance", label: "Relevance" },
@@ -167,82 +153,135 @@ const SearchPage = () => {
     }
   }, [searchQuery]);
 
-  const performSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const normalize = (text) => (text || "").toString().toLowerCase();
 
-    setLoading(true);
-    try {
-      // Fetch blogs from API
-      const blogs = await blogService.getBlogs({
-        status: 'published',
-        limit: 50
-      });
-
-      // Filter results based on search query and filters
-      let filtered = (blogs || []).filter((blog) => {
-        const matchesQuery =
-          blog.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          blog.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          blog.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (blog.tags && Array.isArray(blog.tags) && blog.tags.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase())
-          ));
-
-        const matchesReadTime =
-          !filters.readTime ||
-          (filters.readTime === "0-5" && (blog.readingTime || 0) <= 5) ||
-          (filters.readTime === "5-10" &&
-            (blog.readingTime || 0) > 5 &&
-            (blog.readingTime || 0) <= 10) ||
-          (filters.readTime === "10-15" &&
-            (blog.readingTime || 0) > 10 &&
-            (blog.readingTime || 0) <= 15) ||
-          (filters.readTime === "15+" && (blog.readingTime || 0) > 15);
-
-        return matchesQuery && matchesReadTime;
-      });
-
-      // Sort results
-      switch (filters.sortBy) {
-        case "newest":
-          filtered.sort(
-            (a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt)
-          );
-          break;
-        case "oldest":
-          filtered.sort(
-            (a, b) => new Date(a.publishedAt || a.createdAt) - new Date(b.publishedAt || b.createdAt)
-          );
-          break;
-        case "popular":
-          filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-          break;
-        case "trending":
-          filtered.sort((a, b) => (b.bookmarks || 0) - (a.bookmarks || 0));
-          break;
-        case "readTime":
-          filtered.sort((a, b) => (a.readingTime || 0) - (b.readingTime || 0));
-          break;
-        default:
-          filtered.sort(
-            (a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt)
-          );
-      }
-
-      setSearchResults(filtered);
-    } catch (error) {
-      console.error("Search error:", error);
-      setSearchResults([]);
-    } finally {
-      setLoading(false);
-    }
+  const getAuthorName = (author) => {
+    if (!author) return "";
+    if (typeof author === "string") return author;
+    return (
+      author.displayName ||
+      `${author.firstName || ""} ${author.lastName || ""}`.trim() ||
+      author.username ||
+      author.email?.split("@")[0] ||
+      ""
+    );
   };
+
+  useEffect(() => {
+    const term = normalize(searchQuery.trim());
+    const tokens = term ? term.split(/\s+/).filter(Boolean) : [];
+    const selectedTags = filters.tags.map((tag) => normalize(tag));
+
+    const matchesDateRange = (blog) => {
+      if (!filters.dateRange) return true;
+      const published = new Date(blog.publishedAt || blog.createdAt || Date.now());
+      const now = Date.now();
+      const daysMap = { "7d": 7, "30d": 30, "90d": 90, "365d": 365 };
+      const days = daysMap[filters.dateRange];
+      if (!days) return true;
+      const diffDays = (now - published.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays <= days;
+    };
+
+    const filtered = allBlogs.filter((blog) => {
+      const title = normalize(blog.title);
+      const summary = normalize(stripHtml(blog.summary));
+      const content = normalize(stripHtml(blog.content || blog.excerpt));
+      const tags = Array.isArray(blog.tags) ? blog.tags.map((t) => normalize(t)) : [];
+      const authorName = normalize(getAuthorName(blog.author));
+      const combined = [title, summary, content, tags.join(" "), authorName].join(" ");
+
+      const matchesQuery =
+        tokens.length === 0 ||
+        tokens.some((token) => combined.includes(token));
+
+      const matchesTags =
+        selectedTags.length === 0 ||
+        selectedTags.every((tag) => tags.includes(tag));
+
+      const readTime = blog.readingTime || blog.readTime || 0;
+      const matchesReadTime =
+        !filters.readTime ||
+        (filters.readTime === "0-5" && readTime <= 5) ||
+        (filters.readTime === "5-10" && readTime > 5 && readTime <= 10) ||
+        (filters.readTime === "10-15" && readTime > 10 && readTime <= 15) ||
+        (filters.readTime === "15+" && readTime > 15);
+
+      const matchesLanguage =
+        !filters.language ||
+        normalize(blog.language) === normalize(filters.language);
+
+      const matchesAuthor =
+        !filters.author || authorName.includes(normalize(filters.author));
+
+      const matchesMood =
+        !filters.mood || normalize(blog.mood).includes(normalize(filters.mood));
+
+      return (
+        matchesQuery &&
+        matchesTags &&
+        matchesReadTime &&
+        matchesLanguage &&
+        matchesAuthor &&
+        matchesMood &&
+        matchesDateRange(blog)
+      );
+    });
+
+    const scored = filtered.map((blog) => {
+      if (!tokens.length) return { blog, score: 0 };
+      const title = normalize(blog.title);
+      const summary = normalize(stripHtml(blog.summary));
+      const content = normalize(stripHtml(blog.content || blog.excerpt));
+      const tags = Array.isArray(blog.tags) ? blog.tags.map((t) => normalize(t)) : [];
+
+      let score = 0;
+      tokens.forEach((token) => {
+        if (title.includes(token)) score += 4;
+        if (summary.includes(token)) score += 3;
+        if (content.includes(token)) score += 1;
+        if (tags.some((t) => t.includes(token))) score += 2;
+      });
+      return { blog, score };
+    });
+
+    const sorted = scored
+      .sort((a, b) => {
+        switch (filters.sortBy) {
+          case "newest":
+            return (
+              new Date(b.blog.publishedAt || b.blog.createdAt) -
+              new Date(a.blog.publishedAt || a.blog.createdAt)
+            );
+          case "oldest":
+            return (
+              new Date(a.blog.publishedAt || a.blog.createdAt) -
+              new Date(b.blog.publishedAt || b.blog.createdAt)
+            );
+          case "popular":
+            return (b.blog.likes || 0) - (a.blog.likes || 0);
+          case "trending":
+            return (b.blog.bookmarks || 0) - (a.blog.bookmarks || 0);
+          case "readTime":
+            return (a.blog.readingTime || 0) - (b.blog.readingTime || 0);
+          default:
+            if (tokens.length && a.score !== b.score) return b.score - a.score;
+            return (
+              new Date(b.blog.publishedAt || b.blog.createdAt) -
+              new Date(a.blog.publishedAt || a.blog.createdAt)
+            );
+        }
+      })
+      .map((item) => item.blog);
+
+    setSearchResults(sorted);
+  }, [allBlogs, filters, searchQuery]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      setSearchParams({ q: searchQuery.trim() });
-    }
+    const trimmed = searchQuery.trim();
+    setSearchQuery(trimmed);
+    setSearchParams(trimmed ? { q: trimmed } : {});
   };
 
   const clearFilters = () => {
@@ -744,69 +783,24 @@ const SearchPage = () => {
 
       {/* Results Grid */}
       <div className={`${showFilters ? "hidden lg:block lg:col-span-3" : ""}`}>
-        {searchResults.length > 0 ? (
+        {searchResults.length > 0 || loading ? (
           <div
             className={`grid gap-6 ${viewMode === "grid"
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-              : "grid-cols-1 max-w-4xl mx-auto"
+              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+              : "grid-cols-1 w-full"
               }`}
           >
-            {searchResults.map((result) => (
-              <div
-                key={result._id || result.id}
-                className="group relative flex flex-col h-full bg-surface border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1 cursor-pointer"
-                onClick={() => navigate(`/article/${result.slug || result._id || result.id}`)}
-              >
-                {/* Image Container - Simplified */}
-                {result.coverImage && (
-                  <div className="aspect-[16/10] relative overflow-hidden bg-gradient-to-br from-sky-500/5 to-pink-500/5">
-                    <img
-                      src={result.coverImage}
-                      alt={result.title}
-                      loading="lazy"
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.parentElement.style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                  </div>
-                )}
-
-                {/* Content - Simplified */}
-                <div className="flex flex-col flex-1 p-5 space-y-3">
-                  <h3 className="text-lg font-bold text-text-primary line-clamp-2 group-hover:text-sky-500 transition-colors">
-                    {result.title}
-                  </h3>
-                  <p className="text-sm text-text-secondary leading-relaxed line-clamp-2">
-                    {stripHtml(result.summary || result.excerpt) || 'No description available'}
-                  </p>
-
-                  <div className="flex items-center justify-between pt-3 mt-auto border-t border-border/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-pink-400 flex items-center justify-center text-white font-bold text-xs">
-                        {result.author?.displayName?.[0] || result.author?.username?.[0] || '?'}
-                      </div>
-                      <span className="text-sm font-medium text-text-primary truncate max-w-[100px]">
-                        {typeof result.author === 'string' ? result.author : result.author?.displayName || result.author?.username || 'Anonymous'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-sm text-text-secondary">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {result.readingTime || 5}m
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-4 h-4" />
-                        {result.likes || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {loading
+              ? Array.from({ length: viewMode === "grid" ? 6 : 3 }).map((_, idx) => (
+                <BlogCardSkeleton key={`search-skeleton-${idx}`} viewMode={viewMode} />
+              ))
+              : searchResults.map((result) => (
+                <BlogCard
+                  key={result._id || result.id}
+                  blog={result}
+                  viewMode={viewMode}
+                />
+              ))}
           </div>
         ) : searchQuery && !loading ? (
           <Card>
@@ -823,7 +817,21 @@ const SearchPage = () => {
               </Button>
             </CardContent>
           </Card>
-        ) : null}
+        ) : (
+          !loading && (
+            <Card>
+              <CardContent className="p-6 sm:p-8 lg:p-12 text-center">
+                <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-text-secondary mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-text-primary mb-2">
+                  Start exploring
+                </h3>
+                <p className="text-sm sm:text-base text-text-secondary mb-4 max-w-md mx-auto">
+                  Use the search box or filters to browse the full VocalInk library.
+                </p>
+              </CardContent>
+            </Card>
+          )
+        )}
       </div>
 
 
@@ -832,5 +840,3 @@ const SearchPage = () => {
 };
 
 export default SearchPage;
-
-

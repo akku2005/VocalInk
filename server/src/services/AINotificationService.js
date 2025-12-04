@@ -6,7 +6,7 @@ const EmailService = require('./EmailService');
 class AINotificationService {
   constructor() {
     this.emailService = EmailService;
-    
+
     // User engagement patterns cache
     this.userEngagementCache = new Map();
     this.lastCacheUpdate = null;
@@ -30,10 +30,10 @@ class AINotificationService {
 
       // Get user engagement patterns
       const engagementPatterns = await this.analyzeUserEngagement(userId);
-      
+
       // Get user's timezone preferences
       const userTimezone = user.timezone || timezone;
-      
+
       // Calculate optimal timing based on patterns
       const optimalTime = this.calculateOptimalTime(engagementPatterns, userTimezone, urgency, contentType);
 
@@ -84,10 +84,10 @@ class AINotificationService {
       if (includePersonalization) {
         // Personalize title
         personalizedContent.title = this.personalizeTitle(template.title, user);
-        
+
         // Personalize content
         personalizedContent.content = this.personalizeContent(template.content, user);
-        
+
         // Add user-specific data
         personalizedContent.data = {
           ...template.data,
@@ -322,6 +322,71 @@ class AINotificationService {
   }
 
   /**
+   * Notify user of level up
+   */
+  async notifyLevelUp(userId, level, xpGained) {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Only send if email notifications are enabled
+      if (user.emailNotifications === false) {
+        return;
+      }
+
+      const subject = `🎉 Level Up! You've reached Level ${level}!`;
+
+      const html = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); padding: 40px 20px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 32px; font-weight: 800;">Level Up!</h1>
+            <p style="color: rgba(255,255,255,0.9); font-size: 18px; margin-top: 10px;">Congratulations, ${user.name}!</p>
+          </div>
+          
+          <div style="padding: 40px 30px; text-align: center;">
+            <div style="background-color: #f3f4f6; border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+              <h2 style="color: #ea580c; font-size: 48px; margin: 0; font-weight: 800;">Level ${level}</h2>
+              <p style="color: #4b5563; font-size: 16px; margin: 10px 0 0;">You've reached a new milestone!</p>
+              <div style="margin-top: 20px; display: inline-block; background-color: rgba(234, 88, 12, 0.1); color: #ea580c; padding: 8px 16px; border-radius: 20px; font-weight: 600;">
+                +${xpGained} XP gained
+              </div>
+            </div>
+
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+              Your dedication is paying off. You're unlocking new possibilities and establishing yourself as a key member of the VocalInk community.
+            </p>
+
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile/${user.username || user._id}" 
+               style="display: inline-block; background-color: #3b82f6; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; transition: background-color 0.2s;">
+              View Your Profile
+            </a>
+          </div>
+
+          <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="color: #9ca3af; font-size: 14px; margin: 0;">
+              Keep engaging with the community to reach even higher levels!
+            </p>
+          </div>
+        </div>
+      `;
+
+      await this.emailService.sendNotificationEmail(user.email, subject, html);
+
+      logger.info('Level up notification sent', {
+        userId,
+        level,
+        email: user.email
+      });
+
+    } catch (error) {
+      logger.error('Error sending level up notification:', error);
+      // Don't throw, just log
+    }
+  }
+
+  /**
    * Analyze user engagement patterns
    */
   async analyzeUserEngagement(userId) {
@@ -342,7 +407,7 @@ class AINotificationService {
 
       // Get user's activity patterns
       const user = await User.findById(userId);
-      
+
       const patterns = {
         notificationOpenRate: this.calculateOpenRate(notifications),
         preferredTimes: this.analyzePreferredTimes(notifications),
@@ -539,11 +604,11 @@ class AINotificationService {
       if (titleLength > 10 && titleLength < 60) {
         score += 0.1; // Good title length
       }
-      
+
       if (notificationData.title.includes('!')) {
         score += 0.05; // Excitement
       }
-      
+
       if (notificationData.title.includes(user.name)) {
         score += 0.1; // Personalization
       }
@@ -555,7 +620,7 @@ class AINotificationService {
       if (contentLength > 50 && contentLength < 300) {
         score += 0.1; // Good content length
       }
-      
+
       if (notificationData.content.includes('action') || notificationData.content.includes('click')) {
         score += 0.05; // Call to action
       }
@@ -657,13 +722,13 @@ class AINotificationService {
   generateSummary(content, maxLength, style) {
     try {
       const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      
+
       if (sentences.length === 0) {
         return content.substring(0, maxLength) + '...';
       }
 
       let summary = '';
-      
+
       if (style === 'concise') {
         // Take first sentence or first few sentences
         summary = sentences[0];
@@ -703,8 +768,8 @@ class AINotificationService {
       sentences.forEach(sentence => {
         const trimmed = sentence.trim();
         if (trimmed.length > 20 && trimmed.length < 100) {
-          if (trimmed.includes('important') || trimmed.includes('key') || 
-              trimmed.includes('note') || trimmed.includes('remember')) {
+          if (trimmed.includes('important') || trimmed.includes('key') ||
+            trimmed.includes('note') || trimmed.includes('remember')) {
             keyPoints.push(trimmed);
           }
         }
@@ -736,7 +801,7 @@ class AINotificationService {
       ];
 
       const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      
+
       sentences.forEach(sentence => {
         actionPatterns.forEach(pattern => {
           if (pattern.test(sentence)) {
@@ -798,14 +863,14 @@ class AINotificationService {
    */
   calculateOpenRate(notifications) {
     if (notifications.length === 0) return 0.5;
-    
+
     const opened = notifications.filter(n => n.read).length;
     return opened / notifications.length;
   }
 
   analyzePreferredTimes(notifications) {
     const timeCounts = {};
-    
+
     notifications.forEach(notification => {
       if (notification.readAt) {
         const hour = notification.readAt.getHours();
@@ -814,7 +879,7 @@ class AINotificationService {
     });
 
     const sortedTimes = Object.entries(timeCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
       .map(([hour]) => `${hour}:00`);
 
@@ -823,7 +888,7 @@ class AINotificationService {
 
   analyzePreferredTypes(notifications) {
     const typeCounts = {};
-    
+
     notifications.forEach(notification => {
       if (notification.read) {
         typeCounts[notification.type] = (typeCounts[notification.type] || 0) + 1;
@@ -831,14 +896,14 @@ class AINotificationService {
     });
 
     return Object.entries(typeCounts)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 3)
       .map(([type]) => type);
   }
 
   calculateActivityLevel(user) {
     const engagement = user.engagementScore || 0;
-    
+
     if (engagement > 70) return 'high';
     if (engagement > 30) return 'medium';
     return 'low';
@@ -847,10 +912,10 @@ class AINotificationService {
   findNextPreferredTime(preferredTimes, timezone) {
     // Simple implementation - find next preferred time
     if (preferredTimes.length === 0) return null;
-    
+
     const now = new Date();
     const currentHour = now.getHours();
-    
+
     for (const time of preferredTimes) {
       const preferredHour = parseInt(time.split(':')[0]);
       if (preferredHour > currentHour) {
@@ -859,7 +924,7 @@ class AINotificationService {
         return nextTime;
       }
     }
-    
+
     // If no preferred time today, use first preferred time tomorrow
     const firstPreferredHour = parseInt(preferredTimes[0].split(':')[0]);
     const nextTime = new Date(now);

@@ -53,6 +53,7 @@ export default function AppRoutes() {
           <Route path="series" element={<SeriesPage />} />
 
           {/* Category-based blog URLs: /{category}/{slug} */}
+          <Route path=":category" element={<BlogPage />} />
           <Route path=":category/:slug" element={<ArticlePage />} />
 
           {/* Backward compatibility - old article URLs */}

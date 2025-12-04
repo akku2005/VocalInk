@@ -23,7 +23,7 @@ const AppearanceTab = ({
     setSettings((prev) => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || {}),
         [field]: newValue,
       },
     }));
@@ -37,7 +37,7 @@ const AppearanceTab = ({
     setSettings((prev) => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || {}),
         [field]: value,
       },
     }));

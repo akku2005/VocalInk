@@ -275,6 +275,19 @@ seriesSchema.virtual('isPremium').get(function () {
   return this.monetization.model !== 'free';
 });
 
+seriesSchema.virtual('totalReadingTime').get(function () {
+  if (!this.episodes || this.episodes.length === 0) return 0;
+
+  return this.episodes.reduce((total, episode) => {
+    // If episodeId is populated (object), get readingTime from it
+    if (episode.episodeId && typeof episode.episodeId === 'object') {
+      return total + (episode.episodeId.readingTime || 0);
+    }
+    // Fallback to estimatedReadTime on the episode itself
+    return total + (episode.estimatedReadTime || 0);
+  }, 0);
+});
+
 // Pre-save middleware
 seriesSchema.pre('save', async function (next) {
   // Generate slug if title changed or slug is missing
@@ -306,12 +319,12 @@ seriesSchema.pre('save', async function (next) {
 });
 
 // Instance methods
-seriesSchema.methods.addEpisode = function (blogId, order, title) {
+seriesSchema.methods.addEpisode = function (blogId, order, title, status = 'draft') {
   const episode = {
     episodeId: blogId,
     order: order,
     title: title,
-    status: 'draft'
+    status: status
   };
 
   this.episodes.push(episode);

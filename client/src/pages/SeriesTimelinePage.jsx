@@ -35,7 +35,9 @@ import {
 import seriesService from "../services/seriesService";
 
 import CollaboratorModal from "../components/series/CollaboratorModal";
+import AddEpisodeModal from "../components/series/AddEpisodeModal";
 import { useAuth } from "../context/AuthContext";
+import { getProfilePath } from "../utils/profileUrl";
 
 const stripHtml = (value) => {
   if (typeof value !== "string") return value;
@@ -58,6 +60,7 @@ const SeriesTimelinePage = () => {
   const [menuEpisodeId, setMenuEpisodeId] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isCollaboratorModalOpen, setIsCollaboratorModalOpen] = useState(false);
+  const [isAddEpisodeModalOpen, setIsAddEpisodeModalOpen] = useState(false);
 
   // Use ref to track if we've already fetched for this ID to prevent double-fetching
   const hasFetchedRef = useRef(false);
@@ -350,7 +353,7 @@ const SeriesTimelinePage = () => {
             className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors"
             onClick={() => {
               const url = window.location.href;
-              navigator.clipboard?.writeText(url).catch(() => {});
+              navigator.clipboard?.writeText(url).catch(() => { });
             }}
           >
             <Share className="w-4 h-4 mr-2" />
@@ -376,12 +379,20 @@ const SeriesTimelinePage = () => {
       </div>
 
       {series && (
-        <CollaboratorModal
-          series={series}
-          isOpen={isCollaboratorModalOpen}
-          onClose={() => setIsCollaboratorModalOpen(false)}
-          onUpdate={setSeries}
-        />
+        <>
+          <CollaboratorModal
+            series={series}
+            isOpen={isCollaboratorModalOpen}
+            onClose={() => setIsCollaboratorModalOpen(false)}
+            onUpdate={setSeries}
+          />
+          <AddEpisodeModal
+            series={series}
+            isOpen={isAddEpisodeModalOpen}
+            onClose={() => setIsAddEpisodeModalOpen(false)}
+            onUpdate={setSeries}
+          />
+        </>
       )}
 
       {/* Main Content Grid */}
@@ -413,7 +424,10 @@ const SeriesTimelinePage = () => {
                 <Clock className="w-6 h-6 text-pink-500" />
                 Timeline
               </h2>
-              <Button className="bg-gradient-to-r from-sky-500 to-pink-500 text-white border-0 hover:opacity-90 transition-opacity rounded-full px-6">
+              <Button
+                className="bg-gradient-to-r from-sky-500 to-pink-500 text-white border-0 hover:opacity-90 transition-opacity rounded-full px-6"
+                onClick={() => setIsAddEpisodeModalOpen(true)}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Post
               </Button>
@@ -651,19 +665,23 @@ const SeriesTimelinePage = () => {
             </h3>
 
             <div className="flex items-center gap-4">
-              {authorAvatar ? (
-                <img src={authorAvatar} alt={authorName} className="w-16 h-16 rounded-full border-2 border-purple-500/20" />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center border-2 border-purple-500/20">
-                  <Users className="w-8 h-8 text-purple-500" />
+              <div className="flex items-center gap-3">
+                {authorAvatar ? (
+                  <img src={authorAvatar} alt={authorName} className="w-12 h-12 rounded-full border-2 border-purple-500/20" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                    {authorName?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                <div>
+                  <div className="font-medium text-text-primary flex items-center gap-1">
+                    {authorName || 'Unknown'}
+                    {series.authorId?.verified && <Shield className="w-4 h-4 text-sky-500 fill-sky-500" />}
+                  </div>
+                  <div className="text-sm text-text-secondary">
+                    @{series?.authorId?.username || series?.authorId?.displayName || series?.authorUsername || authorName || 'unknown'}
+                  </div>
                 </div>
-              )}
-              <div>
-                <div className="font-bold text-text-primary text-lg flex items-center gap-1">
-                  {authorName}
-                  {series.authorId?.verified && <Shield className="w-4 h-4 text-sky-500 fill-sky-500" />}
-                </div>
-                <div className="text-sm text-text-secondary">@{authorUsername || 'unknown'}</div>
               </div>
             </div>
 
@@ -671,7 +689,7 @@ const SeriesTimelinePage = () => {
               <Button
                 variant="outline"
                 className="w-full border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                onClick={() => navigate(`/profile/${series.authorId?._id || authorUsername}`)}
+                onClick={() => navigate(getProfilePath(series.authorId || authorUsername || series.authorId?._id))}
               >
                 View Profile
               </Button>

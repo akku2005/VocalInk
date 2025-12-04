@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardHeader,
@@ -6,7 +6,8 @@ import {
   CardContent,
 } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
+import badgeService from "../services/badgeService";
+import { useAuth } from "../hooks/useAuth";
 import {
   Trophy,
   Star,
@@ -16,218 +17,127 @@ import {
   BookOpen,
   MessageCircle,
   Heart,
-  Share,
-  Users,
-  Calendar,
   TrendingUp,
-  Gift,
   Crown,
   Medal,
   Sparkles,
 } from "lucide-react";
 
+const rarityStyles = {
+  common: { className: "bg-gray-100 text-gray-800", Icon: Sparkles },
+  rare: { className: "bg-blue-100 text-blue-800", Icon: Star },
+  epic: { className: "bg-purple-100 text-purple-800", Icon: Crown },
+  legendary: { className: "bg-yellow-100 text-yellow-800", Icon: Medal },
+};
+
+const emptyRewards = {
+  userStats: {
+    level: 1,
+    xp: 0,
+    totalXp: 100,
+    rank: "Member",
+    badgesEarned: 0,
+    totalBadges: 0,
+    streak: 0,
+    achievements: 0,
+  },
+  badges: {
+    earned: [],
+    available: [],
+  },
+  achievements: [],
+  leaderboard: [],
+  recentActivity: [],
+};
+
 const RewardsPage = () => {
-  const [rewards, setRewards] = useState(null);
+  const [rewards, setRewards] = useState(emptyRewards);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("badges");
+  const { isAuthenticated, userProfile } = useAuth();
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setRewards({
-        userStats: {
-          level: 8,
-          xp: 15420,
-          totalXp: 25000,
-          rank: "Silver",
-          badgesEarned: 12,
-          totalBadges: 25,
-          streak: 15,
-          achievements: 8,
-        },
-        badges: {
-          earned: [
-            {
-              id: 1,
-              name: "First Post",
-              description: "Published your first blog post",
-              icon: "🎉",
-              rarity: "common",
-              earnedAt: "2023-01-15",
-              category: "writing",
-            },
-            {
-              id: 2,
-              name: "Engagement Master",
-              description: "Received 100+ likes on a single post",
-              icon: "🔥",
-              rarity: "rare",
-              earnedAt: "2023-02-20",
-              category: "engagement",
-            },
-            {
-              id: 3,
-              name: "Series Creator",
-              description: "Created a blog series with 5+ posts",
-              icon: "📚",
-              rarity: "epic",
-              earnedAt: "2023-03-10",
-              category: "series",
-            },
-            {
-              id: 4,
-              name: "AI Pioneer",
-              description: "Used AI features 50+ times",
-              icon: "🤖",
-              rarity: "legendary",
-              earnedAt: "2023-04-05",
-              category: "ai",
-            },
-            {
-              id: 5,
-              name: "Social Butterfly",
-              description: "Followed 50+ users",
-              icon: "🦋",
-              rarity: "rare",
-              earnedAt: "2023-05-12",
-              category: "social",
-            },
-            {
-              id: 6,
-              name: "Comment King",
-              description: "Left 100+ meaningful comments",
-              icon: "💬",
-              rarity: "epic",
-              earnedAt: "2023-06-18",
-              category: "engagement",
-            },
-          ],
-          available: [
-            {
-              id: 7,
-              name: "Viral Sensation",
-              description: "Get 10,000+ views on a single post",
-              icon: "🚀",
-              rarity: "legendary",
-              progress: 65,
-              target: 10000,
-              current: 6500,
-              category: "viral",
-            },
-            {
-              id: 8,
-              name: "Consistency Champion",
-              description: "Post for 30 consecutive days",
-              icon: "📅",
-              rarity: "epic",
-              progress: 50,
-              target: 30,
-              current: 15,
-              category: "consistency",
-            },
-            {
-              id: 9,
-              name: "Community Leader",
-              description: "Have 1,000+ followers",
-              icon: "👑",
-              rarity: "legendary",
-              progress: 80,
-              target: 1000,
-              current: 800,
-              category: "social",
-            },
-          ],
-        },
-        achievements: [
-          {
-            id: 1,
-            name: "Content Creator",
-            description: "Publish 50 blog posts",
-            icon: BookOpen,
-            progress: 90,
-            target: 50,
-            current: 45,
-            reward: "500 XP + Special Badge",
+    const load = async () => {
+      try {
+        setLoading(true);
+
+        const [stats, progress] = await Promise.all([
+          badgeService.getBadgeStats().catch(() => null),
+          isAuthenticated ? badgeService.getUserBadgeProgress().catch(() => null) : Promise.resolve(null),
+        ]);
+
+        const earned = progress?.badges?.filter((b) => b.earned) ?? [];
+        const available = progress?.badges?.filter((b) => !b.earned) ?? [];
+
+        const xpValue = progress?.xp ?? userProfile?.xp ?? 0;
+        const remaining = progress?.remainingXP ?? 100;
+        const totalXpForLevel =
+          (progress?.currentLevelXP && progress?.nextLevelXP
+            ? progress.currentLevelXP + progress.nextLevelXP
+            : xpValue + remaining) || 100;
+
+        setRewards({
+          userStats: {
+            level: progress?.level ?? userProfile?.level ?? 1,
+            xp: xpValue,
+            totalXp: totalXpForLevel,
+            rank: progress?.rank ?? "Member",
+            badgesEarned: progress?.earnedBadges ?? earned.length,
+            totalBadges:
+              progress?.totalBadges ??
+              stats?.totalBadges ??
+              earned.length + available.length,
+            streak: progress?.streak ?? 0,
+            achievements: available.length,
           },
-          {
-            id: 2,
-            name: "Engagement Expert",
-            description: "Receive 5,000 total likes",
-            icon: Heart,
-            progress: 75,
-            target: 5000,
-            current: 3750,
-            reward: "1000 XP + Profile Highlight",
+          badges: {
+            earned,
+            available,
           },
-          {
-            id: 3,
-            name: "Discussion Starter",
-            description: "Start 20 meaningful discussions",
-            icon: MessageCircle,
-            progress: 60,
-            target: 20,
-            current: 12,
-            reward: "750 XP + Comment Priority",
-          },
-        ],
-        leaderboard: [
-          {
-            rank: 1,
-            username: "Sarah Johnson",
-            xp: 45230,
-            level: 15,
-            badge: "👑",
-          },
-          { rank: 2, username: "Mike Chen", xp: 38920, level: 13, badge: "🥈" },
-          {
-            rank: 3,
-            username: "Emily Rodriguez",
-            xp: 32450,
-            level: 12,
-            badge: "🥉",
-          },
-          { rank: 4, username: "David Kim", xp: 28910, level: 11, badge: "💎" },
-          {
-            rank: 5,
-            username: "Lisa Thompson",
-            xp: 25670,
-            level: 10,
-            badge: "⭐",
-          },
-        ],
-        recentActivity: [
-          {
-            id: 1,
-            type: "badge_earned",
-            title: 'Earned "AI Pioneer" Badge',
-            description: "Used AI features 50+ times",
-            time: "2 hours ago",
-            icon: Award,
-            color: "text-success",
-          },
-          {
-            id: 2,
-            type: "level_up",
-            title: "Level Up!",
-            description: "Reached level 8",
-            time: "1 day ago",
-            icon: TrendingUp,
-            color: "text-primary",
-          },
-          {
-            id: 3,
-            type: "streak",
-            title: "15 Day Streak!",
-            description: "Keep up the great work",
-            time: "2 days ago",
-            icon: Zap,
-            color: "text-warning",
-          },
-        ],
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
+          achievements:
+            available.slice(0, 3).map((b, idx) => ({
+              id: b.badgeId || b.id || idx,
+              name: b.name || "Badge",
+              description:
+                b.description || "Keep progressing to unlock this badge",
+              icon: Target,
+              progress: b.progress || 0,
+              target:
+                b.requirements?.[0]?.target ||
+                b.requirements?.[0]?.required ||
+                0,
+              current: b.requirements?.[0]?.current || 0,
+              reward: `${b.rarity || "Badge"} reward`,
+            })) || [],
+          leaderboard: [],
+          recentActivity: [],
+        });
+      } catch (err) {
+        console.error("Failed to load rewards:", err);
+        setRewards(emptyRewards);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [isAuthenticated, userProfile]);
+
+  const getRarityColor = (rarity) =>
+    rarityStyles[rarity]?.className || rarityStyles.common.className;
+
+  const renderRarityIcon = (rarity, className = "w-5 h-5") => {
+    const Icon = rarityStyles[rarity]?.Icon || Sparkles;
+    return <Icon className={className} />;
+  };
+
+  const progressPercent = useMemo(() => {
+    if (!rewards.userStats.totalXp) return 0;
+    return Math.min(
+      Math.round((rewards.userStats.xp / rewards.userStats.totalXp) * 100),
+      100
+    );
+  }, [rewards.userStats.xp, rewards.userStats.totalXp]);
 
   if (loading) {
     return (
@@ -247,36 +157,6 @@ const RewardsPage = () => {
       </div>
     );
   }
-
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case "common":
-        return "bg-gray-100 text-gray-800";
-      case "rare":
-        return "bg-blue-100 text-blue-800";
-      case "epic":
-        return "bg-purple-100 text-purple-800";
-      case "legendary":
-        return "bg-yellow-100 text-yellow-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getRarityIcon = (rarity) => {
-    switch (rarity) {
-      case "common":
-        return "⭐";
-      case "rare":
-        return "💎";
-      case "epic":
-        return "👑";
-      case "legendary":
-        return "🏆";
-      default:
-        return "⭐";
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
@@ -303,7 +183,7 @@ const RewardsPage = () => {
               <div
                 className="bg-primary-600 h-2 rounded-full transition-all duration-300"
                 style={{
-                  width: `${(rewards.userStats.xp / rewards.userStats.totalXp) * 100}%`,
+                  width: `${progressPercent}%`,
                 }}
               ></div>
             </div>
@@ -337,11 +217,13 @@ const RewardsPage = () => {
               {rewards.userStats.badgesEarned}/{rewards.userStats.totalBadges}
             </div>
             <p className="text-xs text-success-700 mt-1">
-              {Math.round(
-                (rewards.userStats.badgesEarned /
-                  rewards.userStats.totalBadges) *
-                  100
-              )}
+              {rewards.userStats.totalBadges
+                ? Math.round(
+                    (rewards.userStats.badgesEarned /
+                      rewards.userStats.totalBadges) *
+                      100
+                  )
+                : 0}
               % complete
             </p>
           </CardContent>
@@ -412,30 +294,41 @@ const RewardsPage = () => {
                 Earned Badges
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rewards.badges.earned.map((badge) => (
-                  <Card
-                    key={badge.id}
-                    className="hover:shadow-lg transition-all duration-300"
-                  >
-                    <CardContent className="p-6 text-center">
-                      <div className="text-4xl mb-4">{badge.icon}</div>
-                      <h3 className="font-semibold text-text-primary mb-2">
-                        {badge.name}
-                      </h3>
-                      <p className="text-sm text-text-secondary mb-4">
-                        {badge.description}
-                      </p>
-                      <div className="flex items-center justify-center gap-2 mb-3">
-                        <Badge className={getRarityColor(badge.rarity)}>
-                          {getRarityIcon(badge.rarity)} {badge.rarity}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-text-secondary">
-                        Earned {new Date(badge.earnedAt).toLocaleDateString()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
+                {rewards.badges.earned.map((badge) => {
+                  const rarity = (badge.rarity || "common").toLowerCase();
+                  const IconComp = rarityStyles[rarity]?.Icon || Sparkles;
+                  return (
+                    <Card
+                      key={badge.badgeId || badge.id}
+                      className="hover:shadow-lg transition-all duration-300"
+                    >
+                      <CardContent className="p-6 text-center">
+                        <div className="flex justify-center mb-4 text-primary-600">
+                          <IconComp className="w-8 h-8" />
+                        </div>
+                        <h3 className="font-semibold text-text-primary mb-2">
+                          {badge.name}
+                        </h3>
+                        <p className="text-sm text-text-secondary mb-4">
+                          {badge.description}
+                        </p>
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                          <Badge className={getRarityColor(rarity)}>
+                            {renderRarityIcon(rarity, "w-4 h-4")} {rarity}
+                          </Badge>
+                        </div>
+                        {badge.earnedAt && (
+                          <p className="text-xs text-text-secondary">
+                            Earned {new Date(badge.earnedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {rewards.badges.earned.length === 0 && (
+                  <p className="text-text-secondary">No badges earned yet.</p>
+                )}
               </div>
             </div>
 
@@ -445,41 +338,54 @@ const RewardsPage = () => {
                 Available Badges
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rewards.badges.available.map((badge) => (
-                  <Card
-                    key={badge.id}
-                    className="hover:shadow-lg transition-all duration-300"
-                  >
-                    <CardContent className="p-6 text-center">
-                      <div className="text-4xl mb-4 opacity-50">
-                        {badge.icon}
-                      </div>
-                      <h3 className="font-semibold text-text-primary mb-2">
-                        {badge.name}
-                      </h3>
-                      <p className="text-sm text-text-secondary mb-4">
-                        {badge.description}
-                      </p>
-                      <div className="flex items-center justify-center gap-2 mb-3">
-                        <Badge className={getRarityColor(badge.rarity)}>
-                          {getRarityIcon(badge.rarity)} {badge.rarity}
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="w-full bg-secondary-100 rounded-full h-2">
-                          <div
-                            className="bg-primary-500 h-2 rounded-full transition-all duration-300 "
-                            style={{ width: `${badge.progress}%` }}
-                          ></div>
+                {rewards.badges.available.map((badge) => {
+                  const rarity = (badge.rarity || "common").toLowerCase();
+                  const IconComp = rarityStyles[rarity]?.Icon || Sparkles;
+                  const progressValue = Math.round(badge.progress || 0);
+                  const target =
+                    badge.requirements?.[0]?.target ||
+                    badge.requirements?.[0]?.required ||
+                    0;
+                  const current = badge.requirements?.[0]?.current || 0;
+
+                  return (
+                    <Card
+                      key={badge.badgeId || badge.id}
+                      className="hover:shadow-lg transition-all duration-300"
+                    >
+                      <CardContent className="p-6 text-center">
+                        <div className="flex justify-center mb-4 text-text-secondary">
+                          <IconComp className="w-8 h-8" />
                         </div>
-                        <p className="text-xs text-text-secondary">
-                          {badge.current.toLocaleString()} /{" "}
-                          {badge.target.toLocaleString()}
+                        <h3 className="font-semibold text-text-primary mb-2">
+                          {badge.name}
+                        </h3>
+                        <p className="text-sm text-text-secondary mb-4">
+                          {badge.description}
                         </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                          <Badge className={getRarityColor(rarity)}>
+                            {renderRarityIcon(rarity, "w-4 h-4")} {rarity}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="w-full bg-secondary-100 rounded-full h-2">
+                            <div
+                              className="bg-primary-500 h-2 rounded-full transition-all duration-300 "
+                              style={{ width: `${progressValue}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-text-secondary">
+                            {current.toLocaleString()} / {target.toLocaleString()}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {rewards.badges.available.length === 0 && (
+                  <p className="text-text-secondary">No available badges found.</p>
+                )}
               </div>
             </div>
           </div>
@@ -489,7 +395,7 @@ const RewardsPage = () => {
         {activeTab === "achievements" && (
           <div className="space-y-6">
             {rewards.achievements.map((achievement) => {
-              const Icon = achievement.icon;
+              const Icon = achievement.icon || Target;
               return (
                 <Card
                   key={achievement.id}
@@ -537,6 +443,9 @@ const RewardsPage = () => {
                 </Card>
               );
             })}
+            {rewards.achievements.length === 0 && (
+              <p className="text-text-secondary">No achievements to show.</p>
+            )}
           </div>
         )}
 
@@ -551,7 +460,7 @@ const RewardsPage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {rewards.leaderboard.map((user, index) => (
+                {rewards.leaderboard.map((user) => (
                   <div
                     key={user.rank}
                     className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-surface transition-colors"
@@ -561,7 +470,9 @@ const RewardsPage = () => {
                         {user.rank}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{user.badge}</span>
+                        <span className="text-lg">
+                          {renderRarityIcon(user.rarity || "common", "w-4 h-4")}
+                        </span>
                         <div>
                           <div className="font-semibold text-text-primary">
                             {user.username}
@@ -582,6 +493,9 @@ const RewardsPage = () => {
                     </div>
                   </div>
                 ))}
+                {rewards.leaderboard.length === 0 && (
+                  <p className="text-text-secondary">No leaderboard data.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -591,7 +505,7 @@ const RewardsPage = () => {
         {activeTab === "activity" && (
           <div className="space-y-4">
             {rewards.recentActivity.map((activity) => {
-              const Icon = activity.icon;
+              const Icon = activity.icon || Sparkles;
               return (
                 <Card
                   key={activity.id}
@@ -600,7 +514,7 @@ const RewardsPage = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       <div
-                        className={`p-2 rounded-full bg-surface ${activity.color}`}
+                        className={`p-2 rounded-full bg-surface ${activity.color || "text-primary"}`}
                       >
                         <Icon className="w-4 h-4" />
                       </div>
@@ -620,6 +534,9 @@ const RewardsPage = () => {
                 </Card>
               );
             })}
+            {rewards.recentActivity.length === 0 && (
+              <p className="text-text-secondary">No recent activity.</p>
+            )}
           </div>
         )}
       </div>

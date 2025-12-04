@@ -418,35 +418,54 @@ class TTSService {
           }
 
           (async () => {
-            let audioUrl = `/audio/${filename}`;
+            const skipDiskStorage = options.skipDiskStorage === true;
+            let audioUrl = null;
             let storage = 'local';
             let authToken = null;
+            let audioData = null;
 
-            const uploader = await ensureB2Uploader();
-            if (uploader) {
-              try {
-                const objectKey = `audio/${filename}`;
-                const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/wav');
-                if (typeof uploadRes === 'string') {
-                  audioUrl = uploadRes;
-                } else if (uploadRes && uploadRes.url) {
-                  audioUrl = uploadRes.url;
-                  authToken = uploadRes.token || null;
+            try {
+              if (skipDiskStorage) {
+                // Read file into memory and delete it
+                audioData = await fs.readFile(audioPath);
+                await fs.unlink(audioPath);
+                storage = 'memory';
+                logger.info('eSpeak audio generated (memory-only)', { duration: this.estimateDuration(cleanText, speed) });
+              } else {
+                // Keep file and generate URL
+                audioUrl = `/audio/${filename}`;
+
+                const uploader = await ensureB2Uploader();
+                if (uploader) {
+                  try {
+                    const objectKey = `audio/${filename}`;
+                    const uploadRes = await uploader.uploadFromFile(objectKey, audioPath, 'audio/wav');
+                    if (typeof uploadRes === 'string') {
+                      audioUrl = uploadRes;
+                    } else if (uploadRes && uploadRes.url) {
+                      audioUrl = uploadRes.url;
+                      authToken = uploadRes.token || null;
+                    }
+                    storage = 'b2';
+                  } catch (e) {
+                    logger.warn('B2 upload failed, serving locally', { message: e.message });
+                  }
                 }
-                storage = 'b2';
-              } catch (e) {
-                logger.warn('B2 upload failed, serving locally', { message: e.message });
+                logger.info('eSpeak audio generated successfully', { url: audioUrl, storage });
               }
-            }
 
-            logger.info('eSpeak audio generated successfully', { url: audioUrl, storage });
-            resolve({
-              url: audioUrl,
-              path: audioPath,
-              provider: 'espeak',
-              duration: this.estimateDuration(cleanText, speed),
-              metadata: { storage, authToken }
-            });
+              resolve({
+                url: audioUrl,
+                path: skipDiskStorage ? null : audioPath,
+                audioData,
+                provider: 'espeak',
+                duration: this.estimateDuration(cleanText, speed),
+                metadata: { storage, authToken }
+              });
+            } catch (err) {
+              logger.error('Error processing eSpeak output:', err);
+              reject(err);
+            }
           })();
         });
 
@@ -550,11 +569,18 @@ class TTSService {
       const totalDuration = this.estimateDuration(cleanText, 150);
       logger.info('gTTS audio generated successfully', { segments: segments.length });
 
+      // Concatenate all audio segments if in memory mode
+      let combinedAudioData = null;
+      if (options.skipDiskStorage && segments.length > 0) {
+        combinedAudioData = Buffer.concat(segments.map(s => s.audioData).filter(Boolean));
+      }
+
       return {
         url: segments[0]?.url,
         path: segments[0]?.path,
         provider: 'gtts',
         duration: totalDuration,
+        audioData: combinedAudioData, // Return combined audio data
         segments,
         metadata: { segmented: true }
       };
@@ -884,7 +910,8 @@ class TTSService {
               similarityBoost,
               style,
               useSpeakerBoost,
-              signal: options.signal
+              signal: options.signal,
+              skipDiskStorage: options.skipDiskStorage
             });
           } catch (error) {
             if (fallback) {
@@ -897,19 +924,20 @@ class TTSService {
                   speakingRate,
                   pitch,
                   volumeGainDb,
-                  effectsProfileId
+                  effectsProfileId,
+                  skipDiskStorage: options.skipDiskStorage
                 });
               } catch (googleError) {
                 try {
                   logger.info('Google Cloud failed, falling back to gTTS');
-                  result = await this.generateWithGTTS(text, { language });
+                  result = await this.generateWithGTTS(text, { language, skipDiskStorage: options.skipDiskStorage });
                 } catch (gttsError) {
                   if (process.platform === 'win32') {
                     logger.warn('Skipping eSpeak fallback on Windows');
                     throw gttsError;
                   }
                   logger.info('gTTS failed, falling back to eSpeak');
-                  result = await this.generateWithESpeak(text, { voice, speed });
+                  result = await this.generateWithESpeak(text, { voice, speed, skipDiskStorage: options.skipDiskStorage });
                 }
               }
             } else {
@@ -934,7 +962,8 @@ class TTSService {
               speakingRate,
               pitch,
               volumeGainDb,
-              effectsProfileId
+              effectsProfileId,
+              skipDiskStorage: options.skipDiskStorage
             });
           } catch (googleError) {
             logger.warn('Google Cloud fallback failed:', { message: googleError.message });
@@ -943,14 +972,14 @@ class TTSService {
 
         try {
           logger.info('Primary provider failed, trying gTTS fallback');
-          return await this.generateWithGTTS(text, { language });
+          return await this.generateWithGTTS(text, { language, skipDiskStorage: options.skipDiskStorage });
         } catch (gttsError) {
           if (process.platform === 'win32') {
             logger.warn('Skipping eSpeak fallback on Windows');
             throw error;
           }
           logger.info('gTTS fallback failed, trying eSpeak');
-          return await this.generateWithESpeak(text, { voice, speed });
+          return await this.generateWithESpeak(text, { voice, speed, skipDiskStorage: options.skipDiskStorage });
         }
       }
 

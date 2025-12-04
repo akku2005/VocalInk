@@ -5,8 +5,8 @@ const BlogPageSkeleton = ({ viewMode = "grid" }) => {
   const cardCount = viewMode === "list" ? 4 : 6;
   const gridClasses =
     viewMode === "grid"
-      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
-      : "grid-cols-1 max-w-4xl mx-auto";
+      ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+      : "grid-cols-1 w-full";
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -67,7 +67,7 @@ const BlogPageSkeleton = ({ viewMode = "grid" }) => {
       {/* Blog Cards */}
       <div className={`grid gap-4 sm:gap-6 ${gridClasses}`}>
         {Array.from({ length: cardCount }).map((_, idx) => (
-          <BlogCardSkeleton key={`blog-skeleton-${idx}`} />
+          <BlogCardSkeleton key={`blog-skeleton-${idx}`} viewMode={viewMode} />
         ))}
       </div>
     </div>

@@ -18,7 +18,7 @@ const NotificationsTab = ({
     setSettings((prev) => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || {}),
         [field]: !prev[section]?.[field],
       },
     }));
@@ -28,7 +28,7 @@ const NotificationsTab = ({
     setSettings((prev) => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] || {}),
         [field]: value,
       },
     }));

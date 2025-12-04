@@ -3,38 +3,66 @@
  * Generates responsive, modern HTML emails with a clean, editorial aesthetic.
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// Read and cache both light and dark theme logos
+let logoLightBase64 = '';
+let logoDarkBase64 = '';
+const defaultLogo =
+  'https://res.cloudinary.com/djtmpergc/image/upload/v1764886892/vocalink_transparent_logo_jc8kya.png';
+
+try {
+  // Light theme logo (black text - for light backgrounds)
+  const logoLightPath = path.join(__dirname, '../../public/vocalink-logo-light.png');
+  const logoLightBuffer = fs.readFileSync(logoLightPath);
+  logoLightBase64 = `data:image/png;base64,${logoLightBuffer.toString('base64')}`;
+
+  // Dark theme logo (white/light text - for dark backgrounds)
+  const logoDarkPath = path.join(__dirname, '../../public/vocalink-logo-dark.png');
+  const logoDarkBuffer = fs.readFileSync(logoDarkPath);
+  logoDarkBase64 = `data:image/png;base64,${logoDarkBuffer.toString('base64')}`;
+} catch (error) {
+  console.error('Failed to load logos for emails:', error);
+  // Fallback to Cloudinary URL if local files are not available
+  logoLightBase64 = defaultLogo;
+  logoDarkBase64 = defaultLogo;
+}
+
 const config = {
-    colors: {
-        primary: '#000000', // Black (Medium style)
-        secondary: '#1A8917', // Medium Green
-        background: '#FFFFFF', // White background
-        surface: '#FFFFFF',
-        text: '#242424', // Dark Gray
-        textLight: '#757575', // Medium Gray
-        border: '#F2F2F2', // Light Gray
-        link: '#1A8917', // Medium Green for links
-    },
-    company: {
-        name: 'VocalInk',
-        logo: process.env.COMPANY_LOGO || 'https://via.placeholder.com/150x40?text=VocalInk',
-        address: 'Pune, Maharashtra',
-    }
+  colors: {
+    primary: '#000000', // Black (Medium style)
+    secondary: '#1A8917', // Medium Green
+    background: '#FFFFFF', // White background
+    surface: '#FFFFFF',
+    text: '#242424', // Dark Gray
+    textLight: '#757575', // Medium Gray
+    border: '#F2F2F2', // Light Gray
+    link: '#1A8917', // Medium Green for links
+  },
+  company: {
+    name: 'VocalInk',
+    // Always prefer HTTPS logo URLs for better email client support; fall back to inlined data if available.
+    logoLight: defaultLogo || logoLightBase64, // For light mode emails
+    logoDark: defaultLogo || logoDarkBase64,   // For dark mode emails
+    address: 'Pune, Maharashtra',
+  }
 };
 
 /**
  * Generates the full HTML email with the given content
  */
 const generateEmailHtml = ({
-    title,
-    content,
-    actionText,
-    actionUrl,
-    previewText = '',
-    themeColor = config.colors.primary
+  title,
+  content,
+  actionText,
+  actionUrl,
+  previewText = '',
+  themeColor = config.colors.primary
 }) => {
-    const year = new Date().getFullYear();
+  const year = new Date().getFullYear();
 
-    return `
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -54,7 +82,23 @@ const generateEmailHtml = ({
     
     /* Header */
     .header { padding-bottom: 40px; border-bottom: 1px solid #F2F2F2; margin-bottom: 40px; text-align: center; }
-    .logo { height: 32px; width: auto; }
+    .logo { height: 32px; width: auto; max-width: 150px; display: block; margin: 0 auto; }
+    .logo-dark { display: none; } /* Hidden by default, shown in dark mode */
+    img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    
+    /* Dark Mode Support */
+    @media (prefers-color-scheme: dark) {
+      body { background-color: #1a1a1a !important; color: #e0e0e0 !important; }
+      .wrapper { background-color: #1a1a1a !important; }
+      .header { border-bottom-color: #333333 !important; }
+      .footer { border-top-color: #333333 !important; }
+      h1 { color: #ffffff !important; }
+      p { color: #e0e0e0 !important; }
+      .logo-light { display: none !important; } /* Hide light logo in dark mode */
+      .logo-dark { display: block !important; } /* Show dark logo in dark mode */
+      .info-box { background-color: #2a2a2a !important; border-left-color: #ffffff !important; }
+      .code-block { background-color: #2a2a2a !important; }
+    }
     
     /* Typography */
     h1 { font-family: 'Merriweather', serif; font-size: 32px; font-weight: 700; margin: 0 0 24px; color: #000000; letter-spacing: -0.02em; line-height: 1.2; }
@@ -102,7 +146,8 @@ const generateEmailHtml = ({
     </div>
     
     <div class="header">
-      <img src="${config.company.logo}" alt="${config.company.name}" class="logo">
+      <img src="${config.company.logoLight}" alt="${config.company.name}" class="logo logo-light" style="display: block; margin: 0 auto; height: 32px; width: auto; max-width: 150px;" border="0">
+      <img src="${config.company.logoDark}" alt="${config.company.name}" class="logo logo-dark" style="display: none; margin: 0 auto; height: 32px; width: auto; max-width: 150px;" border="0">
     </div>
     
     <div class="content">
@@ -137,6 +182,6 @@ const generateEmailHtml = ({
 };
 
 module.exports = {
-    generateEmailHtml,
-    config
+  generateEmailHtml,
+  config
 };
