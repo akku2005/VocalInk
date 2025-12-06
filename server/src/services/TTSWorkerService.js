@@ -12,6 +12,34 @@ class TTSWorkerService {
     this.subscriber = null;
   }
 
+  buildRedisConfig() {
+    const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3;
+    const redisUrl = process.env.REDIS_URL;
+
+    if (redisUrl) {
+      try {
+        const parsed = new URL(redisUrl);
+        return {
+          host: parsed.hostname,
+          port: parseInt(parsed.port || '6379', 10),
+          password: parsed.password || undefined,
+          db: parsed.pathname ? parseInt(parsed.pathname.slice(1) || '0', 10) : 0,
+          maxRetriesPerRequest: maxRetries,
+        };
+      } catch (error) {
+        logger.warn('Invalid REDIS_URL, falling back to host/port variables', { message: error.message });
+      }
+    }
+
+    return {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      db: parseInt(process.env.REDIS_DB) || 0,
+      maxRetriesPerRequest: maxRetries,
+    };
+  }
+
   /**
    * Start the TTS worker
    */
@@ -47,13 +75,7 @@ class TTSWorkerService {
       });
 
       // Initialize Redis subscriber for cancellation events
-      const redisConfig = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT) || 6379,
-        password: process.env.REDIS_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_DB) || 0,
-      };
-
+      const redisConfig = this.buildRedisConfig();
       this.subscriber = new Redis(redisConfig);
       await this.subscriber.subscribe('tts:cancellation');
 
