@@ -6,7 +6,7 @@ import { userService } from '../../services/userService';
 import { useToast } from '../../hooks/useToast';
 import { getProfilePath } from '../../utils/profileUrl';
 
-const FollowingFollowersModal = ({ isOpen, onClose, users, type, onUnfollow, onRemoveFollower, currentUserId }) => {
+const FollowingFollowersModal = ({ isOpen, onClose, users, type, onUnfollow, onRemoveFollower, currentUserId, isOwnProfile }) => {
     const [unfollowingId, setUnfollowingId] = useState(null);
     const { showSuccess, showError } = useToast();
     const navigate = useNavigate();
@@ -157,7 +157,7 @@ const FollowingFollowersModal = ({ isOpen, onClose, users, type, onUnfollow, onR
                                                 )}
                                             </Button>
                                         )}
-                                        {type === 'followers' && user._id !== currentUserId && user.id !== currentUserId && (
+                                        {type === 'followers' && isOwnProfile && user._id !== currentUserId && user.id !== currentUserId && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"

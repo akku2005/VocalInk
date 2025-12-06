@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { sessionStorageHelper } from '../../utils/storage';
+import API_CONFIG from '../../constants/apiConfig';
 
 const NotificationContext = createContext();
 
@@ -31,7 +32,7 @@ export const NotificationProvider = ({ children }) => {
         return import.meta.env.VITE_WS_URL.replace(/\/+$/, '');
       }
       // Derive from API URL if absolute
-      const apiUrl = import.meta.env.VITE_API_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || API_CONFIG.BASE_URL;
       if (apiUrl && apiUrl.startsWith('http')) {
         const parsed = new URL(apiUrl);
         const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';

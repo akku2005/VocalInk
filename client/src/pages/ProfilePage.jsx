@@ -37,6 +37,7 @@ import {
 import { getCleanExcerpt, calculateReadTime } from "../utils/textUtils";
 import ProfilePageSkeleton from "../components/skeletons/ProfilePageSkeleton";
 import FollowingFollowersModal from "../components/profile/FollowingFollowersModal";
+import PrivateProfileView from "../components/profile/PrivateProfileView";
 
 const ProfilePage = () => {
   const { username, id } = useParams();
@@ -481,22 +482,33 @@ const ProfilePage = () => {
     });
   };
 
-  // Calculate XP progress with gamification fallbacks (handles remaining XP values)
+  // Calculate XP progress - use server-calculated values from profile
   const gamification = profile.gamificationSettings || profile.gamification || {};
   const level = profile.level || gamification.level || 1;
   const totalXP = profile.xp ?? gamification.totalXP ?? 0;
-  const currentLevelXP =
-    profile.currentLevelXP ??
-    gamification.currentLevelXP ??
-    (totalXP % 100);
-  const remainingXP =
-    profile.nextLevelXP ??
-    gamification.nextLevelXP ??
-    Math.max(0, 100 - currentLevelXP);
-  const xpProgress = Math.min(
-    100,
-    Math.max(0, (currentLevelXP / (currentLevelXP + remainingXP || 1)) * 100)
-  );
+
+  // Use server-calculated XP progress (accurate for complex leveling formula)
+  const currentLevelXP = profile.currentLevelXP ?? 0;
+  const remainingXP = profile.nextLevelXP ?? 0;
+  const xpRequiredForLevel = profile.xpRequiredForLevel ?? 100;
+
+  const xpProgress = xpRequiredForLevel > 0
+    ? Math.min(100, Math.max(0, (currentLevelXP / xpRequiredForLevel) * 100))
+    : 0;
+
+  // ========== PRIVACY CHECK ==========
+  // Show restricted view for private/followers-only profiles
+  if (profile.canViewProfile === false) {
+    return (
+      <PrivateProfileView
+        profile={profile}
+        onFollowClick={handleFollow}
+        isFollowing={profile.isFollowing || false}
+        followLoading={followLoading}
+      />
+    );
+  }
+  // ========== END PRIVACY CHECK ==========
 
   return (
     <>
@@ -509,6 +521,7 @@ const ProfilePage = () => {
         onUnfollow={handleUnfollowFromModal}
         onRemoveFollower={handleRemoveFollowerFromModal}
         currentUserId={user?._id || user?.id}
+        isOwnProfile={isOwnProfile}
       />
 
       <div className="max-w-6xl mx-auto p-6 space-y-8">

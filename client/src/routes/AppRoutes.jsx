@@ -41,6 +41,7 @@ const AppearanceTest = lazy(() => import("../components/test/AppearanceTest.jsx"
 const PrivacyPage = lazy(() => import("../pages/PrivacyPage"));
 const TermsPage = lazy(() => import("../pages/TermsPage"));
 const SupportPage = lazy(() => import("../pages/SupportPage"));
+const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 
 export default function AppRoutes() {
   return (
@@ -177,6 +178,7 @@ export default function AppRoutes() {
             </ProtectedRoute>
           } />
           <Route path="logout" element={<Logout />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </Suspense>
