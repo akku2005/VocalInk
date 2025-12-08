@@ -4,6 +4,7 @@ import LoginPromptModal from "../auth/LoginPromptModal";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import blogService from "../../services/blogService";
+import { buildAbsoluteUrl } from "../../utils/siteUrl";
 
 const EngagementButtons = ({
   blogId,
@@ -125,22 +126,26 @@ const EngagementButtons = ({
 
   const handleShare = async (platform) => {
     // Use provided share data or fallback to current page
-    const url = shareUrl || window.location.href;
-    const title = shareTitle || document.title;
+    const url = buildAbsoluteUrl(
+      shareUrl ||
+      (typeof window !== 'undefined' ? window.location.pathname : '/')
+    );
+    const title = shareTitle || (typeof document !== 'undefined' ? document.title : '');
     const description = shareDescription || '';
     const image = shareImage || '';
 
     let shareMessage = '';
+    let shareLink = '';
 
     switch (platform) {
       case "twitter":
         // Twitter: Use title + URL (Twitter will fetch meta tags for preview)
         shareMessage = `${encodeURIComponent(title)}\n\n${encodeURIComponent(url)}`;
-        shareUrl = `https://twitter.com/intent/tweet?text=${shareMessage}`;
+        shareLink = `https://twitter.com/intent/tweet?text=${shareMessage}`;
         break;
       case "facebook":
         // Facebook: Simple URL share (Facebook reads OG tags)
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         break;
       case "linkedin":
         // LinkedIn: Use feed endpoint to allow pre-filling text (works better for localhost/no-scrape)
@@ -160,7 +165,7 @@ const EngagementButtons = ({
           }
 
           textParts.push(url);
-          shareUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textParts.join('\n\n'))}`;
+          shareLink = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textParts.join('\n\n'))}`;
         }
         break;
       case "copy":
@@ -177,11 +182,11 @@ const EngagementButtons = ({
         return;
     }
 
-    if (shareUrl) {
+    if (shareLink) {
       try {
         // Try to open in new tab first
         const newWindow = window.open(
-          shareUrl,
+          shareLink,
           "_blank",
           "noopener,noreferrer"
         );

@@ -32,7 +32,14 @@ import {
   ArrowLeft,
   Camera,
   Upload,
-  Eye
+  Eye,
+  Building,
+  Briefcase,
+  Mail,
+  Phone,
+  Globe2,
+  Languages,
+  Clock3
 } from "lucide-react";
 import { getCleanExcerpt, calculateReadTime } from "../utils/textUtils";
 import ProfilePageSkeleton from "../components/skeletons/ProfilePageSkeleton";
@@ -482,6 +489,57 @@ const ProfilePage = () => {
     });
   };
 
+  const normalizeUrl = (link = '') => {
+    if (!link) return '';
+    return /^https?:\/\//i.test(link) ? link : `https://${link}`;
+  };
+
+  const formatDisplayUrl = (link = '') => `${link}`.trim().replace(/^https?:\/\//i, '');
+
+  const languageLabelMap = {
+    en: 'English',
+    es: 'Spanish',
+    fr: 'French',
+    de: 'German',
+    it: 'Italian',
+    pt: 'Portuguese',
+    ja: 'Japanese',
+    ko: 'Korean',
+    zh: 'Chinese',
+    hi: 'Hindi'
+  };
+
+  const displayHandle = profile.username || profile.handle || profile.email?.split('@')[0] || 'user';
+  const displayLocation = profile.location || profile.address;
+  const timezoneDisplay = profile.timezone || profile.timeZone;
+  const formattedDob = profile.dob ? formatDate(profile.dob) : null;
+  const languageDisplay = languageLabelMap[(profile.language || '').toLowerCase()] || profile.language || null;
+  const showEmail = profile?.privacySettings?.showEmail !== false;
+
+  const aboutDetails = [
+    { label: 'Company', value: profile.company, icon: Building },
+    { label: 'Job Title', value: profile.jobTitle, icon: Briefcase },
+    { label: 'Occupation', value: profile.occupation, icon: Briefcase },
+    { label: 'Gender', value: profile.gender, icon: User },
+    { label: 'Nationality', value: profile.nationality, icon: Globe2 },
+    { label: 'Language', value: languageDisplay, icon: Languages },
+    { label: 'Timezone', value: timezoneDisplay, icon: Clock3 },
+    { label: 'Date of Birth', value: formattedDob, icon: Calendar }
+  ].filter(detail => detail.value);
+
+  const contactDetails = [
+    { label: 'Email', value: profile.email, icon: Mail, href: `mailto:${profile.email}`, visible: showEmail },
+    { label: 'Mobile', value: profile.mobile, icon: Phone },
+    { label: 'Website', value: profile.website, icon: Link, href: normalizeUrl(profile.website), display: formatDisplayUrl(profile.website || '') },
+    { label: 'Location', value: displayLocation, icon: MapPin }
+  ].filter(detail => detail.value && detail.visible !== false);
+
+  const socialLinks = Array.isArray(profile.socialLinks)
+    ? profile.socialLinks.filter(link => link?.url)
+    : [];
+
+  const hasExtendedDetails = aboutDetails.length > 0 || contactDetails.length > 0 || socialLinks.length > 0;
+
   // Calculate XP progress - use server-calculated values from profile
   const gamification = profile.gamificationSettings || profile.gamification || {};
   const level = profile.level || gamification.level || 1;
@@ -705,24 +763,29 @@ const ProfilePage = () => {
                     : profile.firstName || profile.lastName || profile.displayName || profile.name || 'User'
                   }
                 </h1>
-                <p className="text-text-secondary">@{profile.email?.split('@')[0] || 'user'}</p>
+                <p className="text-text-secondary">@{displayHandle}</p>
+                {(profile.jobTitle || profile.company) && (
+                  <p className="text-text-secondary">
+                    {[profile.jobTitle, profile.company].filter(Boolean).join(' at ')}
+                  </p>
+                )}
               </div>
               {profile.bio && (
                 <p className="text-text-primary max-w-2xl">{profile.bio}</p>
               )}
 
               <div className="flex flex-wrap gap-4 text-sm text-text-secondary">
-                {profile.address && (
+                {displayLocation && (
                   <div className="flex items-center gap-1">
                     <MapPin className="w-4 h-4" />
-                    {profile.address}
+                    {displayLocation}
                   </div>
                 )}
                 {profile.website && (
                   <div className="flex items-center gap-1">
                     <Link className="w-4 h-4" />
-                    <a href={profile.website} className="text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">
-                      {profile.website.replace(/^https?:\/\//, '')}
+                    <a href={normalizeUrl(profile.website)} className="text-primary-500 hover:underline" target="_blank" rel="noopener noreferrer">
+                      {formatDisplayUrl(profile.website)}
                     </a>
                   </div>
                 )}
@@ -747,6 +810,101 @@ const ProfilePage = () => {
               </div>
             )}
           </div>
+
+          {hasExtendedDetails && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-[var(--light-text-color2)]">
+                    <User className="w-5 h-5" />
+                    About & Preferences
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {aboutDetails.length > 0 ? (
+                    aboutDetails.map((detail) => {
+                      const Icon = detail.icon;
+                      return (
+                        <div key={detail.label} className="p-3 rounded-lg border border-border bg-secondary-50 dark:bg-secondary-900">
+                          <div className="flex items-center gap-2 text-xs uppercase text-text-secondary tracking-wide">
+                            <Icon className="w-4 h-4" />
+                            <span>{detail.label}</span>
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-text-primary break-words">
+                            {detail.value}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-text-secondary">No profile details added yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-[var(--light-text-color2)]">
+                    <Mail className="w-5 h-5" />
+                    Contact & Links
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {contactDetails.length > 0 ? (
+                    <div className="space-y-3">
+                      {contactDetails.map((detail) => {
+                        const Icon = detail.icon;
+                        const displayValue = detail.display || detail.value;
+                        return (
+                          <div key={detail.label} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary-50 dark:bg-secondary-900">
+                            <Icon className="w-4 h-4 text-text-secondary" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs uppercase text-text-secondary tracking-wide">{detail.label}</p>
+                              {detail.href ? (
+                                <a
+                                  href={detail.href}
+                                  className="text-sm text-primary-500 hover:underline break-words"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {displayValue}
+                                </a>
+                              ) : (
+                                <p className="text-sm text-text-primary break-words">{displayValue}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-secondary">No contact details shared yet.</p>
+                  )}
+
+                  {socialLinks.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase text-text-secondary tracking-wide">Social</p>
+                      <div className="flex flex-wrap gap-2">
+                        {socialLinks.map((link, index) => (
+                          <a
+                            key={`${link.platform}-${index}`}
+                            href={normalizeUrl(link.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-primary-200 text-sm text-text-primary transition-colors"
+                          >
+                            <Link className="w-4 h-4 text-text-secondary" />
+                            <span className="capitalize">{link.platform}</span>
+                            <span className="text-text-secondary">{formatDisplayUrl(link.url)}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

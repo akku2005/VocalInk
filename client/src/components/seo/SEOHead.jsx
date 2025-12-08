@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { buildAbsoluteUrl, getSiteUrl } from '../../utils/siteUrl';
 
 const SEOHead = ({
   title,
@@ -19,8 +20,8 @@ const SEOHead = ({
   article // New: article metadata object
 }) => {
   const location = useLocation();
-  const baseUrl = window.location.origin;
-  const currentUrl = canonical || url || `${baseUrl}${location.pathname}`;
+  const baseUrl = getSiteUrl();
+  const currentUrl = buildAbsoluteUrl(canonical || url || location?.pathname || '/');
   const defaultImage = `${baseUrl}/images/og-default.png`; // Fallback OG image
 
   useEffect(() => {

@@ -38,7 +38,13 @@ const AudioPlayer = ({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl);
-  const [segments, setSegments] = useState(initialAudioSegments || []);
+  const [segments, setSegments] = useState(
+    (initialAudioSegments || []).map((seg, idx) => {
+      const normalized = normalizeSegmentForHighlighting(seg);
+      const id = normalized?.id || normalized?.paragraphId || normalized?._id || `tts-seg-${idx}`;
+      return { ...normalized, id, paragraphId: normalized?.paragraphId || id };
+    })
+  );
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -102,7 +108,11 @@ const AudioPlayer = ({
 
         if (stored && stored.segments && stored.segments.length > 0) {
           // Audio found in IndexedDB - create blob URLs for playback
-          const normalizedSegments = stored.segments.map(normalizeSegmentForHighlighting);
+          const normalizedSegments = stored.segments.map((seg, idx) => {
+            const normalized = normalizeSegmentForHighlighting(seg);
+            const id = normalized.id || normalized.paragraphId || normalized._id || `tts-seg-${idx}`;
+            return { ...normalized, id, paragraphId: normalized.paragraphId || id };
+          });
           const segmentsWithUrls = normalizedSegments.map(seg => {
             const blobUrl = audioStorageService.createBlobUrl(seg.audioData);
             blobUrlsRef.current.push(blobUrl);
