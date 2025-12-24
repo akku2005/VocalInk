@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { userService } from "../services/userService";
-import { settingsService } from "../services/settingsService";
+import settingsService from "../services/settingsService";
 import { imageService } from "../services/imageService";
 import { getProfileHandle, getProfilePath } from "../utils/profileUrl";
 import {
@@ -298,6 +298,10 @@ const ProfilePage = () => {
 
   const handleEditProfile = () => {
     navigate('/profile/edit');
+  };
+
+  const handleSettings = () => {
+    navigate('/settings');
   };
 
   // Helper function to get initials from name
@@ -800,11 +804,11 @@ const ProfilePage = () => {
 
             {isOwnProfile && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleEditProfile}>
+                <Button variant="outline" onClick={handleEditProfile} aria-label="Edit profile">
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Profile
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleSettings} aria-label="Open settings">
                   <Settings className="w-4 h-4" />
                 </Button>
               </div>

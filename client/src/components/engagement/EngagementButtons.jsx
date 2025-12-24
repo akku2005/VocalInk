@@ -235,10 +235,11 @@ const EngagementButtons = ({
           color: isLikedState ? 'rgb(var(--color-error))' : 'var(--text-color)',
           backgroundColor: isLikedState ? 'rgba(var(--color-error), 0.1)' : 'transparent'
         }}
+        aria-label={isLikedState ? `Unlike this post (${likes} likes)` : `Like this post (${likes} likes)`}
         title={isAuthenticated ? "Like this post" : "Sign in to like"}
       >
         <Heart className={`w-4 h-4 ${isLikedState ? "fill-current" : ""}`} />
-        <span className="font-normal text-xs">{likes}</span>
+        <span className="font-normal text-xs" aria-hidden="true">{likes}</span>
       </button>
 
       {/* Comment Button */}
@@ -246,10 +247,11 @@ const EngagementButtons = ({
         onClick={handleComment}
         className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg hover:bg-primary/10 transition-all duration-200 cursor-pointer`}
         style={{ color: 'var(--text-color)' }}
+        aria-label={`View comments (${comments} comments)`}
         title="View comments"
       >
         <MessageCircle className="w-4 h-4" />
-        <span className="font-medium text-xs">{comments}</span>
+        <span className="font-medium text-xs" aria-hidden="true">{comments}</span>
       </button>
 
       {/* Bookmark Button */}
@@ -263,12 +265,13 @@ const EngagementButtons = ({
           color: isBookmarkedState ? 'rgb(var(--color-primary))' : 'var(--text-color)',
           backgroundColor: isBookmarkedState ? 'rgba(var(--color-primary), 0.1)' : 'transparent'
         }}
+        aria-label={isBookmarkedState ? `Remove bookmark (${bookmarks} bookmarks)` : `Bookmark this post (${bookmarks} bookmarks)`}
         title={isAuthenticated ? "Bookmark this post" : "Sign in to bookmark"}
       >
         <Bookmark
           className={`w-4 h-4 flex flex-col ${isBookmarkedState ? "fill-current" : ""}`}
         />
-        <span className="font-medium text-xs">{bookmarks}</span>
+        <span className="font-medium text-xs" aria-hidden="true">{bookmarks}</span>
       </button>
 
       {/* Share Button */}
@@ -276,6 +279,9 @@ const EngagementButtons = ({
         <button
           onClick={() => setShowShareMenu(!showShareMenu)}
           className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg hover:bg-accent/10 transition-all duration-200 cursor-pointer`}
+          aria-label="Share this post"
+          aria-haspopup="menu"
+          aria-expanded={showShareMenu ? "true" : "false"}
           style={{ color: 'var(--text-color)' }}
           title="Share this post"
         >

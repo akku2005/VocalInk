@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import logger from "../utils/logger";
 import {
   Card,
   CardHeader,
@@ -147,7 +148,7 @@ const ContactSalesPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Contact Sales Form Submitted:", formData);
+    logger.log("Contact Sales Form Submitted:", formData);
     // TODO: Implement form submission logic
   };
 

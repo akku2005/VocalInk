@@ -3,6 +3,7 @@ import Button from '../ui/Button';
 import { Bell, Mail, Smartphone, Save } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import settingsService from '../../services/settingsService';
+import logger from '../../utils/logger';
 
 const NotificationsTab = ({ 
   settings, 
@@ -37,7 +38,7 @@ const NotificationsTab = ({
   const handleSave = async () => {
     setLoading(true);
     try {
-      console.log('Saving Notification settings:', settings.notifications);
+      logger.log('Saving Notification settings:', settings.notifications);
       
       await settingsService.updateNotificationsSection(settings.notifications);
       
@@ -46,7 +47,7 @@ const NotificationsTab = ({
       
       showToast('Notification settings saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving notification settings:', error);
+      logger.error('Error saving notification settings:', error);
       showToast(error.message || 'Failed to save notification settings', 'error');
     } finally {
       setLoading(false);

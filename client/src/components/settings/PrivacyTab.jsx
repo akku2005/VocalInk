@@ -3,9 +3,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import BadgeComponent from '../ui/Badge';
-import { Shield, Eye, EyeOff, Globe, Lock, Save, Monitor, Download, AlertTriangle, X, Copy, Check } from 'lucide-react';
+import { Shield, Eye, EyeOff, Globe, Lock, Save, Monitor, Download, AlertTriangle, X, Copy, Check, Key, RefreshCw } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import settingsService from '../../services/settingsService';
+import logger from '../../utils/logger';
 
 const PrivacyTab = ({ 
   settings, 
@@ -29,10 +30,83 @@ const PrivacyTab = ({
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
+  // Backup Codes State
+  const [backupCodesStatus, setBackupCodesStatus] = useState(null);
+  const [backupCodesLoading, setBackupCodesLoading] = useState(false);
+  const [showBackupCodesModal, setShowBackupCodesModal] = useState(false);
+  const [newBackupCodes, setNewBackupCodes] = useState([]);
+  const [copiedCodes, setCopiedCodes] = useState(false);
+
   // Load active sessions on component mount
   useEffect(() => {
     loadActiveSessions();
   }, []);
+
+  // Load backup codes status when 2FA is enabled
+  useEffect(() => {
+    if (account?.twoFactorEnabled) {
+      loadBackupCodesStatus();
+    }
+  }, [account?.twoFactorEnabled]);
+
+  const loadBackupCodesStatus = async () => {
+    try {
+      const status = await settingsService.getBackupCodesStatus();
+      // Map backend response to expected format
+      setBackupCodesStatus({
+        remaining: status.unusedBackupCodes ?? status.remaining ?? 0,
+        total: status.totalBackupCodes ?? status.total ?? 0,
+        twoFactorEnabled: status.twoFactorEnabled
+      });
+    } catch (error) {
+      logger.error('Error loading backup codes status:', error);
+    }
+  };
+
+  const handleRegenerateBackupCodes = async () => {
+    const password = prompt('Please enter your password to regenerate backup codes:');
+    if (!password) return;
+
+    setBackupCodesLoading(true);
+    try {
+      const result = await settingsService.regenerateBackupCodes(password);
+      setNewBackupCodes(result.backupCodes || []);
+      setShowBackupCodesModal(true);
+      await loadBackupCodesStatus();
+      showToast('Backup codes regenerated successfully', 'success');
+    } catch (error) {
+      logger.error('Error regenerating backup codes:', error);
+      showToast(error.message || 'Failed to regenerate backup codes', 'error');
+    } finally {
+      setBackupCodesLoading(false);
+    }
+  };
+
+  const copyBackupCodesToClipboard = async () => {
+    const codesText = newBackupCodes.join('\n');
+    try {
+      await navigator.clipboard.writeText(codesText);
+      setCopiedCodes(true);
+      showToast('Backup codes copied to clipboard', 'success');
+      setTimeout(() => setCopiedCodes(false), 2000);
+    } catch (error) {
+      showToast('Failed to copy codes', 'error');
+    }
+  };
+
+  const downloadBackupCodes = () => {
+    const codesText = `VocalInk Backup Codes\n${'='.repeat(40)}\n\nStore these codes in a safe place. Each code can only be used once.\n\n${newBackupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n')}\n\nGenerated: ${new Date().toLocaleString()}`;
+    const blob = new Blob([codesText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vocalink-backup-codes.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup codes downloaded', 'success');
+  };
 
   const loadActiveSessions = async () => {
     setSessionsLoading(true);
@@ -40,7 +114,7 @@ const PrivacyTab = ({
       const sessions = await settingsService.getActiveSessions();
       setActiveSessions(sessions || []);
     } catch (error) {
-      console.error('Error loading active sessions:', error);
+      logger.error('Error loading active sessions:', error);
       showToast('Failed to load active sessions', 'error');
     } finally {
       setSessionsLoading(false);
@@ -70,7 +144,7 @@ const PrivacyTab = ({
   const handleSave = async () => {
     setLoading(true);
     try {
-      console.log('Saving Privacy settings:', settings.privacy);
+      logger.log('Saving Privacy settings:', settings.privacy);
       
       await settingsService.updatePrivacySettings(settings.privacy);
       
@@ -79,7 +153,7 @@ const PrivacyTab = ({
       
       showToast('Privacy settings saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving privacy settings:', error);
+      logger.error('Error saving privacy settings:', error);
       showToast(error.message || 'Failed to save privacy settings', 'error');
     } finally {
       setLoading(false);
@@ -93,9 +167,9 @@ const PrivacyTab = ({
       setQrCodeData(result);
       setShow2FAModal(true);
       showToast('2FA setup initiated. Please scan the QR code with your authenticator app.', 'success');
-      console.log('2FA Setup Data:', result);
+      logger.log('2FA Setup Data:', result);
     } catch (error) {
-      console.error('Error setting up 2FA:', error);
+      logger.error('Error setting up 2FA:', error);
       showToast(error.message || 'Failed to setup 2FA', 'error');
     } finally {
       setLoading(false);
@@ -113,11 +187,19 @@ const PrivacyTab = ({
       await settingsService.verify2FA(verificationCode);
       setShow2FAModal(false);
       setVerificationCode('');
+      
+      // Show backup codes if they were provided during setup
+      if (qrCodeData?.backupCodes && qrCodeData.backupCodes.length > 0) {
+        setNewBackupCodes(qrCodeData.backupCodes);
+        setShowBackupCodesModal(true);
+      }
+      
       setQrCodeData(null);
       await loadSettings(true); // Refresh settings to show 2FA as enabled
+      await loadBackupCodesStatus(); // Load backup codes status
       showToast('2FA enabled successfully!', 'success');
     } catch (error) {
-      console.error('Error verifying 2FA:', error);
+      logger.error('Error verifying 2FA:', error);
       showToast(error.message || 'Failed to verify 2FA code', 'error');
     } finally {
       setVerifying(false);
@@ -140,7 +222,7 @@ const PrivacyTab = ({
       await loadSettings(true); // Refresh settings
       showToast('2FA disabled successfully', 'success');
     } catch (error) {
-      console.error('Error disabling 2FA:', error);
+      logger.error('Error disabling 2FA:', error);
       showToast(error.message || 'Failed to disable 2FA', 'error');
     } finally {
       setLoading(false);
@@ -154,7 +236,7 @@ const PrivacyTab = ({
       showToast(`Session revoked successfully`, 'success');
       await loadActiveSessions(); // Refresh the sessions list
     } catch (error) {
-      console.error('Error revoking session:', error);
+      logger.error('Error revoking session:', error);
       showToast(error.message || 'Failed to revoke session', 'error');
     } finally {
       setSessionsLoading(false);
@@ -172,7 +254,7 @@ const PrivacyTab = ({
       showToast('All sessions revoked successfully', 'success');
       await loadActiveSessions(); // Refresh the sessions list
     } catch (error) {
-      console.error('Error revoking all sessions:', error);
+      logger.error('Error revoking all sessions:', error);
       showToast(error.message || 'Failed to revoke all sessions', 'error');
     } finally {
       setSessionsLoading(false);
@@ -185,7 +267,7 @@ const PrivacyTab = ({
       await settingsService.exportUserData();
       showToast('Data export completed successfully', 'success');
     } catch (error) {
-      console.error('Error exporting data:', error);
+      logger.error('Error exporting data:', error);
       showToast(error.message || 'Failed to export data', 'error');
     } finally {
       setLoading(false);
@@ -208,7 +290,7 @@ const PrivacyTab = ({
       showToast('Account deleted successfully', 'success');
       // In a real implementation, you'd redirect to login or home page
     } catch (error) {
-      console.error('Error deleting account:', error);
+      logger.error('Error deleting account:', error);
       showToast(error.message || 'Failed to delete account', 'error');
     } finally {
       setLoading(false);
@@ -425,15 +507,147 @@ const PrivacyTab = ({
                   </>
                 )}
               </Button>
-              {account?.twoFactorEnabled && (
-                <span className="text-xs text-text-secondary">
-                  Backup codes available
-                </span>
-              )}
             </div>
           </div>
+          
+          {/* Backup Codes Section - Only show when 2FA is enabled */}
+          {account?.twoFactorEnabled && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key className="w-4 h-4 text-text-secondary" />
+                    <h3 className="font-medium text-text-primary">
+                      Backup Codes
+                    </h3>
+                    {backupCodesStatus && (
+                      <BadgeComponent 
+                        className={backupCodesStatus.remaining > 3 
+                          ? "bg-green-100 text-green-800" 
+                          : backupCodesStatus.remaining > 0
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-red-100 text-red-800"
+                        }
+                      >
+                        {backupCodesStatus.remaining}/{backupCodesStatus.total} remaining
+                      </BadgeComponent>
+                    )}
+                  </div>
+                  <p className="text-sm text-text-secondary">
+                    Use backup codes to access your account if you lose your authenticator device.
+                    Each code can only be used once.
+                  </p>
+                  {backupCodesStatus?.remaining === 0 && (
+                    <p className="text-sm text-error mt-2">
+                      <AlertTriangle className="w-4 h-4 inline mr-1" />
+                      All backup codes have been used. Generate new codes now.
+                    </p>
+                  )}
+                  {backupCodesStatus?.remaining > 0 && backupCodesStatus?.remaining <= 3 && (
+                    <p className="text-sm text-amber-600 mt-2">
+                      <AlertTriangle className="w-4 h-4 inline mr-1" />
+                      You're running low on backup codes. Consider regenerating them.
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateBackupCodes}
+                  disabled={backupCodesLoading}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-4 h-4 ${backupCodesLoading ? 'animate-spin' : ''}`} />
+                  {backupCodesLoading ? 'Regenerating...' : 'Regenerate Codes'}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Backup Codes Modal */}
+      {showBackupCodesModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Key className="w-5 h-5 text-primary" />
+                  <h2 className="text-lg font-semibold text-text-primary">Your New Backup Codes</h2>
+                </div>
+                <button
+                  onClick={() => setShowBackupCodesModal(false)}
+                  className="p-1 hover:bg-secondary-btn-hover rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-text-secondary" />
+                </button>
+              </div>
+              
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 mb-4">
+                <div className="flex gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      Save these codes now
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      These codes will not be shown again. Store them in a safe place.
+                      Each code can only be used once.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {newBackupCodes.map((code, index) => (
+                  <div
+                    key={index}
+                    className="p-2 bg-secondary rounded-lg text-center font-mono text-sm text-text-primary border border-border"
+                  >
+                    {code}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={copyBackupCodesToClipboard}
+                >
+                  {copiedCodes ? (
+                    <>
+                      <Check className="w-4 h-4 mr-1" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy All
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={downloadBackupCodes}
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download
+                </Button>
+              </div>
+              
+              <Button
+                className="w-full mt-4"
+                onClick={() => setShowBackupCodesModal(false)}
+              >
+                I've saved my codes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Sessions */}
       <Card>

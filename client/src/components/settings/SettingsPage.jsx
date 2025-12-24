@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../ui/Card';
+import logger from '../../utils/logger';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
@@ -9,8 +10,6 @@ import {
   User, 
   Bell, 
   Globe, 
-  Palette, 
-  Brain, 
   Award as Badge, 
   Shield, 
   Key
@@ -21,8 +20,6 @@ import ProfileTab from './ProfileTab';
 import AccountTab from './AccountTab';
 import NotificationsTab from './NotificationsTab';
 import PrivacyTab from './PrivacyTab';
-import AppearanceTab from './AppearanceTab';
-import AIPreferencesTab from './AIPreferencesTab';
 import GamificationTab from './GamificationTab';
 import SecurityTab from './SecurityTab';
 
@@ -50,7 +47,8 @@ const SettingsPage = () => {
       // Only load settings if we don't have them yet
       loadSettings();
     }
-  }, [user, settings]);
+    // Use user?._id instead of user object to prevent re-renders
+  }, [user?._id, settings]);
 
 
   const loadSettings = async (forceRefresh = false) => {
@@ -63,7 +61,7 @@ const SettingsPage = () => {
         await fetchUserProfile(true);
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      logger.error('Error loading settings:', error);
       showToast('Failed to load settings', 'error');
     } finally {
       setLoading(false);
@@ -75,8 +73,6 @@ const SettingsPage = () => {
     { id: 'account', name: 'Account', icon: Shield },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'privacy', name: 'Privacy & Security', icon: Globe },
-    { id: 'appearance', name: 'Appearance', icon: Palette },
-    { id: 'ai', name: 'AI Preferences', icon: Brain },
     { id: 'gamification', name: 'Gamification', icon: Badge },
     { id: 'security', name: 'Security', icon: Key }
   ];
@@ -135,27 +131,6 @@ const SettingsPage = () => {
       case 'privacy':
         return (
           <PrivacyTab
-            settings={settings}
-            setSettings={setSettings}
-            loading={loading}
-            setLoading={setLoading}
-            showToast={showToast}
-            loadSettings={loadSettings}
-          />
-        );
-      case 'appearance':
-        return (
-          <AppearanceTab
-            settings={settings}
-            setSettings={setSettings}
-            loading={loading}
-            setLoading={setLoading}
-            loadSettings={loadSettings}
-          />
-        );
-      case 'ai':
-        return (
-          <AIPreferencesTab
             settings={settings}
             setSettings={setSettings}
             loading={loading}

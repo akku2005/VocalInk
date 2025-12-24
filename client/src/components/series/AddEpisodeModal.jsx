@@ -5,6 +5,7 @@ import Input from '../ui/Input';
 import blogService from '../../services/blogService';
 import seriesService from '../../services/seriesService';
 import { useAuth } from '../../context/AuthContext';
+import logger from '../../utils/logger';
 
 const AddEpisodeModal = ({ isOpen, onClose, series, onUpdate }) => {
     const { user } = useAuth();
@@ -19,7 +20,9 @@ const AddEpisodeModal = ({ isOpen, onClose, series, onUpdate }) => {
         if (isOpen && user) {
             fetchUserBlogs();
         }
-    }, [isOpen, user]);
+        // Use user?._id instead of user object to prevent re-renders
+        // when user object reference changes but data stays the same
+    }, [isOpen, user?._id]);
 
     useEffect(() => {
         if (searchQuery) {
@@ -43,30 +46,30 @@ const AddEpisodeModal = ({ isOpen, onClose, series, onUpdate }) => {
                 limit: 100
             });
 
-            console.log('Blog service response:', response);
+            logger.log('Blog service response:', response);
 
             // Extract blogs from response
             const allBlogs = response.blogs || response.data?.blogs || response.data || response || [];
 
-            console.log('All blogs:', allBlogs);
+            logger.log('All blogs:', allBlogs);
 
             // Filter out blogs already in the series
             const existingBlogIds = (series.episodes || []).map(ep =>
                 ep.episodeId?._id || ep.episodeId
             ).filter(Boolean);
 
-            console.log('Existing blog IDs in series:', existingBlogIds);
+            logger.log('Existing blog IDs in series:', existingBlogIds);
 
             const availableBlogs = Array.isArray(allBlogs) ? allBlogs.filter(blog =>
                 !existingBlogIds.includes(blog._id || blog.id)
             ) : [];
 
-            console.log('Available blogs to add:', availableBlogs);
+            logger.log('Available blogs to add:', availableBlogs);
 
             setBlogs(availableBlogs);
             setFilteredBlogs(availableBlogs);
         } catch (error) {
-            console.error('Error fetching blogs:', error);
+            logger.error('Error fetching blogs:', error);
         } finally {
             setLoading(false);
         }

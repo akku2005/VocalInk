@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import logger from "../utils/logger";
 import {
   Card,
   CardHeader,
@@ -190,7 +191,7 @@ const FreeTrialPage = () => {
     if (step === 1) {
       setStep(2);
     } else {
-      console.log("Free Trial Form Submitted:", formData);
+      logger.log("Free Trial Form Submitted:", formData);
       // TODO: Implement trial signup logic
     }
   };
