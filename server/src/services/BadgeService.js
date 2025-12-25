@@ -6,6 +6,7 @@ const Blog = require('../models/blog.model');
 const NotificationService = require('./NotificationService');
 const XPService = require('./XPService');
 const logger = require('../utils/logger');
+const mongoose = require('mongoose');
 
 // Optional Redis import with fallback
 let redis = null;
@@ -146,6 +147,35 @@ class BadgeService {
       .skip((page - 1) * limit)
       .exec();
 
+    // Compute earned counts for returned badges (number of users who have each badge)
+    const badgeIds = badges.map(b => b._id);
+    let earnedCounts = {};
+    if (badgeIds.length > 0) {
+      try {
+        const counts = await User.aggregate([
+          { $match: { badges: { $in: badgeIds } } },
+          { $unwind: '$badges' },
+          { $match: { badges: { $in: badgeIds } } },
+          { $group: { _id: '$badges', count: { $sum: 1 } } }
+        ]);
+        earnedCounts = counts.reduce((acc, curr) => {
+          acc[curr._id.toString()] = curr.count;
+          return acc;
+        }, {});
+      } catch (err) {
+        logger.warn('Failed to compute earned counts for badges:', err.message);
+      }
+    }
+
+    // Attach earned counts to analytics
+    badges.forEach((badge) => {
+      const key = badge._id.toString();
+      const count = earnedCounts[key] || badge.analytics?.totalEarned || 0;
+      badge.analytics = badge.analytics || {};
+      badge.analytics.totalEarned = count;
+      badge.earnedCount = count;
+    });
+
     const total = await Badge.countDocuments(query);
 
     return {
@@ -173,10 +203,13 @@ class BadgeService {
     const earnedUsers = await User.find({ badges: badge._id })
       .select('name email avatar')
       .limit(10);
+    const earnedCount = await User.countDocuments({ badges: badge._id });
 
     const badgeData = badge.toObject();
     badgeData.earnedUsers = earnedUsers;
-    badgeData.earnedCount = earnedUsers.length;
+    badgeData.earnedCount = earnedCount;
+    badgeData.analytics = badgeData.analytics || {};
+    badgeData.analytics.totalEarned = earnedCount;
 
     // Add user-specific information if userId provided
     if (userId) {
@@ -347,6 +380,7 @@ class BadgeService {
       earnedBadges: userBadgeIds.length,
       availableBadges: Math.max(allBadges.length - userBadgeIds.length, 0),
       completionPercentage: Math.round((userBadgeIds.length / totalBadges) * 100),
+      totalXp: user.xp || 0,
       badges: []
     };
 
@@ -755,9 +789,39 @@ class BadgeService {
     if (category) searchQuery.category = category;
     if (rarity) searchQuery.rarity = rarity;
 
-    return await Badge.find(searchQuery)
+    const badges = await Badge.find(searchQuery)
       .sort({ 'analytics.popularityScore': -1 })
       .limit(limit);
+
+    // Compute earned counts for these search results
+    const badgeIds = badges.map(b => b._id);
+    let earnedCounts = {};
+    if (badgeIds.length > 0) {
+      try {
+        const counts = await User.aggregate([
+          { $match: { badges: { $in: badgeIds } } },
+          { $unwind: '$badges' },
+          { $match: { badges: { $in: badgeIds } } },
+          { $group: { _id: '$badges', count: { $sum: 1 } } }
+        ]);
+        earnedCounts = counts.reduce((acc, curr) => {
+          acc[curr._id.toString()] = curr.count;
+          return acc;
+        }, {});
+      } catch (err) {
+        logger.warn('Failed to compute earned counts for search:', err.message);
+      }
+    }
+
+    badges.forEach((badge) => {
+      const key = badge._id.toString();
+      const count = earnedCounts[key] || badge.analytics?.totalEarned || 0;
+      badge.analytics = badge.analytics || {};
+      badge.analytics.totalEarned = count;
+      badge.earnedCount = count;
+    });
+
+    return badges;
   }
 
   /**

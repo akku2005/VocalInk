@@ -608,8 +608,8 @@ async function seedBadges() {
     logger.info('Starting badge seeding...');
 
     // Clear existing badges (optional - comment out if you want to keep existing)
-    // await Badge.deleteMany({});
-    // logger.info('Cleared existing badges');
+    await Badge.deleteMany({});
+    logger.info('Cleared existing badges');
 
     const createdBadges = [];
     const skippedBadges = [];
@@ -624,7 +624,8 @@ async function seedBadges() {
           continue;
         }
 
-        const badge = await Badge.create(badgeData);
+        const badgeKey = badgeData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const badge = await Badge.create({ ...badgeData, badgeKey });
         createdBadges.push(badge.name);
         logger.info(`Created badge: ${badge.name}`);
       } catch (error) {

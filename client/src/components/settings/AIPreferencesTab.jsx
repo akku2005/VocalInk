@@ -3,6 +3,7 @@ import Button from '../ui/Button';
 import { Brain, Mic, Volume2, Languages, Save } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import settingsService from '../../services/settingsService';
+import logger from '../../utils/logger';
 
 const AIPreferencesTab = ({ 
   settings, 
@@ -37,7 +38,7 @@ const AIPreferencesTab = ({
   const handleSave = async () => {
     setLoading(true);
     try {
-      console.log('Saving AI Preferences settings:', settings.ai);
+      logger.log('Saving AI Preferences settings:', settings.ai);
       
       await settingsService.updateAISection(settings.ai);
       
@@ -46,7 +47,7 @@ const AIPreferencesTab = ({
       
       showToast('AI preferences saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving AI preferences:', error);
+      logger.error('Error saving AI preferences:', error);
       showToast(error.message || 'Failed to save AI preferences', 'error');
     } finally {
       setLoading(false);

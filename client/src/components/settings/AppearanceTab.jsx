@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Save, Sun, Moon, Monitor } from 'lucide-react';
+import logger from '../../utils/logger';
 import { useToast } from '../../hooks/useToast';
 import { useTheme } from '../context/ThemeContext';
 import settingsService from '../../services/settingsService';
@@ -55,7 +56,7 @@ const AppearanceTab = ({
         await loadSettings(true); // Force refresh
       }
     } catch (error) {
-      console.error('Error saving theme:', error);
+      logger.error('Error saving theme:', error);
       showToast('Failed to save theme', 'error');
     } finally {
       setLoading(false);

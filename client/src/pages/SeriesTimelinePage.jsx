@@ -38,6 +38,7 @@ import CollaboratorModal from "../components/series/CollaboratorModal";
 import AddEpisodeModal from "../components/series/AddEpisodeModal";
 import { useAuth } from "../context/AuthContext";
 import { getProfilePath } from "../utils/profileUrl";
+import { buildAbsoluteUrl } from "../utils/siteUrl";
 
 const stripHtml = (value) => {
   if (typeof value !== "string") return value;
@@ -352,7 +353,7 @@ const SeriesTimelinePage = () => {
             variant="outline"
             className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/10 transition-colors"
             onClick={() => {
-              const url = window.location.href;
+              const url = buildAbsoluteUrl(`/series/${series.slug || id}`);
               navigator.clipboard?.writeText(url).catch(() => { });
             }}
           >

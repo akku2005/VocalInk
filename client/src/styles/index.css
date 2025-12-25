@@ -1,8 +1,8 @@
-@import "tailwindcss";
-
-/* Font imports */
+/* Font imports (must come first) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&display=swap');
 @import "@fontsource/poppins/400.css";
 @import '@fontsource/dancing-script/400.css';
+@import "tailwindcss";
 
 /* Custom CSS Variables for Themes */
 :root {
@@ -102,7 +102,7 @@
 
 /* Article typography */
 .article-content {
-  font-family: "Georgia", "Times New Roman", serif;
+  font-family: "Source Serif 4", "Charter", "Georgia", "Times New Roman", serif;
   font-size: 1.05rem;
   line-height: 1.85;
   color: var(--paragraph-text-color);
@@ -198,7 +198,7 @@
 html,
 body,
 #root {
-  font-family: "Poppins", sans-serif;
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 400;
   background-color: rgb(var(--color-background));
   color: rgb(var(--color-text-primary));

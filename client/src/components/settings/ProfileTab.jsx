@@ -8,6 +8,7 @@ import imageUploadService from '../../services/imageUploadService';
 import settingsService from '../../services/settingsService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../hooks/useAuth';
+import logger from '../../utils/logger';
 
 // Language options matching reference
 const languages = [
@@ -104,7 +105,7 @@ const ProfileTab = ({
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      console.log('Saving Profile settings:', settings.profile);
+      logger.log('Saving Profile settings:', settings.profile);
       
       // Use the new profile section update method
       await settingsService.updateProfileSection(settings.profile);
@@ -115,7 +116,7 @@ const ProfileTab = ({
       
       showToast('Profile settings saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving profile settings:', error);
+      logger.error('Error saving profile settings:', error);
       showToast(error.message || 'Failed to save profile settings', 'error');
     } finally {
       setLoading(false);
@@ -126,12 +127,12 @@ const ProfileTab = ({
     try {
       setProcessingImage(true);
       
-      console.log('🗑️ Removing profile photo from Cloudinary...');
+      logger.log('🗑️ Removing profile photo from Cloudinary...');
       // Remove from Cloudinary
       const removeResult = await imageUploadService.removeAvatar();
       
       if (removeResult.success) {
-        console.log('✅ Profile photo removed successfully');
+        logger.log('✅ Profile photo removed successfully');
         
         // Update the profile to remove avatar
         handleInputChange('profile', 'avatar', null);
@@ -147,7 +148,7 @@ const ProfileTab = ({
         throw new Error('Failed to remove profile photo');
       }
     } catch (error) {
-      console.error('❌ Error removing profile photo:', error);
+      logger.error('❌ Error removing profile photo:', error);
       showToast(error.message || 'Failed to remove profile photo', 'error');
     } finally {
       setProcessingImage(false);
@@ -158,7 +159,7 @@ const ProfileTab = ({
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('🔄 Starting profile photo upload...', { fileName: file.name, fileSize: file.size });
+    logger.log('🔄 Starting profile photo upload...', { fileName: file.name, fileSize: file.size });
 
     // Validate image file
     const validation = imageUploadService.validateImageFile(file);
@@ -170,12 +171,12 @@ const ProfileTab = ({
     try {
       setProcessingImage(true);
       
-      console.log('☁️ Uploading image to Cloudinary...');
+      logger.log('☁️ Uploading image to Cloudinary...');
       // Upload to Cloudinary
       const uploadResult = await imageUploadService.uploadAvatar(file);
       
       if (uploadResult.success) {
-        console.log('✅ Image uploaded successfully:', uploadResult.data);
+        logger.log('✅ Image uploaded successfully:', uploadResult.data);
         
         // Update the profile with the Cloudinary URL
         handleInputChange('profile', 'avatar', uploadResult.data.avatar);
@@ -192,7 +193,7 @@ const ProfileTab = ({
         await loadSettings(true);
         
         showToast('Profile photo uploaded and saved successfully', 'success');
-        console.log('✅ Profile photo saved to database');
+        logger.log('✅ Profile photo saved to database');
         
         // Clear the file input
         event.target.value = '';
@@ -200,7 +201,7 @@ const ProfileTab = ({
         throw new Error(uploadResult.message || 'Failed to upload avatar');
       }
     } catch (error) {
-      console.error('❌ Avatar upload error:', error);
+      logger.error('❌ Avatar upload error:', error);
       showToast(error.message || 'Failed to upload profile photo', 'error');
     } finally {
       setProcessingImage(false);
@@ -211,7 +212,7 @@ const ProfileTab = ({
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('🔄 Starting cover image upload...', { fileName: file.name, fileSize: file.size });
+    logger.log('🔄 Starting cover image upload...', { fileName: file.name, fileSize: file.size });
 
     // Validate image file
     const validation = imageUploadService.validateImageFile(file);
@@ -223,12 +224,12 @@ const ProfileTab = ({
     try {
       setProcessingImage(true);
       
-      console.log('☁️ Uploading cover image to Cloudinary...');
+      logger.log('☁️ Uploading cover image to Cloudinary...');
       // Upload to Cloudinary
       const uploadResult = await imageUploadService.uploadCoverImage(file);
       
       if (uploadResult.success) {
-        console.log('✅ Cover image uploaded successfully:', uploadResult.data);
+        logger.log('✅ Cover image uploaded successfully:', uploadResult.data);
         
         // Update the profile with the Cloudinary URL
         handleInputChange('profile', 'coverImage', uploadResult.data.coverImage);
@@ -243,7 +244,7 @@ const ProfileTab = ({
         await loadSettings(true);
         
         showToast('Cover image uploaded and saved successfully', 'success');
-        console.log('✅ Cover image saved to database');
+        logger.log('✅ Cover image saved to database');
         
         // Clear the file input
         event.target.value = '';
@@ -251,7 +252,7 @@ const ProfileTab = ({
         throw new Error(uploadResult.message || 'Failed to upload cover image');
       }
     } catch (error) {
-      console.error('❌ Cover image upload error:', error);
+      logger.error('❌ Cover image upload error:', error);
       showToast(error.message || 'Failed to upload cover image', 'error');
     } finally {
       setProcessingImage(false);
@@ -332,14 +333,14 @@ const ProfileTab = ({
               <button 
                 className="absolute -bottom-1 -right-1 p-1 bg-primary-500 text-white rounded-full hover:bg-primary-600 cursor-pointer"
                 onClick={() => {
-                  console.log('🎯 Camera button clicked!');
+                  logger.log('🎯 Camera button clicked!');
                   const fileInput = document.getElementById('profile-photo-upload');
-                  console.log('📁 File input element:', fileInput);
+                  logger.log('📁 File input element:', fileInput);
                   if (fileInput) {
                     fileInput.click();
-                    console.log('✅ File input clicked');
+                    logger.log('✅ File input clicked');
                   } else {
-                    console.error('❌ File input not found');
+                    logger.error('❌ File input not found');
                   }
                 }}
                 disabled={processingImage}
@@ -711,7 +712,7 @@ const ProfileTab = ({
               type="button"
               onClick={() => {
                 if (coverImageUrl) {
-                  console.log('Loading cover image from URL:', coverImageUrl);
+                  logger.log('Loading cover image from URL:', coverImageUrl);
                   handleInputChange('profile', 'coverImage', coverImageUrl);
                   setCoverImageUrl('');
                   showToast('Cover image loaded from URL. Click "Save Changes" to save it.', 'info');

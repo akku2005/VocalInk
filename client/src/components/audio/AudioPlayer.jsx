@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useContext } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import Button from '../ui/Button';
 import api from '../../services/api';
-import { useContext } from 'react';
 import { AudioContext } from '../../context/AudioContext';
 import {
   Play,
@@ -22,6 +21,18 @@ import {
 import { buildQuotaToastPayload } from '../../utils/quotaToast';
 import audioStorageService from '../../services/AudioStorageService';
 import { base64ToArrayBuffer } from '../../utils/audioUtils';
+import logger from '../../utils/logger';
+
+// Normalize a TTS segment so IDs are consistent for highlighting
+const normalizeSegmentForHighlighting = (segment) => {
+  if (!segment || typeof segment !== 'object') return segment;
+  const normalizedId = segment.id || segment.paragraphId || segment._id || null;
+  return {
+    ...segment,
+    id: normalizedId,
+    paragraphId: segment.paragraphId || normalizedId,
+  };
+};
 
 const AudioPlayer = ({
   blogId,
@@ -38,7 +49,13 @@ const AudioPlayer = ({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [audioUrl, setAudioUrl] = useState(initialAudioUrl);
-  const [segments, setSegments] = useState(initialAudioSegments || []);
+  const [segments, setSegments] = useState(
+    (initialAudioSegments || []).map((seg, idx) => {
+      const normalized = normalizeSegmentForHighlighting(seg);
+      const id = normalized?.id || normalized?.paragraphId || normalized?._id || `tts-seg-${idx}`;
+      return { ...normalized, id, paragraphId: normalized?.paragraphId || id };
+    })
+  );
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -59,6 +76,7 @@ const AudioPlayer = ({
   const [voicesError, setVoicesError] = useState(null);
   const [loadingFromStorage, setLoadingFromStorage] = useState(true);
   const [audioAvailable, setAudioAvailable] = useState(false);
+  const hasPlayableAudio = audioAvailable && !!audioUrl;
 
   const audioRef = useRef(null);
   const blobUrlsRef = useRef([]); // Track blob URLs for cleanup
@@ -102,7 +120,11 @@ const AudioPlayer = ({
 
         if (stored && stored.segments && stored.segments.length > 0) {
           // Audio found in IndexedDB - create blob URLs for playback
-          const normalizedSegments = stored.segments.map(normalizeSegmentForHighlighting);
+          const normalizedSegments = stored.segments.map((seg, idx) => {
+            const normalized = normalizeSegmentForHighlighting(seg);
+            const id = normalized.id || normalized.paragraphId || normalized._id || `tts-seg-${idx}`;
+            return { ...normalized, id, paragraphId: normalized.paragraphId || id };
+          });
           const segmentsWithUrls = normalizedSegments.map(seg => {
             const blobUrl = audioStorageService.createBlobUrl(seg.audioData);
             blobUrlsRef.current.push(blobUrl);
@@ -121,7 +143,7 @@ const AudioPlayer = ({
             setCurrentSegmentIndex(0);
           }
 
-          console.log('✅ Audio loaded from IndexedDB', {
+          logger.log('✅ Audio loaded from IndexedDB', {
             segments: segmentsWithUrls.length,
             duration: stored.duration,
             firstSegment: segmentsWithUrls[0]
@@ -131,7 +153,7 @@ const AudioPlayer = ({
           setAudioAvailable(false);
           setAudioUrl(null);
           setSegments([]);
-          console.log('⚠️ No audio in IndexedDB - user needs to generate');
+          logger.log('⚠️ No audio in IndexedDB - user needs to generate');
         }
       } catch (error) {
         console.error('Error loading from IndexedDB:', error);
@@ -149,16 +171,6 @@ const AudioPlayer = ({
   // REMOVED: Server audio validation logic
   // IndexedDB is now the sole source for audio storage
   // If audio is not in IndexedDB, user must regenerate it
-
-  const normalizeSegmentForHighlighting = (segment) => {
-    if (!segment || typeof segment !== 'object') return segment;
-    const normalizedId = segment.id || segment.paragraphId || segment._id || null;
-    return {
-      ...segment,
-      id: normalizedId,
-      paragraphId: segment.paragraphId || normalizedId,
-    };
-  };
 
   // Track current segment and notify parent for highlighting
   const currentSegmentRef = useRef(null);
@@ -294,13 +306,13 @@ const AudioPlayer = ({
     // Don't use initialAudioUrl - it's likely stale/non-existent
     // User should regenerate audio which will store in IndexedDB
     if (initialAudioUrl && !loadingFromStorage && !audioAvailable) {
-      console.log('⚠️ Ignoring legacy audio URL from database:', initialAudioUrl);
-      console.log('💡 User needs to regenerate audio to store in IndexedDB');
+      logger.log('⚠️ Ignoring legacy audio URL from database:', initialAudioUrl);
+      logger.log('💡 User needs to regenerate audio to store in IndexedDB');
     }
   }, [initialAudioUrl, loadingFromStorage, audioAvailable]);
 
   useEffect(() => {
-    if (!showSettings || !audioAvailable) return;
+    if (!showSettings || !hasPlayableAudio) return;
     const loadVoices = async () => {
       try {
         setVoicesLoading(true);
@@ -437,9 +449,9 @@ const AudioPlayer = ({
           setTtsJobId(jobId);
         }
 
-        console.log('TTS Generated:', { segments: audioSegments?.length, jobId });
+        logger.log('TTS Generated:', { segments: audioSegments?.length, jobId });
         if (audioSegments && audioSegments.length > 0) {
-          console.log('Raw API Segments (first 3):', audioSegments.slice(0, 3));
+          logger.log('Raw API Segments (first 3):', audioSegments.slice(0, 3));
         }
 
         if (audioSegments && audioSegments.length > 0) {
@@ -557,7 +569,7 @@ const AudioPlayer = ({
 
       // Check if response is actually audio
       const contentType = response.headers.get('content-type');
-      console.log('Download content-type:', contentType);
+      logger.log('Download content-type:', contentType);
 
       if (!contentType || !contentType.includes('audio')) {
         console.error('Invalid content type:', contentType);
@@ -579,7 +591,7 @@ const AudioPlayer = ({
 
       // Clean up
       URL.revokeObjectURL(blobUrl);
-      console.log('Download completed successfully');
+      logger.log('Download completed successfully');
     } catch (error) {
       console.error('Download error:', error);
       setError(`Download failed: ${error.message}`);
@@ -646,59 +658,86 @@ const AudioPlayer = ({
           </div>
 
             <div className="flex items-center gap-2">
-              {audioAvailable && audioUrl && (
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
-                >
-                  <Settings className="w-5 h-5" />
-                </button>
+              {!hasPlayableAudio ? (
+                isGenerating ? (
+                  <Button
+                    onClick={cancelTTS}
+                    disabled={!ttsJobId}
+                    variant="destructive"
+                    size="sm"
+                    className="shadow-lg hover:shadow-xl hover:shadow-red-500/50"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={generateTTS}
+                    size="sm"
+                    className="shadow-lg hover:shadow-primary/40"
+                  >
+                    <Mic2 className="w-4 h-4 mr-2" />
+                    Generate Audio
+                  </Button>
+                )
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
+                    title="Voice settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
+                    title={isExpanded ? 'Collapse player' : 'Expand player'}
+                  >
+                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  </button>
+                </>
               )}
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
-              >
-                {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-              </button>
             </div>
           </div>
 
         {/* Player Controls */}
         <div className="p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={togglePlayPause}
-                disabled={loadingFromStorage || (!audioAvailable && !audioUrl)}
-                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
-              >
-                {isPlaying ? (
-                  <Pause className="w-6 h-6 fill-current" />
-                ) : (
-                  <Play className="w-6 h-6 fill-current ml-1" />
-                )}
-              </button>
-
-              {/* Volume Control */}
-              <div className="flex items-center gap-3 bg-gray-100 dark:bg-white/5 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/5">
-                <button onClick={toggleMute} className="text-text-secondary hover:text-primary transition-colors">
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          {hasPlayableAudio ? (
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={togglePlayPause}
+                  disabled={loadingFromStorage || !hasPlayableAudio}
+                  className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white flex items-center justify-center shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-6 h-6 fill-current" />
+                  ) : (
+                    <Play className="w-6 h-6 fill-current ml-1" />
+                  )}
                 </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-20 accent-primary cursor-pointer"
-                />
-              </div>
-            </div>
 
-            {/* Voice Selection Dropdown (hide until audio exists) */}
-            {audioAvailable && audioUrl && (
-              <div className="w-48">
+                {/* Volume Control */}
+                <div className="flex items-center gap-3 bg-gray-100 dark:bg-white/5 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/5">
+                  <button onClick={toggleMute} className="text-text-secondary hover:text-primary transition-colors">
+                    {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-24 accent-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Voice Selection Dropdown */}
+              <div className="w-52">
+                <label className="block text-xs font-semibold text-text-secondary mb-1">Voice</label>
                 <select
                   value={voiceSettings.voice}
                   onChange={(e) => setVoiceSettings(prev => ({ ...prev, voice: e.target.value }))}
@@ -709,11 +748,15 @@ const AudioPlayer = ({
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="py-6 text-center text-text-secondary text-sm">
+              Generate audio above to enable playback controls.
+            </div>
+          )}
 
           {/* Expanded Settings */}
-          {isExpanded && (
+          {isExpanded && hasPlayableAudio && (
             <div className="pt-6 border-t border-gray-200 dark:border-white/5 animate-in slide-in-from-top-2 duration-300">
               <div className="flex flex-col sm:flex-row gap-6">
                 <div className="flex-1">
@@ -725,7 +768,7 @@ const AudioPlayer = ({
                       max="2"
                       step="0.25"
                       value={voiceSettings.speed}
-                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))} 
                       className="w-full accent-primary cursor-pointer"
                     />
                   </div>

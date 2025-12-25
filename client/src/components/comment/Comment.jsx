@@ -151,6 +151,7 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
 
                 <div className="relative">
                   <button
+                    type="button"
                     onClick={() => setShowActions(!showActions)}
                     className="p-1.5 hover:bg-surface/50 rounded-lg transition-all duration-200 hover:scale-110"
                   >
@@ -162,6 +163,7 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
                       {isAuthor ? (
                         <>
                           <button
+                            type="button"
                             onClick={() => setShowActions(false)}
                             className="w-full px-3 py-2.5 text-left text-sm hover:bg-primary-50 dark:hover:bg-primary-900/20 flex items-center gap-2 transition-colors"
                           >
@@ -169,6 +171,7 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
                             Edit
                           </button>
                           <button
+                            type="button"
                             onClick={handleDelete}
                             disabled={isDeleting}
                             className="w-full px-3 py-2.5 text-left text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
@@ -179,6 +182,7 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
                         </>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => setShowActions(false)}
                           className="w-full px-3 py-2.5 text-left text-sm text-warning hover:bg-warning/10 flex items-center gap-2 transition-colors"
                         >
@@ -208,11 +212,12 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
           {/* Actions */}
           <div className="flex items-center gap-4 text-sm px-1">
             <button
+              type="button"
               onClick={handleLike}
               disabled={!isAuthenticated || isLiking}
               className={`flex items-center gap-1.5 transition-all duration-200 ${isLiked
-                  ? 'text-error'
-                  : 'text-text-secondary hover:text-error'
+                ? 'text-error'
+                : 'text-text-secondary hover:text-error'
                 } ${justLiked ? 'like-button-clicked' : ''}`}
             >
               <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
@@ -220,6 +225,7 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
             </button>
 
             <button
+              type="button"
               onClick={() => setShowReplyForm(!showReplyForm)}
               className="flex items-center gap-1.5 text-text-secondary hover:text-primary-500 transition-all duration-200 hover:scale-105"
             >
@@ -230,6 +236,7 @@ const Comment = ({ comment, onCommentUpdated, onCommentDeleted, onReplyAdded }) 
             {/* Show/Hide Replies Toggle */}
             {hasReplies && (
               <button
+                type="button"
                 onClick={() => setShowAllReplies(!showAllReplies)}
                 className="flex items-center gap-1.5 text-text-secondary hover:text-primary-500 transition-all duration-200"
               >

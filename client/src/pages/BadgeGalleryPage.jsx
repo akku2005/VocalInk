@@ -113,8 +113,8 @@ const normalizeRequirementItem = (requirement) => {
       typeof requirement.completed === "boolean"
         ? requirement.completed
         : typeof current === "number" &&
-          typeof target === "number" &&
-          current >= target,
+        typeof target === "number" &&
+        current >= target,
   };
 };
 
@@ -150,11 +150,9 @@ const normalizeRequirements = (requirements) => {
     ) {
       derived.push(
         normalizeRequirementItem({
-          text: `Unlock ${
-            requirements.prerequisites.length
-          } prerequisite badge${
-            requirements.prerequisites.length === 1 ? "" : "s"
-          }`,
+          text: `Unlock ${requirements.prerequisites.length
+            } prerequisite badge${requirements.prerequisites.length === 1 ? "" : "s"
+            }`,
           target: requirements.prerequisites.length,
           completed: false,
         })
@@ -261,7 +259,7 @@ const BadgeGalleryPage = () => {
         } catch (progressError) {
           setProgressSummary(null);
           if (progressError.response?.status !== 401) {
-            console.error("Failed to load badge progress", progressError);
+            // console.error("Failed to load badge progress", progressError);
           }
         }
       }
@@ -454,44 +452,6 @@ const BadgeGalleryPage = () => {
         </div>
       )}
 
-      {/* Progress Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border border-[var(--border-color)]">
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl mb-2">🏆</div>
-            <div className="text-2xl font-bold text-primary-500">
-              {earnedBadges.length}
-            </div>
-            <div className="text-sm text-text-secondary">Badges Earned</div>
-          </CardContent>
-        </Card>
-        <Card className="border border-[var(--border-color)]">
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl mb-2">🎯</div>
-            <div className="text-2xl font-bold text-primary-500">
-              {totalBadges}
-            </div>
-            <div className="text-sm text-text-secondary">Total Badges</div>
-          </CardContent>
-        </Card>
-        <Card className="border border-[var(--border-color)]">
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl mb-2">📊</div>
-            <div className="text-2xl font-bold text-primary-500">
-              {completionRate}%
-            </div>
-            <div className="text-sm text-text-secondary">Completion Rate</div>
-          </CardContent>
-        </Card>
-        <Card className="border border-[var(--border-color)]">
-          <CardContent className="p-6 text-center">
-            <div className="text-3xl mb-2">⭐</div>
-            <div className="text-2xl font-bold text-primary-500">{totalXp.toLocaleString()}</div>
-            <div className="text-sm text-text-secondary">Total XP Earned</div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Search and Filters */}
       <Card className="border border-[var(--border-color)]">
         <CardContent className="p-6">
@@ -597,7 +557,15 @@ const BadgeGalleryPage = () => {
               <div className="text-center space-y-4">
                 {/* Badge Icon and Status */}
                 <div className="relative">
-                  <div className="text-4xl mb-2">{badge.icon}</div>
+                  {badge.icon?.startsWith('/') || badge.icon?.startsWith('http') ? (
+                    <img
+                      src={badge.icon}
+                      alt={badge.name}
+                      className="w-16 h-16 mx-auto mb-2 object-contain"
+                    />
+                  ) : (
+                    <div className="text-4xl mb-2">{badge.icon}</div>
+                  )}
                   {badge.earned || badge.earnedAt ? (
                     <div className="absolute -top-2 -right-2">
                       <CheckCircle className="w-6 h-6 text-success" />
@@ -640,9 +608,8 @@ const BadgeGalleryPage = () => {
                     </div>
                     <div className="w-full bg-secondary-100 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          badge.earnedAt ? "bg-success" : "bg-primary-500"
-                        }`}
+                        className={`h-2 rounded-full transition-all duration-300 ${badge.earnedAt ? "bg-success" : "bg-primary-500"
+                          }`}
                         style={{ width: `${badge.progress}%` }}
                       ></div>
                     </div>
@@ -651,7 +618,7 @@ const BadgeGalleryPage = () => {
                   {/* Requirements */}
                   <div className="mt-4 space-y-2">
                     {Array.isArray(badge.requirements) &&
-                    badge.requirements.length > 0 ? (
+                      badge.requirements.length > 0 ? (
                       badge.requirements.map((req, index) => {
                         const requirementText =
                           req.text || req.name || "Requirement";
@@ -773,9 +740,18 @@ const BadgeGalleryPage = () => {
         {badgeModal.badge && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="text-3xl" aria-hidden>
-                {badgeModal.badge.icon}
-              </div>
+              {badgeModal.badge.icon?.startsWith('/') || badgeModal.badge.icon?.startsWith('http') ? (
+                <img
+                  src={badgeModal.badge.icon}
+                  alt={badgeModal.badge.name}
+                  className="w-12 h-12 object-contain"
+                  aria-hidden
+                />
+              ) : (
+                <div className="text-3xl" aria-hidden>
+                  {badgeModal.badge.icon}
+                </div>
+              )}
               <Badge
                 className={
                   rarities.find((r) => r.id === badgeModal.badge.rarity)?.color

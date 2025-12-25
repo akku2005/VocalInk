@@ -28,6 +28,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Modal from "../components/ui/Modal";
+import logger from "../utils/logger";
 import CustomDropdown from "../components/ui/CustomDropdown";
 import { useToast } from '../hooks/useToast';
 import AdvancedRichTextEditor from '../components/ui/AdvancedRichTextEditor';
@@ -210,7 +211,7 @@ const CreateBlogPage = () => {
       };
 
       // Debug: Log the payload
-      console.log('Publishing blog with payload:', payload);
+      logger.log('Publishing blog with payload:', payload);
 
       const res = await apiService.post("/blogs/addBlog", payload);
 

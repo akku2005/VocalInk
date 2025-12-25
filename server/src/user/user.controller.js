@@ -17,6 +17,7 @@ const logger = require('../utils/logger');
 const mongoose = require('mongoose');
 const { sanitizeUsername } = require('../utils/username');
 const { canViewProfile } = require('../utils/privacy');
+const { getXPProgress } = require('../utils/xpCalculations');
 
 const buildObjectId = (id) => {
   if (!mongoose.Types.ObjectId.isValid(id)) return null;
@@ -180,6 +181,57 @@ exports.getProfile = async (req, res) => {
       throw new NotFoundError('User not found');
     }
 
+    // ========== PRIVACY CHECK - Instagram-style ==========
+    // Enforce privacy settings to prevent unauthorized profile access
+    const viewerId = req.user?._id || req.user?.id || null;
+    const canView = canViewProfile(viewerId, user);
+
+    // If viewer cannot see full profile, return limited public information
+    if (!canView) {
+      const visibility = user.privacySettings?.profileVisibility || 'public';
+
+      // Determine if viewer is following (for status display)
+      const isFollowing = req.user ? req.user.following.some(
+        (followingId) => followingId.toString() === user._id.toString()
+      ) : false;
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          displayName: user.displayName,
+          username: user.username,
+          avatar: user.avatar,
+          profilePicture: user.profilePicture,
+          coverImage: user.coverImage,
+
+          // Show bio only for followers-only accounts (not private)
+          bio: visibility === 'followers' ? user.bio : null,
+
+          // Basic stats are visible even on private profiles (Instagram behavior)
+          followerCount: user.followers.length,
+          followingCount: user.following.length,
+
+          // Relationship status
+          isFollowing: isFollowing,
+
+          // Privacy metadata for frontend
+          privacySettings: {
+            profileVisibility: visibility
+          },
+          isPrivate: visibility === 'private',
+          isFollowersOnly: visibility === 'followers',
+          canViewProfile: false,  // Important flag for frontend conditional rendering
+        },
+        message: visibility === 'private'
+          ? 'This account is private'
+          : 'Follow this user to see their posts'
+      });
+    }
+    // ========== END PRIVACY CHECK ==========
+
     // Add computed fields
     const profile = user.toObject();
     profile.blogCount = await Blog.countDocuments({
@@ -205,6 +257,14 @@ exports.getProfile = async (req, res) => {
     }
     profile.followerCount = user.followers.length;
     profile.followingCount = user.following.length;
+
+    // Calculate XP progress using correct leveling formula
+    const xpProgress = getXPProgress(user.xp || 0, user.level || 1);
+    profile.currentLevelXP = xpProgress.currentLevelXP;
+    profile.nextLevelXP = xpProgress.remainingXP;
+    profile.xpRequiredForLevel = xpProgress.xpRequiredForLevel;
+    profile.minXPForCurrentLevel = xpProgress.minXPForCurrentLevel;
+    profile.minXPForNextLevel = xpProgress.minXPForNextLevel;
 
     // Add view counts
     profile.totalViews = await getTotalViewsForUser(user._id);

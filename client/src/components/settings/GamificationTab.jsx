@@ -1,5 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
+import logger from '../../utils/logger';
 import {
   Trophy,
   Star,
@@ -83,7 +84,7 @@ const GamificationTab = ({
       await loadSettings(true);
       showToast('Gamification settings saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving gamification settings:', error);
+      logger.error('Error saving gamification settings:', error);
       showToast(error.message || 'Failed to save gamification settings', 'error');
     } finally {
       setLoading(false);

@@ -10,21 +10,37 @@ const CommentList = ({ blogId, blogTitle }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCommentForm, setShowCommentForm] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     fetchComments();
   }, [blogId]);
 
-  const fetchComments = async () => {
+  // Helper function to calculate total comment count including replies
+  const getTotalCommentCount = (comments) => {
+    return comments.reduce((total, comment) => {
+      return total + 1 + (comment.replies?.length || 0);
+    }, 0);
+  };
+
+  const fetchComments = async (pageNum = 1, append = false) => {
     try {
-      setLoading(true);
+      if (!append) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
 
-      // Fetch comments from API
-      const response = await apiService.get(`/blogs/${blogId}/comments`);
+      // Fetch comments from API with pagination
+      const response = await apiService.get(`/blogs/${blogId}/comments?page=${pageNum}&limit=20`);
 
       // Handle different response structures
-      const commentsData = response.data?.data || response.data || [];
+      const responseData = response.data?.data || response.data || {};
+      const commentsData = responseData.comments || responseData || [];
+      const pagination = responseData.pagination || {};
 
       // Organize comments with replies
       const rootComments = commentsData.filter(comment => !comment.parentId);
@@ -33,10 +49,17 @@ const CommentList = ({ blogId, blogTitle }) => {
         replies: commentsData.filter(reply => reply.parentId === comment._id)
       }));
 
-      setComments(commentMap);
+      if (append) {
+        setComments(prev => [...prev, ...commentMap]);
+      } else {
+        setComments(commentMap);
+      }
+
+      setHasMore(pagination.hasNext || false);
+      setPage(pageNum);
     } catch (error) {
       console.error('Error fetching comments:', error);
-      // If API fails, show empty state instead of error
+      // If API fails, show empty state instead of error for 404
       if (error.response?.status === 404) {
         setComments([]);
       } else {
@@ -44,6 +67,13 @@ const CommentList = ({ blogId, blogTitle }) => {
       }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMoreComments = () => {
+    if (!loadingMore && hasMore) {
+      fetchComments(page + 1, true);
     }
   };
 
@@ -62,8 +92,13 @@ const CommentList = ({ blogId, blogTitle }) => {
         })
       );
     } else {
-      // Add new root comment
-      setComments(prevComments => [newComment, ...prevComments]);
+      // Add new root comment with optimistic update
+      const optimisticComment = {
+        ...newComment,
+        _id: newComment._id || `temp-${Date.now()}`,
+        replies: []
+      };
+      setComments(prevComments => [optimisticComment, ...prevComments]);
       setShowCommentForm(false); // Close form after adding
     }
   };
@@ -135,6 +170,8 @@ const CommentList = ({ blogId, blogTitle }) => {
     </div>
   );
 
+  const totalCommentCount = getTotalCommentCount(comments);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -158,7 +195,7 @@ const CommentList = ({ blogId, blogTitle }) => {
         <h4 className="text-lg font-medium text-text-primary mb-2">Oops! Something went wrong</h4>
         <p className="text-text-secondary mb-4">{error}</p>
         <button
-          onClick={fetchComments}
+          onClick={() => fetchComments()}
           className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
         >
           Try again
@@ -176,7 +213,7 @@ const CommentList = ({ blogId, blogTitle }) => {
             <MessageCircle className="w-5 h-5 text-white" />
           </div>
           <h3 className="text-xl font-bold text-text-primary">
-            Comments ({comments.length})
+            Comments ({totalCommentCount})
           </h3>
         </div>
 
@@ -217,18 +254,40 @@ const CommentList = ({ blogId, blogTitle }) => {
           </button>
         </div>
       ) : (
-        <div className="space-y-6 comment-list">
-          {comments.map((comment, index) => (
-            <div key={comment._id} style={{ animationDelay: `${index * 0.1}s` }}>
-              <Comment
-                comment={comment}
-                onCommentUpdated={handleCommentUpdated}
-                onCommentDeleted={handleCommentDeleted}
-                onReplyAdded={handleReplyAdded}
-              />
+        <>
+          <div className="space-y-6 comment-list">
+            {comments.map((comment, index) => (
+              <div key={comment._id} style={{ animationDelay: `${index * 0.1}s` }}>
+                <Comment
+                  comment={comment}
+                  onCommentUpdated={handleCommentUpdated}
+                  onCommentDeleted={handleCommentDeleted}
+                  onReplyAdded={handleReplyAdded}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="flex justify-center pt-6">
+              <button
+                onClick={loadMoreComments}
+                disabled={loadingMore}
+                className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading more...
+                  </>
+                ) : (
+                  'Load More Comments'
+                )}
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

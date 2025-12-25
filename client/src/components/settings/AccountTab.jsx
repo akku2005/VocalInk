@@ -6,6 +6,7 @@ import BadgeComponent from '../ui/Badge';
 import { User, Globe, Bell, Eye, EyeOff, Shield } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import settingsService from '../../services/settingsService';
+import logger from '../../utils/logger';
 
 const AccountTab = ({ 
   settings, 
@@ -54,7 +55,7 @@ const AccountTab = ({
   const handleSaveAccount = async () => {
     setLoading(true);
     try {
-      console.log('Saving Account settings:', settings.account);
+      logger.log('Saving Account settings:', settings.account);
       
       const accountData = {
         accountVisibility: settings.account.accountVisibility,
@@ -71,7 +72,7 @@ const AccountTab = ({
       
       showToast('Account settings saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving account settings:', error);
+      logger.error('Error saving account settings:', error);
       showToast(error.message || 'Failed to save account settings', 'error');
     } finally {
       setLoading(false);
@@ -104,7 +105,7 @@ const AccountTab = ({
       
       showToast('Password updated successfully', 'success');
     } catch (error) {
-      console.error('Error changing password:', error);
+      logger.error('Error changing password:', error);
       showToast(error.message || 'Failed to change password', 'error');
     } finally {
       setPasswordLoading(false);

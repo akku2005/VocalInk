@@ -131,7 +131,7 @@ const NotificationsPage = () => {
     );
   });
 
-  // Mark notification as read
+  // Mark notification as read without re-fetching the list
   const markAsRead = async (notificationId) => {
     try {
       // Find the notification to check if it's unread
@@ -152,17 +152,12 @@ const NotificationsPage = () => {
         // Sync navbar unread count
         updateUnreadCount(newCount);
       }
-      
-      // Refresh data to ensure consistency
-      setTimeout(() => {
-        fetchNotifications(currentPage, filter);
-      }, 300);
     } catch (err) {
       console.error('Error marking notification as read:', err);
     }
   };
 
-  // Mark all as read
+  // Mark all as read without extra fetch
   const markAllAsRead = async () => {
     try {
       await notificationService.markAllAsRead();
@@ -173,28 +168,41 @@ const NotificationsPage = () => {
       
       // Sync navbar unread count immediately
       updateUnreadCount(0);
-      
-      // Refresh data to ensure consistency
-      setTimeout(() => {
-        fetchNotifications(1, filter);
-      }, 300);
     } catch (err) {
       console.error('Error marking all as read:', err);
     }
   };
 
-  // Delete notification
+  // Delete notification without re-fetching
   const deleteNotification = async (notificationId) => {
     try {
       // Find the notification to check if it's unread
       const notification = notifications.find(n => n._id === notificationId);
       const wasUnread = notification && !notification.read;
+      const deletedType = notification?.type;
       
       await notificationService.deleteNotification(notificationId);
       
       // Update local state
       setNotifications((prev) => prev.filter((n) => n._id !== notificationId));
-      setTotalNotifications(prev => Math.max(0, prev - 1));
+      setTotalNotifications((prev) => {
+        const next = Math.max(0, prev - 1);
+        setHasNext(next > ITEMS_PER_PAGE * currentPage);
+        setHasPrev(currentPage > 1);
+        return next;
+      });
+      // Update per-type counts to keep pills accurate
+      setTypeCounts((prev) => {
+        if (!deletedType) return prev;
+        const next = { ...prev };
+        if (typeof next[deletedType] === 'number') {
+          next[deletedType] = Math.max(0, next[deletedType] - 1);
+        }
+        if (typeof next.all === 'number') {
+          next.all = Math.max(0, next.all - 1);
+        }
+        return next;
+      });
       
       // Update unread count if it was unread
       if (wasUnread) {
@@ -208,17 +216,12 @@ const NotificationsPage = () => {
       const newSelected = new Set(selectedNotifications);
       newSelected.delete(notificationId);
       setSelectedNotifications(newSelected);
-      
-      // Refresh data to ensure consistency
-      setTimeout(() => {
-        fetchNotifications(currentPage, filter);
-      }, 300);
     } catch (err) {
       console.error('Error deleting notification:', err);
     }
   };
 
-  // Delete selected notifications
+  // Delete selected notifications without re-fetching
   const deleteSelected = async () => {
     try {
       const idsToDelete = Array.from(selectedNotifications);
@@ -227,6 +230,9 @@ const NotificationsPage = () => {
       const unreadDeleted = notifications.filter(
         n => selectedNotifications.has(n._id) && !n.read
       ).length;
+      const deletedTypes = notifications
+        .filter((n) => selectedNotifications.has(n._id))
+        .map((n) => n.type);
       
       // Delete each notification
       await Promise.all(
@@ -237,7 +243,26 @@ const NotificationsPage = () => {
       setNotifications((prev) =>
         prev.filter((n) => !selectedNotifications.has(n._id))
       );
-      setTotalNotifications(prev => Math.max(0, prev - idsToDelete.length));
+      setTotalNotifications((prev) => {
+        const next = Math.max(0, prev - idsToDelete.length);
+        setHasNext(next > ITEMS_PER_PAGE * currentPage);
+        setHasPrev(currentPage > 1);
+        return next;
+      });
+      // Update type counts for deleted notifications
+      setTypeCounts((prev) => {
+        if (!deletedTypes.length) return prev;
+        const next = { ...prev };
+        deletedTypes.forEach((type) => {
+          if (typeof next[type] === 'number') {
+            next[type] = Math.max(0, next[type] - 1);
+          }
+        });
+        if (typeof next.all === 'number') {
+          next.all = Math.max(0, next.all - idsToDelete.length);
+        }
+        return next;
+      });
       
       // Update unread count
       if (unreadDeleted > 0) {
@@ -249,17 +274,12 @@ const NotificationsPage = () => {
       
       setSelectedNotifications(new Set());
       setBulkMode(false);
-      
-      // Refresh data to ensure consistency
-      setTimeout(() => {
-        fetchNotifications(currentPage, filter);
-      }, 300);
     } catch (err) {
       console.error('Error deleting notifications:', err);
     }
   };
 
-  // Mark selected as read
+  // Mark selected as read without re-fetching
   const markSelectedAsRead = async () => {
     try {
       const idsToMark = Array.from(selectedNotifications);
@@ -288,11 +308,6 @@ const NotificationsPage = () => {
       updateUnreadCount(newCount);
       
       setSelectedNotifications(new Set());
-      
-      // Refresh data to ensure consistency
-      setTimeout(() => {
-        fetchNotifications(currentPage, filter);
-      }, 300);
     } catch (err) {
       console.error('Error marking notifications as read:', err);
     }

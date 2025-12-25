@@ -4,6 +4,7 @@ import LoginPromptModal from "../auth/LoginPromptModal";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../hooks/useToast";
 import blogService from "../../services/blogService";
+import { buildAbsoluteUrl } from "../../utils/siteUrl";
 
 const EngagementButtons = ({
   blogId,
@@ -125,22 +126,26 @@ const EngagementButtons = ({
 
   const handleShare = async (platform) => {
     // Use provided share data or fallback to current page
-    const url = shareUrl || window.location.href;
-    const title = shareTitle || document.title;
+    const url = buildAbsoluteUrl(
+      shareUrl ||
+      (typeof window !== 'undefined' ? window.location.pathname : '/')
+    );
+    const title = shareTitle || (typeof document !== 'undefined' ? document.title : '');
     const description = shareDescription || '';
     const image = shareImage || '';
 
     let shareMessage = '';
+    let shareLink = '';
 
     switch (platform) {
       case "twitter":
         // Twitter: Use title + URL (Twitter will fetch meta tags for preview)
         shareMessage = `${encodeURIComponent(title)}\n\n${encodeURIComponent(url)}`;
-        shareUrl = `https://twitter.com/intent/tweet?text=${shareMessage}`;
+        shareLink = `https://twitter.com/intent/tweet?text=${shareMessage}`;
         break;
       case "facebook":
         // Facebook: Simple URL share (Facebook reads OG tags)
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         break;
       case "linkedin":
         // LinkedIn: Use feed endpoint to allow pre-filling text (works better for localhost/no-scrape)
@@ -160,7 +165,7 @@ const EngagementButtons = ({
           }
 
           textParts.push(url);
-          shareUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textParts.join('\n\n'))}`;
+          shareLink = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(textParts.join('\n\n'))}`;
         }
         break;
       case "copy":
@@ -177,11 +182,11 @@ const EngagementButtons = ({
         return;
     }
 
-    if (shareUrl) {
+    if (shareLink) {
       try {
         // Try to open in new tab first
         const newWindow = window.open(
-          shareUrl,
+          shareLink,
           "_blank",
           "noopener,noreferrer"
         );
@@ -230,10 +235,11 @@ const EngagementButtons = ({
           color: isLikedState ? 'rgb(var(--color-error))' : 'var(--text-color)',
           backgroundColor: isLikedState ? 'rgba(var(--color-error), 0.1)' : 'transparent'
         }}
+        aria-label={isLikedState ? `Unlike this post (${likes} likes)` : `Like this post (${likes} likes)`}
         title={isAuthenticated ? "Like this post" : "Sign in to like"}
       >
         <Heart className={`w-4 h-4 ${isLikedState ? "fill-current" : ""}`} />
-        <span className="font-normal text-xs">{likes}</span>
+        <span className="font-normal text-xs" aria-hidden="true">{likes}</span>
       </button>
 
       {/* Comment Button */}
@@ -241,10 +247,11 @@ const EngagementButtons = ({
         onClick={handleComment}
         className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg hover:bg-primary/10 transition-all duration-200 cursor-pointer`}
         style={{ color: 'var(--text-color)' }}
+        aria-label={`View comments (${comments} comments)`}
         title="View comments"
       >
         <MessageCircle className="w-4 h-4" />
-        <span className="font-medium text-xs">{comments}</span>
+        <span className="font-medium text-xs" aria-hidden="true">{comments}</span>
       </button>
 
       {/* Bookmark Button */}
@@ -258,12 +265,13 @@ const EngagementButtons = ({
           color: isBookmarkedState ? 'rgb(var(--color-primary))' : 'var(--text-color)',
           backgroundColor: isBookmarkedState ? 'rgba(var(--color-primary), 0.1)' : 'transparent'
         }}
+        aria-label={isBookmarkedState ? `Remove bookmark (${bookmarks} bookmarks)` : `Bookmark this post (${bookmarks} bookmarks)`}
         title={isAuthenticated ? "Bookmark this post" : "Sign in to bookmark"}
       >
         <Bookmark
           className={`w-4 h-4 flex flex-col ${isBookmarkedState ? "fill-current" : ""}`}
         />
-        <span className="font-medium text-xs">{bookmarks}</span>
+        <span className="font-medium text-xs" aria-hidden="true">{bookmarks}</span>
       </button>
 
       {/* Share Button */}
@@ -271,6 +279,9 @@ const EngagementButtons = ({
         <button
           onClick={() => setShowShareMenu(!showShareMenu)}
           className={`flex items-center gap-2 ${compact ? 'px-2 py-1' : 'px-3 py-2'} rounded-lg hover:bg-accent/10 transition-all duration-200 cursor-pointer`}
+          aria-label="Share this post"
+          aria-haspopup="menu"
+          aria-expanded={showShareMenu ? "true" : "false"}
           style={{ color: 'var(--text-color)' }}
           title="Share this post"
         >

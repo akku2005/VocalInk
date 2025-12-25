@@ -15,8 +15,9 @@ import { userService } from "../../services/userService";
 import { resolveAssetUrl } from "../../constants/apiConfig";
 import { getProfilePath } from "../../utils/profileUrl";
 import { getCleanExcerpt, stripHtml } from "../../utils/textUtils";
+import { buildAbsoluteUrl } from "../../utils/siteUrl";
 
-const normalizeArticleContent = (html) => {
+const normalizeArticleContent = (html, segmentIds = []) => {
   if (!html || typeof html !== 'string') return '';
   let normalized = html
     .replaceAll('src="/api/uploads/', 'src="/uploads/')
@@ -27,15 +28,34 @@ const normalizeArticleContent = (html) => {
       return `url(${quote}data:image/${type};base64,`;
     });
 
-  // Add data-tts-segment attribute to spans that have TTS IDs
-  normalized = normalized.replace(/<span\s+id="(tts-seg-\d+)"([^>]*)>/gi, (match, id, attrs) => {
-    return `<span id="${id}" data-tts-segment="${id}"${attrs}>`;
-  });
+  const addTtsMarkers = (markup, ids = []) => {
+    try {
+      if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+        return markup;
+      }
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(markup, 'text/html');
+      const candidates = doc.body.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, span');
+      let idx = 0;
 
-  // Add data-tts-segment attribute to paragraphs that have TTS IDs
-  normalized = normalized.replace(/<p\s+id="(tts-seg-\d+)"([^>]*)>/gi, (match, id, attrs) => {
-    return `<p id="${id}" data-tts-segment="${id}"${attrs}>`;
-  });
+      candidates.forEach((el) => {
+        if (el.hasAttribute('data-tts-segment')) return;
+        const assignedId = ids[idx] || `tts-seg-${idx}`;
+        idx += 1;
+        el.setAttribute('data-tts-segment', assignedId);
+        if (!el.id) {
+          el.id = assignedId;
+        }
+      });
+
+      return doc.body.innerHTML || markup;
+    } catch (err) {
+      console.warn('TTS marker injection failed, using raw HTML', err);
+      return markup;
+    }
+  };
+
+  normalized = addTtsMarkers(normalized, segmentIds);
 
   return normalized;
 };
@@ -56,6 +76,7 @@ export default function ArticleView() {
   const [toc, setToc] = useState([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [normalizedContent, setNormalizedContent] = useState('');
+  const [normalizedSummary, setNormalizedSummary] = useState('');
 
   const commentsSectionRef = useRef(null);
   const { showInfo, showError } = useToast();
@@ -64,6 +85,7 @@ export default function ArticleView() {
   const handleSegmentChange = (segmentData) => {
     // Handle both string (legacy) and object (new) format
     const segmentId = typeof segmentData === 'string' ? segmentData : segmentData?.segmentId;
+    const segmentIndex = typeof segmentData === 'object' ? segmentData?.segmentIndex : undefined;
 
     // Remove highlight from all segments
     const allSegments = document.querySelectorAll('[data-tts-segment]');
@@ -89,6 +111,12 @@ export default function ArticleView() {
 
     if (!element && !segmentId.startsWith('tts-seg-')) {
       element = document.querySelector(`[data-tts-segment="tts-seg-${segmentId}"]`);
+    }
+
+    // Fallback: use segment index to target Nth marker when IDs don't align
+    if (!element && typeof segmentIndex === 'number') {
+      const targets = Array.from(allSegments);
+      element = targets[segmentIndex] || null;
     }
 
     if (element) {
@@ -158,7 +186,7 @@ export default function ArticleView() {
                   authorBio: profile.bio || null,
                   authorAvatar: profile.avatar || null,
                 };
-              } catch (err) {
+              } catch {
                 return {
                   authorName: `User ${rawId.slice(-6)}`,
                   authorHandle: null,
@@ -180,7 +208,14 @@ export default function ArticleView() {
 
           const authorDetails = await resolveAuthorDetails(blogData.author);
 
-          const normalizedHtml = normalizeArticleContent(blogData.content || '');
+          const segmentIds = (blogData.audioSegments || []).map(
+            (seg, idx) => seg.id || seg.paragraphId || seg._id || `tts-seg-${idx}`
+          );
+
+          const normalizedSummaryHtml = normalizeArticleContent(blogData.summary || '', segmentIds);
+          const normalizedHtml = normalizeArticleContent(blogData.content || '', segmentIds);
+          setNormalizedSummary(normalizedSummaryHtml);
+          setNormalizedContent(normalizedHtml);
 
           setArticle({
             id: blogData._id,
@@ -220,9 +255,9 @@ export default function ArticleView() {
         } else {
           setError('Blog not found');
         }
-      } catch (err) {
-        console.error('Error fetching blog:', err);
-        setError(err.response?.data?.message || 'Failed to load blog');
+      } catch (error) {
+        console.error('Error fetching blog:', error);
+        setError(error.response?.data?.message || 'Failed to load blog');
       } finally {
         setLoading(false);
       }
@@ -410,7 +445,7 @@ export default function ArticleView() {
         description={article.summary || (article.content?.substring(0, 160) + '...')}
         keywords={article.tags}
         image={article.coverImage}
-        url={`${window.location.origin}/blog/${article.slug}`}
+        url={buildAbsoluteUrl(`/blog/${article.slug}`)}
         type="article"
         author={article.author}
         publishedTime={article.publishedAt}
@@ -535,7 +570,7 @@ export default function ArticleView() {
             <div className="relative mb-12">
               <div
                 className={`article-content prose prose-lg max-w-none dark:prose-invert prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-primary-500 hover:prose-a:text-primary-600 prose-strong:text-text-primary prose-code:text-primary-500 ${!isExpanded ? 'max-h-[600px] overflow-hidden' : ''}`}
-                dangerouslySetInnerHTML={{ __html: normalizedContent || normalizeArticleContent(article.content || '') }}
+                dangerouslySetInnerHTML={{ __html: normalizedContent || normalizeArticleContent(article.content || '', (article.audioSegments || []).map((seg, idx) => seg.id || seg.paragraphId || seg._id || `tts-seg-${idx}`)) }}
               />
 
               {!isExpanded && (
@@ -565,7 +600,7 @@ export default function ArticleView() {
                 shareDescription={article.summary || getCleanExcerpt(article.content, 200)}
                 shareContent={stripHtml(article.content || '')}
                 shareImage={resolveAssetUrl(article.coverImage)}
-                shareUrl={window.location.href}
+                shareUrl={buildAbsoluteUrl(`/blog/${article.slug}`)}
               />
 
               {canModifyBlog() && (

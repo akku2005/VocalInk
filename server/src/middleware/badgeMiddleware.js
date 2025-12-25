@@ -29,7 +29,9 @@ const badgeClaimLimiter = rateLimit({
     return req.user ? req.user.id : getClientIp(req);
   },
   skip: (req) => {
-    // Skip rate limiting for admin users and in test environment
+    // Disable rate limiting for badges in non-production or when explicitly disabled
+    if (process.env.NODE_ENV !== 'production') return true;
+    if (process.env.DISABLE_BADGE_RATE_LIMIT === 'true') return true;
     return req.user && req.user.role === 'admin' || process.env.NODE_ENV === 'test';
   }
 });
@@ -48,6 +50,8 @@ const badgeSearchLimiter = rateLimit({
     return req.user ? req.user.id : getClientIp(req);
   },
   skip: (req) => {
+    if (process.env.NODE_ENV !== 'production') return true;
+    if (process.env.DISABLE_BADGE_RATE_LIMIT === 'true') return true;
     return process.env.NODE_ENV === 'test';
   }
 });
@@ -66,6 +70,8 @@ const badgeListLimiter = rateLimit({
     return req.user ? req.user.id : getClientIp(req);
   },
   skip: (req) => {
+    if (process.env.NODE_ENV !== 'production') return true;
+    if (process.env.DISABLE_BADGE_RATE_LIMIT === 'true') return true;
     return process.env.NODE_ENV === 'test';
   }
 });

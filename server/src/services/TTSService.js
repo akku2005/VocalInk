@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
+const Redis = require('ioredis');
 const textToSpeech = require('@google-cloud/text-to-speech');
 const logger = require('../utils/logger');
 const config = require('../config');
@@ -51,6 +52,7 @@ class TTSService {
     this.ensureAudioDirectories();
     this.elevenlabsConfig = config.elevenlabs;
     this.googleCloudConfig = config.googleCloud;
+    this.redisPublisher = null;
 
     // Initialize Google Cloud TTS client
     if (this.googleCloudConfig.credentials && this.googleCloudConfig.projectId) {
@@ -76,6 +78,63 @@ class TTSService {
     } catch (error) {
       logger.error('Failed to create audio directories:', error);
     }
+  }
+
+  /**
+   * Build Redis connection options from environment variables.
+   * Prefers REDIS_URL so containerized deployments use the correct host/password.
+   */
+  buildRedisConfig() {
+    const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3;
+    const retryDelay = parseInt(process.env.REDIS_RETRY_DELAY, 10) || 1000;
+    const redisUrl = process.env.REDIS_URL;
+
+    if (redisUrl) {
+      try {
+        const parsed = new URL(redisUrl);
+        return {
+          host: parsed.hostname,
+          port: parseInt(parsed.port || '6379', 10),
+          password: parsed.password || undefined,
+          db: parsed.pathname ? parseInt(parsed.pathname.slice(1) || '0', 10) : 0,
+          maxRetriesPerRequest: maxRetries,
+          retryDelayOnFailover: retryDelay,
+        };
+      } catch (error) {
+        logger.warn('Invalid REDIS_URL, falling back to host/port variables', { message: error.message });
+      }
+    }
+
+    return {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      db: parseInt(process.env.REDIS_DB, 10) || 0,
+      maxRetriesPerRequest: maxRetries,
+      retryDelayOnFailover: retryDelay,
+    };
+  }
+
+  /**
+   * Lazy-init Redis publisher used for cancellation signaling.
+   */
+  ensureRedisPublisher() {
+    if (this.redisPublisher) {
+      return this.redisPublisher;
+    }
+
+    try {
+      const redisConfig = this.buildRedisConfig();
+      this.redisPublisher = new Redis(redisConfig);
+      this.redisPublisher.on('error', (err) => {
+        logger.warn('Redis publisher error', { message: err.message });
+      });
+    } catch (error) {
+      logger.warn('Failed to initialize Redis publisher for TTS cancellations', { message: error.message });
+      this.redisPublisher = null;
+    }
+
+    return this.redisPublisher;
   }
 
   /**
@@ -1167,9 +1226,12 @@ class TTSService {
   cancelJob(jobId) {
     try {
       // Publish cancellation event to Redis for TTSWorkerService to listen
-      if (this.redis) {
-        this.redis.publish('tts:cancellation', jobId);
-        logger.info(`TTS cancellation event published`, { jobId });
+      const redis = this.ensureRedisPublisher();
+      if (redis) {
+        redis.publish('tts:cancellation', jobId);
+        logger.info('TTS cancellation event published', { jobId });
+      } else {
+        logger.warn('Redis publisher unavailable; cancellation signal not broadcast', { jobId });
       }
       return { success: true, message: 'Cancellation signal sent', jobId };
     } catch (error) {

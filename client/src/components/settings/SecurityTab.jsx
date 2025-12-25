@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
+import logger from '../../utils/logger';
 import Input from '../ui/Input';
 import { Activity, Shield, AlertTriangle, Download, Trash2 } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
@@ -91,7 +92,7 @@ const SecurityTab = ({
       setShowPasswordForm(false);
       showToast('Password changed successfully', 'success');
     } catch (error) {
-      console.error('Error changing password:', error);
+      logger.error('Error changing password:', error);
       showToast(error.message || 'Failed to change password', 'error');
     } finally {
       setPasswordLoading(false);
@@ -110,7 +111,7 @@ const SecurityTab = ({
       await loadSettings(true);
       showToast('Security settings saved successfully', 'success');
     } catch (error) {
-      console.error('Error saving security settings:', error);
+      logger.error('Error saving security settings:', error);
       showToast(error.message || 'Failed to save security settings', 'error');
     } finally {
       setLoading(false);
@@ -131,8 +132,8 @@ const SecurityTab = ({
       const sessions = await securityService.getActiveSessions();
       setActiveSessions(Array.isArray(sessions) ? sessions : sessions?.sessions || []);
     } catch (error) {
-      console.error('Error loading active sessions:', error);
-    showToast(error.message || 'Failed to load active sessions', 'error');
+      logger.error('Error loading active sessions:', error);
+      showToast(error.message || 'Failed to load active sessions', 'error');
     } finally {
       setSessionsLoading(false);
     }

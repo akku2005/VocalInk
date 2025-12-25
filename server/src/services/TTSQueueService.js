@@ -15,18 +15,41 @@ class TTSQueueService {
     // Don't call initialize() in constructor - it will be called explicitly
   }
 
+  buildRedisConfig() {
+    const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3;
+    const retryDelay = parseInt(process.env.REDIS_RETRY_DELAY, 10) || 1000;
+    const redisUrl = process.env.REDIS_URL;
+
+    if (redisUrl) {
+      try {
+        const parsed = new URL(redisUrl);
+        return {
+          host: parsed.hostname,
+          port: parseInt(parsed.port || '6379', 10),
+          password: parsed.password || undefined,
+          db: parsed.pathname ? parseInt(parsed.pathname.slice(1) || '0', 10) : 0,
+          maxRetriesPerRequest: maxRetries,
+          retryDelayOnFailover: retryDelay,
+        };
+      } catch (error) {
+        logger.warn('Invalid REDIS_URL, falling back to host/port variables', { message: error.message });
+      }
+    }
+
+    return {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      db: parseInt(process.env.REDIS_DB, 10) || 0,
+      maxRetriesPerRequest: maxRetries,
+      retryDelayOnFailover: retryDelay,
+    };
+  }
+
   async initialize() {
     try {
       // Redis configuration based on environment variables
-      const redisConfig = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT) || 6379,
-        password: process.env.REDIS_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_DB) || 0,
-        maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES) || 3,
-        retryDelayOnFailover: parseInt(process.env.REDIS_RETRY_DELAY) || 1000,
-        maxRetriesPerRequest: parseInt(process.env.REDIS_MAX_RETRIES) || 3,
-      };
+      const redisConfig = this.buildRedisConfig();
 
       // Main TTS processing queue
       this.queue = new Bull('tts-processing', {

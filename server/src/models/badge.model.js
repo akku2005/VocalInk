@@ -5,11 +5,11 @@ const crypto = require('crypto');
 const badgeSchema = new mongoose.Schema(
   {
     // Core identification
-    badgeKey: { 
-      type: String, 
-      required: true, 
+    badgeKey: {
+      type: String,
+      required: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return /^[a-z0-9_-]+$/.test(v);
         },
         message: 'Badge key must contain only lowercase letters, numbers, hyphens, and underscores'
@@ -18,14 +18,14 @@ const badgeSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String, required: true },
     longDescription: { type: String },
-    
+
     // Visual assets
     icon: { type: String, required: true },
     iconDark: { type: String }, // Dark theme icon
     color: { type: String, default: '#3B82F6' },
     backgroundColor: { type: String, default: '#EFF6FF' },
     gradient: { type: String }, // CSS gradient for premium badges
-    
+
     // Categorization and classification
     rarity: {
       type: String,
@@ -40,7 +40,7 @@ const badgeSchema = new mongoose.Schema(
     subcategories: [{ type: String }],
     tags: [{ type: String }],
     themes: [{ type: String }],
-    
+
     // Advanced requirements system
     requirements: {
       // Legacy simple requirements (for backward compatibility)
@@ -50,19 +50,19 @@ const badgeSchema = new mongoose.Schema(
       likesRequired: { type: Number, default: 0 },
       commentsRequired: { type: Number, default: 0 },
       daysActiveRequired: { type: Number, default: 0 },
-      
+
       // Advanced logical expression system
       logicalExpression: {
         type: String,
         validate: {
-          validator: function(v) {
+          validator: function (v) {
             if (!v) return true; // Optional field
             try {
               // Basic validation for logical expression format
               const validOperators = ['AND', 'OR', 'NOT', 'GT', 'LT', 'EQ', 'GTE', 'LTE', 'IN', 'NOT_IN'];
               const expression = v.toUpperCase();
-              return validOperators.some(op => expression.includes(op)) || 
-                     /^[A-Z_][A-Z0-9_]*$/.test(v); // Simple variable reference
+              return validOperators.some(op => expression.includes(op)) ||
+                /^[A-Z_][A-Z0-9_]*$/.test(v); // Simple variable reference
             } catch (e) {
               return false;
             }
@@ -70,7 +70,7 @@ const badgeSchema = new mongoose.Schema(
           message: 'Invalid logical expression format'
         }
       },
-      
+
       // Requirement variables and their definitions
       variables: {
         type: Map,
@@ -85,17 +85,20 @@ const badgeSchema = new mongoose.Schema(
           maximumValue: { type: Number }
         }
       },
-      
+
       // Prerequisites and dependencies
       prerequisites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Badge' }],
       unlocks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Badge' }],
-      
-      // Dynamic reward system based on expression evaluation
-      rewards: {
-        xp: { type: Number, default: 0 },
-        bonus: { type: Number, default: 0 },
-        multipliers: [{ type: Number }]
-      }
+
+    },
+
+    // Dynamic reward system
+    rewards: {
+      xpReward: { type: Number, default: 0 },
+      bonus: { type: Number, default: 0 },
+      featureUnlocks: [{ type: String }],
+      specialPrivileges: [{ type: String }],
+      multipliers: [{ type: Number }]
     },
 
     // Eligibility exceptions and special conditions
@@ -125,17 +128,17 @@ const badgeSchema = new mongoose.Schema(
       fraudThreshold: { type: Number, default: 0.8 }, // 0-1 scale
       manualReviewRequired: { type: Boolean, default: false }
     },
-    
+
     // Metadata and tracking
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastModifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     metadata: { type: mongoose.Schema.Types.Mixed },
-    
+
     // Timestamps
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
   },
-  { 
+  {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
@@ -154,54 +157,54 @@ badgeSchema.virtual('isActiveComputed').get(function () {
   return this.status === 'active';
 });
 // Pre-save middleware for validation and updates
-badgeSchema.pre('save', function(next) {
+badgeSchema.pre('save', function (next) {
   // Update analytics if needed
   if (this.isModified('analytics.totalEarned') && this.analytics.totalEarned > 0) {
     this.analytics.lastEarnedAt = new Date();
   }
-  
+
   // Update popularity score
   this.updatePopularityScore();
-  
+
   next();
 });
 
 // Instance methods
-badgeSchema.methods.updatePopularityScore = function() {
+badgeSchema.methods.updatePopularityScore = function () {
   const earnedWeight = 0.6;
   const attemptsWeight = 0.3;
   const recencyWeight = 0.1;
-  
+
   const earnedScore = Math.min(this.analytics.totalEarned / 1000, 1) * earnedWeight;
   const attemptsScore = Math.min(this.analytics.totalAttempts / 5000, 1) * attemptsWeight;
-  
+
   let recencyScore = 0;
   if (this.analytics.lastEarnedAt) {
     const daysSinceLastEarned = (Date.now() - this.analytics.lastEarnedAt) / (1000 * 60 * 60 * 24);
     recencyScore = Math.max(0, 1 - (daysSinceLastEarned / 365)) * recencyWeight;
   }
-  
+
   this.analytics.popularityScore = earnedScore + attemptsScore + recencyScore;
 };
 
-badgeSchema.methods.isAvailableForUser = function(user) {
+badgeSchema.methods.isAvailableForUser = function (user) {
   // Check status
   if (this.status !== 'active') return false;
-  
+
   // Check time-based availability
   const now = new Date();
   if (this.requirements.availableFrom && now < this.requirements.availableFrom) return false;
   if (this.requirements.availableUntil && now > this.requirements.availableUntil) return false;
-  
+
   // Check seasonal availability
   if (this.requirements.seasonalStart && this.requirements.seasonalEnd) {
     const currentMonth = now.getMonth() + 1;
     const currentDay = now.getDate();
     const currentDate = `${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
-    
+
     const startDate = this.requirements.seasonalStart;
     const endDate = this.requirements.seasonalEnd;
-    
+
     if (startDate <= endDate) {
       if (currentDate < startDate || currentDate > endDate) return false;
     } else {
@@ -209,7 +212,7 @@ badgeSchema.methods.isAvailableForUser = function(user) {
       if (currentDate < startDate && currentDate > endDate) return false;
     }
   }
-  
+
   // Check geographic restrictions
   if (user.location && this.requirements.geographicRestrictions) {
     const userCountry = user.location.country;
@@ -217,22 +220,22 @@ badgeSchema.methods.isAvailableForUser = function(user) {
       return false;
     }
     if (this.requirements.geographicRestrictions.countries.length > 0 &&
-        !this.requirements.geographicRestrictions.countries.includes(userCountry)) {
+      !this.requirements.geographicRestrictions.countries.includes(userCountry)) {
       return false;
     }
   }
-  
+
   // Check user cohort requirements
   if (this.requirements.userCohorts) {
     const userCreatedAt = user.createdAt;
     const daysSinceCreation = (Date.now() - userCreatedAt) / (1000 * 60 * 60 * 24);
-    
+
     if (this.requirements.userCohorts.newUsers && daysSinceCreation > 30) return false;
     if (this.requirements.userCohorts.veteranUsers && daysSinceCreation < 365) return false;
     if (this.requirements.userCohorts.premiumUsers && !user.isPremium) return false;
     if (this.requirements.userCohorts.betaTesters && !user.isBetaTester) return false;
   }
-  
+
   return true;
 };
 
@@ -252,7 +255,7 @@ badgeSchema.statics.getPopular = function (limit = 10) {
 };
 
 badgeSchema.statics.getRare = function (limit = 10) {
-  return this.find({ 
+  return this.find({
     status: 'active',
     rarity: { $in: ['rare', 'epic', 'legendary', 'mythic'] }
   })
@@ -264,7 +267,7 @@ badgeSchema.statics.getRare = function (limit = 10) {
 badgeSchema.statics.checkUserEligibility = async function (userId) {
   const user = await this.model('User').findById(userId);
   if (!user) return [];
-  
+
   const badges = await this.find({ status: 'active' });
   const eligibleBadges = [];
 
@@ -312,15 +315,15 @@ badgeSchema.statics.evaluateLogicalExpression = async function (user, badge) {
   try {
     const expression = badge.requirements.logicalExpression;
     const variables = badge.requirements.variables;
-    
+
     // This is a simplified implementation - in production, you'd want a more robust expression evaluator
     const context = {};
-    
+
     // Evaluate all variables
     for (const [varName, varDef] of variables) {
       context[varName] = await this.evaluateVariable(user, varDef);
     }
-    
+
     // Simple expression evaluation (in production, use a proper expression parser)
     return this.simpleExpressionEvaluator(expression, context);
   } catch (error) {
@@ -332,9 +335,9 @@ badgeSchema.statics.evaluateLogicalExpression = async function (user, badge) {
 // Evaluate individual variables
 badgeSchema.statics.evaluateVariable = async function (user, varDef) {
   const { type, source, field, filter, aggregation, timeWindow } = varDef;
-  
+
   let query = {};
-  
+
   // Add user filter
   if (source === 'user') {
     query.user = user._id;
@@ -343,18 +346,18 @@ badgeSchema.statics.evaluateVariable = async function (user, varDef) {
   } else if (source === 'comment') {
     query.author = user._id;
   }
-  
+
   // Add time window filter
   if (timeWindow) {
     const cutoffDate = new Date(Date.now() - (timeWindow * 24 * 60 * 60 * 1000));
     query.createdAt = { $gte: cutoffDate };
   }
-  
+
   // Add custom filters
   if (filter) {
     Object.assign(query, filter);
   }
-  
+
   // Determine collection based on source
   let collection;
   switch (source) {
@@ -372,7 +375,7 @@ badgeSchema.statics.evaluateVariable = async function (user, varDef) {
     default:
       return 0;
   }
-  
+
   // Perform aggregation
   if (aggregation === 'count') {
     return await collection.countDocuments(query);
@@ -389,7 +392,7 @@ badgeSchema.statics.evaluateVariable = async function (user, varDef) {
     ]);
     return result[0]?.average || 0;
   }
-  
+
   return 0;
 };
 
@@ -453,14 +456,14 @@ badgeSchema.statics.evaluateLegacyRequirements = async function (user, badge) {
 // Analytics methods
 badgeSchema.statics.updateAnalytics = async function (badgeId, action, metadata = {}) {
   const update = {};
-  
+
   if (action === 'earned') {
     update.$inc = { 'analytics.totalEarned': 1 };
     update.$set = { 'analytics.lastEarnedAt': new Date() };
   } else if (action === 'attempted') {
     update.$inc = { 'analytics.totalAttempts': 1 };
   }
-  
+
   if (Object.keys(update).length > 0) {
     await this.findByIdAndUpdate(badgeId, update);
   }
@@ -468,7 +471,7 @@ badgeSchema.statics.updateAnalytics = async function (badgeId, action, metadata 
 
 // Security methods
 badgeSchema.statics.generateBadgeHash = function (badgeId, userId, timestamp) {
-      const secret = process.env.BADGE_SECRET || 'CHANGE_THIS_IN_PRODUCTION';
+  const secret = process.env.BADGE_SECRET || 'CHANGE_THIS_IN_PRODUCTION';
   const data = `${badgeId}-${userId}-${timestamp}-${secret}`;
   return crypto.createHash('sha256').update(data).digest('hex');
 };
