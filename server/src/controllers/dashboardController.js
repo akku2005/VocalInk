@@ -147,15 +147,27 @@ exports.getRecentBlogs = async (req, res) => {
     })
       .sort({ publishedAt: -1 })
       .limit(limit)
-      .select('title slug coverImage publishedAt views likes comments bookmarks tags mood')
+      .select('title slug coverImage publishedAt views likes bookmarks tags mood')
       .lean();
+
+    const blogIds = blogs.map(blog => blog._id);
+
+    // Fetch comment counts for these blogs
+    const commentsCounts = await Comment.aggregate([
+      { $match: { blogId: { $in: blogIds }, status: 'active' } },
+      { $group: { _id: '$blogId', count: { $sum: 1 } } },
+    ]);
+    const commentCountMap = commentsCounts.reduce((acc, { _id, count }) => {
+      acc[_id.toString()] = count;
+      return acc;
+    }, {});
 
     // Add engagement metrics
     const blogsWithMetrics = blogs.map(blog => ({
       ...blog,
-      likesCount: blog.likes?.length || 0,
-      commentsCount: blog.comments?.length || 0,
-      bookmarksCount: blog.bookmarks?.length || 0,
+      likesCount: typeof blog.likes === 'number' ? blog.likes : (blog.likes?.length || 0),
+      commentsCount: commentCountMap[blog._id.toString()] || 0,
+      bookmarksCount: typeof blog.bookmarks === 'number' ? blog.bookmarks : (blog.bookmarks?.length || 0),
     }));
 
     res.json(blogsWithMetrics);
@@ -181,16 +193,27 @@ exports.getTopBlogs = async (req, res) => {
     })
       .sort({ views: -1 })
       .limit(limit)
-      .select('title slug coverImage publishedAt views likes comments bookmarks')
+      .select('title slug coverImage publishedAt views likes bookmarks')
       .lean();
+
+    const blogIds = blogs.map(blog => blog._id);
+
+    const commentsCounts = await Comment.aggregate([
+      { $match: { blogId: { $in: blogIds }, status: 'active' } },
+      { $group: { _id: '$blogId', count: { $sum: 1 } } },
+    ]);
+    const commentCountMap = commentsCounts.reduce((acc, { _id, count }) => {
+      acc[_id.toString()] = count;
+      return acc;
+    }, {});
 
     const blogsWithMetrics = blogs.map(blog => ({
       ...blog,
-      likesCount: blog.likes?.length || 0,
-      commentsCount: blog.comments?.length || 0,
-      bookmarksCount: blog.bookmarks?.length || 0,
+      likesCount: typeof blog.likes === 'number' ? blog.likes : (blog.likes?.length || 0),
+      commentsCount: commentCountMap[blog._id.toString()] || 0,
+      bookmarksCount: typeof blog.bookmarks === 'number' ? blog.bookmarks : (blog.bookmarks?.length || 0),
       engagementScore: blog.views > 0
-        ? Math.round(((blog.likes?.length || 0) + (blog.comments?.length || 0)) / blog.views * 100)
+        ? Math.round((( (typeof blog.likes === 'number' ? blog.likes : (blog.likes?.length || 0)) + (commentCountMap[blog._id.toString()] || 0)) / blog.views) * 100)
         : 0,
     }));
 
@@ -380,6 +403,13 @@ exports.getEngagementMetrics = async (req, res) => {
     const userId = req.user.id;
 
     const blogs = await Blog.find({ author: userId, status: 'published' });
+    const blogIds = blogs.map(blog => blog._id);
+
+    const getCount = (value) => {
+      if (typeof value === 'number') return value;
+      if (Array.isArray(value)) return value.length;
+      return 0;
+    };
 
     const metrics = {
       totalViews: 0,
@@ -390,14 +420,21 @@ exports.getEngagementMetrics = async (req, res) => {
       avgLikesPerBlog: 0,
       avgCommentsPerBlog: 0,
       engagementRate: 0,
+      totalEngagement: 0,
     };
+
+    const totalComments = await Comment.countDocuments({
+      blogId: { $in: blogIds },
+      status: 'active',
+    });
 
     blogs.forEach(blog => {
       metrics.totalViews += blog.views || 0;
-      metrics.totalLikes += blog.likes?.length || 0;
-      metrics.totalComments += blog.comments?.length || 0;
-      metrics.totalBookmarks += blog.bookmarks?.length || 0;
+      metrics.totalLikes += getCount(blog.likes) || blog.likedBy?.length || 0;
+      metrics.totalBookmarks += getCount(blog.bookmarks) || blog.bookmarkedBy?.length || 0;
     });
+
+    metrics.totalComments = totalComments;
 
     if (blogs.length > 0) {
       metrics.avgViewsPerBlog = Math.round(metrics.totalViews / blogs.length);
@@ -405,9 +442,11 @@ exports.getEngagementMetrics = async (req, res) => {
       metrics.avgCommentsPerBlog = Math.round(metrics.totalComments / blogs.length);
     }
 
+    metrics.totalEngagement = metrics.totalLikes + metrics.totalComments + metrics.totalBookmarks;
+
     if (metrics.totalViews > 0) {
       metrics.engagementRate = Math.round(
-        ((metrics.totalLikes + metrics.totalComments + metrics.totalBookmarks) / metrics.totalViews) * 100
+        (metrics.totalEngagement / metrics.totalViews) * 100
       );
     }
 

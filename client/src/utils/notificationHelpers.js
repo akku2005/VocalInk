@@ -128,26 +128,49 @@ export const formatNotificationTime = (date) => {
  * @returns {string} Action URL
  */
 export const getNotificationActionUrl = (notification) => {
+  // First check for explicit actionUrl from backend
   if (notification.data?.actionUrl) {
     return notification.data.actionUrl;
   }
 
-  // Fallback URL generation based on type and data
+  // Generate URL based on notification type and available data
   switch (notification.type) {
     case 'like':
     case 'comment':
+    case 'comment_liked':
+    case 'comment_replied':
     case 'blog_published':
     case 'blog_featured':
-      return notification.data?.blogSlug
-        ? `/article/${notification.data.blogSlug}`
-        : notification.data?.blogId
-          ? `/article/${notification.data.blogId}`
-          : null;
+    case 'mention': {
+      // Build category-based URL: /{category}/{slug}
+      // Priority: categorySlug > category > first tag > 'blog'
+      const data = notification.data || {};
+      const slug = data.blogSlug || data.slug;
+
+      if (!slug) {
+        // No slug available, can't navigate
+        return null;
+      }
+
+      // Get category for URL
+      const categorySlug = data.categorySlug ||
+        (data.category ? data.category.toLowerCase().replace(/\s+/g, '-') : null) ||
+        (data.tags && data.tags.length > 0 ? data.tags[0].toLowerCase().replace(/\s+/g, '-') : null) ||
+        'blog';
+
+      return `/${categorySlug}/${slug}`;
+    }
 
     case 'follow':
     case 'unfollow':
-    case 'mention':
-      return notification.data?.fromUserId ? `/profile/${notification.data.fromUserId}` : null;
+      // Navigate to the user who followed/unfollowed
+      if (notification.data?.fromUsername) {
+        return `/profile/${notification.data.fromUsername}`;
+      }
+      if (notification.data?.fromUserId) {
+        return `/profile/${notification.data.fromUserId}`;
+      }
+      return null;
 
     case 'badge_earned':
       return notification.data?.badgeId ? `/badges/${notification.data.badgeId}` : '/badges';
@@ -155,6 +178,10 @@ export const getNotificationActionUrl = (notification) => {
     case 'level_up':
     case 'achievement':
       return '/profile/me';
+
+    case 'system':
+      // System notifications may have a custom action URL
+      return notification.data?.link || null;
 
     default:
       return null;

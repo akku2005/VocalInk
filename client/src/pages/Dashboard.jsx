@@ -1,46 +1,38 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getBlogUrl } from '../utils/blogUrlHelper';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "../components/ui/Card";
+import { getBlogUrl } from "../utils/blogUrlHelper";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import {
-  TrendingUp,
-  Users,
-  BookOpen,
-  Zap,
   Activity,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  BarChart3,
+  BookOpen,
+  Bookmark,
+  Calendar,
+  Edit,
+  Eye,
   Heart,
   MessageCircle,
-  Eye,
-  Trophy,
-  Target,
-  User,
-  ArrowUp,
-  ArrowDown,
   Minus,
-  Clock,
-  Calendar,
-  Bookmark,
-  Edit,
-  BarChart3,
-  TrendingDown,
+  Target,
+  TrendingUp,
+  Trophy,
+  User,
+  Users,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import dashboardService from "../services/dashboardService";
-import { getCleanExcerpt } from "../utils/textUtils";
 import { getProfilePath } from "../utils/profileUrl";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
 
-  // State management
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
@@ -48,9 +40,14 @@ const Dashboard = () => {
   const [topBlogs, setTopBlogs] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [growthStats, setGrowthStats] = useState(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('30d');
+  const [selectedPeriod, setSelectedPeriod] = useState("30d");
 
-  // Fetch all dashboard data
+  const periodLabels = {
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "90d": "Last 90 days",
+  };
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!isAuthenticated || !user) {
@@ -62,26 +59,25 @@ const Dashboard = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch all data in parallel
         const [dashboard, recent, top, activity, growth] = await Promise.all([
-          dashboardService.getDashboardData().catch(err => {
-            console.error('Dashboard data error:', err);
+          dashboardService.getDashboardData().catch((err) => {
+            console.error("Dashboard data error:", err);
             return null;
           }),
-          dashboardService.getRecentBlogs(5).catch(err => {
-            console.error('Recent blogs error:', err);
+          dashboardService.getRecentBlogs(5).catch((err) => {
+            console.error("Recent blogs error:", err);
             return [];
           }),
-          dashboardService.getTopBlogs(5).catch(err => {
-            console.error('Top blogs error:', err);
+          dashboardService.getTopBlogs(5).catch((err) => {
+            console.error("Top blogs error:", err);
             return [];
           }),
-          dashboardService.getRecentActivity(10).catch(err => {
-            console.error('Activity error:', err);
+          dashboardService.getRecentActivity(10).catch((err) => {
+            console.error("Activity error:", err);
             return [];
           }),
-          dashboardService.getGrowthStats(selectedPeriod).catch(err => {
-            console.error('Growth stats error:', err);
+          dashboardService.getGrowthStats(selectedPeriod).catch((err) => {
+            console.error("Growth stats error:", err);
             return null;
           }),
         ]);
@@ -92,17 +88,18 @@ const Dashboard = () => {
         setRecentActivity(activity);
         setGrowthStats(growth);
       } catch (err) {
-        console.error('Error loading dashboard:', err);
-        setError('Failed to load dashboard data');
+        console.error("Error loading dashboard:", err);
+        setError("Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [isAuthenticated, user, selectedPeriod]);
+    // Use user?._id instead of user object to prevent infinite re-renders
+    // when user object reference changes but data stays the same
+  }, [isAuthenticated, user?._id, selectedPeriod]);
 
-  // Quick actions
   const quickActions = [
     {
       name: "Write New Post",
@@ -130,7 +127,19 @@ const Dashboard = () => {
     },
   ];
 
-  // Growth indicator component
+  const formatNumber = (value) => {
+    if (value === null || value === undefined) return "0";
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) return "0";
+    if (numericValue >= 1000) {
+      return numericValue.toLocaleString("en-US", {
+        notation: "compact",
+        maximumFractionDigits: 1,
+      });
+    }
+    return numericValue.toLocaleString();
+  };
+
   const GrowthIndicator = ({ value }) => {
     if (value > 0) {
       return (
@@ -148,23 +157,21 @@ const Dashboard = () => {
       );
     }
     return (
-      <span className="flex items-center text-gray-500 text-xs font-medium">
+      <span className="flex items-center text-text-secondary text-xs font-medium">
         <Minus className="w-3 h-3 mr-1" />
         0%
       </span>
     );
   };
 
-  // Format date
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
-  // Format time ago
   const timeAgo = (date) => {
     const seconds = Math.floor((new Date() - new Date(date)) / 1000);
 
@@ -180,13 +187,59 @@ const Dashboard = () => {
     for (const [unit, secondsInUnit] of Object.entries(intervals)) {
       const interval = Math.floor(seconds / secondsInUnit);
       if (interval >= 1) {
-        return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+        return `${interval} ${unit}${interval > 1 ? "s" : ""} ago`;
       }
     }
-    return 'Just now';
+    return "Just now";
   };
 
-  // Loading state
+  const getActivityIcon = (iconName) => {
+    switch (iconName) {
+      case "BookOpen":
+        return <BookOpen className="w-4 h-4 text-primary-500" />;
+      case "MessageCircle":
+        return <MessageCircle className="w-4 h-4 text-blue-500" />;
+      case "Heart":
+        return <Heart className="w-4 h-4 text-red-500" />;
+      default:
+        return <Activity className="w-4 h-4 text-text-secondary" />;
+    }
+  };
+
+  const computeShare = (current = 0, previous = 0) => {
+    const total = current + previous;
+    if (!total) return 0;
+    return Math.round((current / total) * 100);
+  };
+
+  const StatCard = ({ title, value, icon: Icon, accent, helper, change }) => (
+    <Card className="hover:shadow-primary-500/20 border border-[var(--border-color)] bg-surface transition-transform hover:-translate-y-0.5">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <p className="text-xs uppercase tracking-wide text-text-secondary">
+              {title}
+            </p>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-semibold text-text-primary">
+                {formatNumber(value)}
+              </span>
+              {change !== undefined && <GrowthIndicator value={change} />}
+            </div>
+            {helper && (
+              <p className="text-sm text-text-secondary mt-1">
+                {helper}
+              </p>
+            )}
+          </div>
+          <div className={`p-3 rounded-xl ${accent}`}>
+            <Icon className="w-5 h-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -198,7 +251,6 @@ const Dashboard = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -206,7 +258,9 @@ const Dashboard = () => {
           <div className="text-red-500 mb-4">
             <Activity className="w-12 h-12 mx-auto" />
           </div>
-          <h2 className="text-xl font-semibold text-text-primary mb-2">Failed to Load Dashboard</h2>
+          <h2 className="text-xl font-semibold text-text-primary mb-2">
+            Failed to Load Dashboard
+          </h2>
           <p className="text-text-secondary mb-4">{error}</p>
           <Button onClick={() => window.location.reload()}>Try Again</Button>
         </div>
@@ -219,126 +273,277 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-primary-50 to-accent-50 rounded-xl p-6 border border-[var(--border-color)] shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl lg:text-4xl font-bold text-text-primary mb-2">
-              Welcome back, {userData.firstName || user?.name || 'User'}! 👋
-            </h1>
-            <p className="text-text-secondary text-lg mb-3">
-              Here's your content performance overview
-            </p>
-            <div className="flex items-center gap-4 text-sm text-text-secondary">
-              <span className="flex items-center gap-1">
-                <Trophy className="w-4 h-4" />
+      <section className="relative overflow-hidden rounded-2xl border border-[var(--border-color)] bg-surface shadow-primary-500/20">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "linear-gradient(90deg, rgba(var(--color-primary), 0.12), rgba(var(--color-primary), 0.05))",
+          }}
+        />
+        <div className="absolute -left-10 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl opacity-70 pointer-events-none" />
+        <div className="relative p-6 sm:p-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Calendar className="w-4 h-4" />
+              <span>Dashboard overview</span>
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-text-primary tracking-tight">
+                Welcome back, {userData.firstName || user?.name || "Creator"}!
+              </h1>
+              <p className="text-text-secondary mt-2">
+                Your content performance snapshot across views, engagement, and growth.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant="outline"
+                className="bg-primary/10 border-primary/40 text-primary-500"
+              >
+                <Trophy className="w-3 h-3 mr-1" />
                 Level {userData.level || 1}
-              </span>
-              <span className="flex items-center gap-1">
-                <Zap className="w-4 h-4" />
-                {userData.xp || 0} XP
-              </span>
-              <span className="flex items-center gap-1">
-                <Target className="w-4 h-4" />
-                {stats.engagementRate || 0}% Engagement
-              </span>
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-[var(--border-color)] text-text-primary"
+              >
+                <Zap className="w-3 h-3 mr-1" />
+                {formatNumber(userData.xp || 0)} XP earned
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-primary/40 text-primary-500"
+              >
+                <Target className="w-3 h-3 mr-1" />
+                {stats.engagementRate || 0}% engagement
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => navigate("/create-blog")}
+                variant="primary"
+                className="shadow-primary-500/25"
+              >
+                Write a new post
+              </Button>
+              <Button
+                onClick={() => navigate("/analytics")}
+                variant="outline"
+                className="border-primary/40 text-primary-500"
+              >
+                View analytics
+              </Button>
+              <Button
+                onClick={() => navigate(getProfilePath(user))}
+                variant="ghost"
+              >
+                View profile
+              </Button>
             </div>
           </div>
-          {userData.avatar && (
-            <div className="hidden md:block">
-              <img
-                src={userData.avatar}
-                alt={userData.firstName}
-                className="w-20 h-20 rounded-full border-4 border-white shadow-lg object-cover"
-              />
+          <div className="w-full max-w-sm">
+            <div className="rounded-xl border border-[var(--border-color)] bg-surface p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-text-secondary">
+                    Performance window
+                  </p>
+                  <p className="text-sm font-semibold text-text-primary">
+                    {periodLabels[selectedPeriod]}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  {Object.keys(periodLabels).map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setSelectedPeriod(period)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        selectedPeriod === period
+                          ? "bg-primary/10 text-primary-500 border-primary/40 shadow-primary-500/25"
+                          : "bg-surface hover:border-primary/40 border-[var(--border-color)] text-text-secondary"
+                      }`}
+                    >
+                      {period.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {growthStats ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-[var(--border-color)] bg-surface p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-text-secondary">Views</p>
+                      <GrowthIndicator value={growthStats.growth?.views || 0} />
+                    </div>
+                    <p className="text-2xl font-semibold text-text-primary mt-1">
+                      {formatNumber(growthStats.current?.views || stats.totalViews || 0)}
+                    </p>
+                    <div className="mt-2 h-2 rounded-full bg-surface-active overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary-500 transition-all"
+                        style={{
+                          width: `${computeShare(
+                            growthStats.current?.views || 0,
+                            growthStats.previous?.views || 0
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-text-secondary mt-1">
+                      vs previous {periodLabels[selectedPeriod]}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border-color)] bg-surface p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-text-secondary">Blogs published</p>
+                      <GrowthIndicator value={growthStats.growth?.blogs || 0} />
+                    </div>
+                    <p className="text-2xl font-semibold text-text-primary mt-1">
+                      {formatNumber(growthStats.current?.blogs || stats.totalBlogs || 0)}
+                    </p>
+                    <div className="mt-2 h-2 rounded-full bg-surface-active overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-all"
+                        style={{
+                          width: `${computeShare(
+                            growthStats.current?.blogs || 0,
+                            growthStats.previous?.blogs || 0
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-text-secondary mt-1">
+                      vs previous {periodLabels[selectedPeriod]}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-text-secondary">
+                  We’ll start showing trendlines once your content gets traction.
+                </p>
+              )}
             </div>
-          )}
+          </div>
         </div>
+      </section>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          title="Published posts"
+          value={stats.totalBlogs}
+          helper={`${stats.draftBlogs || 0} drafts in progress`}
+          icon={BookOpen}
+          accent="bg-primary/10 text-primary-500"
+          change={growthStats?.growth?.blogs}
+        />
+        <StatCard
+          title="Total views"
+          value={stats.totalViews}
+          helper={`${stats.totalComments || 0} comments logged`}
+          icon={Eye}
+          accent="bg-blue-500/10 text-blue-500"
+          change={growthStats?.growth?.views}
+        />
+        <StatCard
+          title="Likes received"
+          value={stats.totalLikes}
+          helper={`${stats.totalBookmarks || 0} bookmarks`}
+          icon={Heart}
+          accent="bg-red-500/10 text-red-500"
+        />
+        <StatCard
+          title="Followers"
+          value={stats.followerCount}
+          helper={`Following ${stats.followingCount || 0}`}
+          icon={Users}
+          accent="bg-emerald-500/10 text-emerald-500"
+        />
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Blogs */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Blog Posts</CardTitle>
-            <BookOpen className="h-4 w-4 text-primary-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary-500">
-              {stats.totalBlogs?.toLocaleString() || 0}
-            </div>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-text-secondary">
-                {stats.draftBlogs || 0} drafts
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <Card className="xl:col-span-2 border border-[var(--border-color)]">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3">
+            <div>
+              <CardTitle>Performance pulse</CardTitle>
+              <p className="text-sm text-text-secondary">
+                How your reach and publishing cadence compare to the previous {periodLabels[selectedPeriod].toLowerCase()}.
               </p>
-              {growthStats && (
-                <GrowthIndicator value={growthStats.growth?.blogs || 0} />
-              )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Views */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-blue-500" />
+            <Badge
+              variant="outline"
+              className="border-primary/40 text-primary-500"
+            >
+              {periodLabels[selectedPeriod]}
+            </Badge>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500">
-              {stats.totalViews?.toLocaleString() || 0}
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg border border-[var(--border-color)] bg-surface">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-text-secondary">Views this period</p>
+                    <p className="text-2xl font-semibold text-text-primary">
+                      {formatNumber(growthStats?.current?.views || stats.totalViews || 0)}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-full bg-primary/10 text-primary-500">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-text-secondary mt-2">
+                  <span>vs previous window</span>
+                  <GrowthIndicator value={growthStats?.growth?.views || 0} />
+                </div>
+              </div>
+              <div className="p-4 rounded-lg border border-[var(--border-color)] bg-surface">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-text-secondary">Blogs published</p>
+                    <p className="text-2xl font-semibold text-text-primary">
+                      {formatNumber(growthStats?.current?.blogs || stats.totalBlogs || 0)}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-500">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-text-secondary mt-2">
+                  <span>vs previous window</span>
+                  <GrowthIndicator value={growthStats?.growth?.blogs || 0} />
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-text-secondary">
-                All time views
-              </p>
-              {growthStats && (
-                <GrowthIndicator value={growthStats.growth?.views || 0} />
-              )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[var(--border-color)] pt-4">
+              <div className="p-4 rounded-lg bg-surface-active border border-[var(--border-color)]">
+                <p className="text-xs text-text-secondary">Engagement rate</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-2xl font-semibold text-text-primary">
+                    {stats.engagementRate || 0}%
+                  </span>
+                  <span className="text-xs text-text-secondary">
+                    likes + comments per view
+                  </span>
+                </div>
+              </div>
+              <div className="p-4 rounded-lg bg-surface-active border border-[var(--border-color)]">
+                <p className="text-xs text-text-secondary">Followers</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-2xl font-semibold text-text-primary">
+                    {formatNumber(stats.followerCount)}
+                  </span>
+                  <span className="text-xs text-text-secondary">
+                    following {stats.followingCount || 0}
+                  </span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Total Likes */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Likes</CardTitle>
-            <Heart className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">
-              {stats.totalLikes?.toLocaleString() || 0}
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              {stats.totalComments || 0} comments
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Followers */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Followers</CardTitle>
-            <Users className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {stats.followerCount?.toLocaleString() || 0}
-            </div>
-            <p className="text-xs text-text-secondary mt-1">
-              Following: {stats.followingCount || 0}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Actions */}
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle>Quick actions</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
@@ -348,11 +553,18 @@ const Dashboard = () => {
                   <button
                     key={index}
                     onClick={action.action}
-                    className="flex flex-col items-center justify-center p-4 rounded-lg border border-border-color hover:bg-surface hover:border-primary-500 transition-all group"
+                    className="flex flex-col items-start gap-2 p-4 rounded-lg border border-[var(--border-color)] bg-surface hover:border-primary/40 hover:shadow-primary-500/10 transition-all"
                   >
-                    <Icon className={`w-6 h-6 mb-2 ${action.color} group-hover:scale-110 transition-transform`} />
-                    <span className="text-sm font-medium text-text-primary text-center">
-                      {action.name}
+                    <div className="flex items-center gap-2">
+                      <span className={`p-2 rounded-md bg-surface-active ${action.color}`}>
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="text-sm font-semibold text-text-primary">
+                        {action.name}
+                      </span>
+                    </div>
+                    <span className="text-xs text-text-secondary flex items-center gap-1">
+                      Jump in <ArrowRight className="w-3 h-3" />
                     </span>
                   </button>
                 );
@@ -360,59 +572,18 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-[280px] overflow-y-auto">
-              {recentActivity.length > 0 ? (
-                recentActivity.map((activity, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start space-x-3 p-2 rounded-lg hover:bg-surface transition-colors"
-                  >
-                    <div className="p-2 rounded-full bg-primary-50">
-                      {activity.icon === 'BookOpen' && <BookOpen className="w-4 h-4 text-primary-500" />}
-                      {activity.icon === 'MessageCircle' && <MessageCircle className="w-4 h-4 text-blue-500" />}
-                      {activity.icon === 'Heart' && <Heart className="w-4 h-4 text-red-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary">
-                        {activity.title}
-                      </p>
-                      <p className="text-sm text-text-secondary truncate">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-text-secondary mt-1">
-                        {timeAgo(activity.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <Activity className="w-12 h-12 text-text-secondary mx-auto mb-4" />
-                  <p className="text-text-secondary">
-                    No recent activity yet
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Recent Blogs and Top Performing */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Blogs */}
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 border border-[var(--border-color)]">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Blogs</CardTitle>
-            <Link to="/my-blogs" className="text-sm text-primary-500 hover:underline">
+            <CardTitle>Recent blogs</CardTitle>
+            <Link
+              to="/my-blogs"
+              className="text-sm text-primary-500 hover:underline flex items-center gap-1"
+            >
               View all
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </CardHeader>
           <CardContent>
@@ -422,14 +593,14 @@ const Dashboard = () => {
                   <Link
                     key={blog._id}
                     to={getBlogUrl(blog)}
-                    className="block p-3 rounded-lg border border-border-color hover:border-primary-500 hover:shadow-md transition-all"
+                    className="block p-3 rounded-lg border border-[var(--border-color)] hover:border-primary/40 hover:-translate-y-0.5 transition-all bg-surface"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-text-primary truncate mb-1">
+                        <h4 className="font-semibold text-text-primary truncate">
                           {blog.title}
                         </h4>
-                        <div className="flex items-center gap-3 text-xs text-text-secondary">
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary mt-2">
                           <span className="flex items-center gap-1">
                             <Eye className="w-3 h-3" />
                             {blog.views || 0}
@@ -442,6 +613,12 @@ const Dashboard = () => {
                             <MessageCircle className="w-3 h-3" />
                             {blog.commentsCount || 0}
                           </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] border-[var(--border-color)]"
+                          >
+                            {blog.tags?.[0] || "Blog"}
+                          </Badge>
                         </div>
                       </div>
                       <span className="text-xs text-text-secondary whitespace-nowrap ml-2">
@@ -452,7 +629,7 @@ const Dashboard = () => {
                 ))
               ) : (
                 <div className="text-center py-8">
-                  <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                  <BookOpen className="w-12 h-12 text-text-secondary mx-auto mb-3" />
                   <p className="text-text-secondary">No blogs yet</p>
                   <Button
                     variant="outline"
@@ -468,11 +645,50 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Top Performing Blogs */}
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Top Performing</CardTitle>
-            <TrendingUp className="w-5 h-5 text-green-500" />
+            <CardTitle>Recent activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {recentActivity.length > 0 ? (
+                recentActivity.map((activity, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-[var(--border-color)] bg-surface hover:border-primary/40 transition-colors"
+                  >
+                    <div className="p-2 rounded-full bg-primary/10">
+                      {getActivityIcon(activity.icon)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary">
+                        {activity.title}
+                      </p>
+                      <p className="text-sm text-text-secondary truncate">
+                        {activity.description}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {timeAgo(activity.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10">
+                  <Activity className="w-12 h-12 text-text-secondary mx-auto mb-4" />
+                  <p className="text-text-secondary">No recent activity yet</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 border border-[var(--border-color)]">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Top performing</CardTitle>
+            <TrendingUp className="w-5 h-5 text-emerald-500" />
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -481,19 +697,17 @@ const Dashboard = () => {
                   <Link
                     key={blog._id}
                     to={getBlogUrl(blog)}
-                    className="block p-3 rounded-lg border border-border-color hover:border-green-500 hover:shadow-md transition-all"
+                    className="block p-3 rounded-lg border border-[var(--border-color)] hover:border-emerald-400 hover:-translate-y-0.5 transition-all bg-surface"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                        <span className="text-sm font-bold text-green-600">
-                          #{index + 1}
-                        </span>
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold">
+                        #{index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-text-primary truncate mb-1">
+                        <h4 className="font-semibold text-text-primary truncate mb-1">
                           {blog.title}
                         </h4>
-                        <div className="flex items-center gap-3 text-xs text-text-secondary">
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
                           <span className="flex items-center gap-1">
                             <Eye className="w-3 h-3" />
                             {blog.views || 0}
@@ -502,7 +716,10 @@ const Dashboard = () => {
                             <Heart className="w-3 h-3" />
                             {blog.likesCount || 0}
                           </span>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] border-[var(--border-color)]"
+                          >
                             {blog.engagementScore || 0}% engagement
                           </Badge>
                         </div>
@@ -519,25 +736,91 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border border-[var(--border-color)]">
+          <CardHeader>
+            <CardTitle>Engagement highlights</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="p-3 rounded-lg border border-[var(--border-color)] bg-surface-active">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-text-secondary">Engagement rate</p>
+                  <p className="text-xl font-semibold text-text-primary">
+                    {stats.engagementRate || 0}%
+                  </p>
+                </div>
+                <Target className="w-5 h-5 text-primary-500" />
+              </div>
+              <p className="text-xs text-text-secondary mt-1">
+                Likes + comments + bookmarks per view
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg border border-[var(--border-color)] bg-surface">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-secondary">Likes</p>
+                  <Heart className="w-4 h-4 text-red-500" />
+                </div>
+                <p className="text-xl font-semibold text-text-primary mt-1">
+                  {formatNumber(stats.totalLikes)}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-[var(--border-color)] bg-surface">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-secondary">Comments</p>
+                  <MessageCircle className="w-4 h-4 text-blue-500" />
+                </div>
+                <p className="text-xl font-semibold text-text-primary mt-1">
+                  {formatNumber(stats.totalComments)}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-[var(--border-color)] bg-surface">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-secondary">Bookmarks</p>
+                  <Bookmark className="w-4 h-4 text-amber-500" />
+                </div>
+                <p className="text-xl font-semibold text-text-primary mt-1">
+                  {formatNumber(stats.totalBookmarks)}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-[var(--border-color)] bg-surface">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-secondary">Views</p>
+                  <Eye className="w-4 h-4 text-primary-500" />
+                </div>
+                <p className="text-xl font-semibold text-text-primary mt-1">
+                  {formatNumber(stats.totalViews)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Profile Summary */}
       {userData.badges && userData.badges.length > 0 && (
-        <Card>
+        <Card className="border border-[var(--border-color)]">
           <CardHeader>
-            <CardTitle>Your Badges</CardTitle>
+            <CardTitle>Your badges</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {userData.badges.slice(0, 6).map((badge, index) => (
-                <Badge key={index} variant="outline" className="text-sm">
+              {userData.badges.slice(0, 8).map((badge, index) => (
+                <Badge
+                  key={index}
+                  variant="outline"
+                  className="text-sm border-[var(--border-color)]"
+                >
                   <Trophy className="w-3 h-3 mr-1" />
                   {badge.name}
                 </Badge>
               ))}
-              {userData.badges.length > 6 && (
-                <Badge variant="outline" className="text-sm">
-                  +{userData.badges.length - 6} more
+              {userData.badges.length > 8 && (
+                <Badge
+                  variant="outline"
+                  className="text-sm border-[var(--border-color)]"
+                >
+                  +{userData.badges.length - 8} more
                 </Badge>
               )}
             </div>

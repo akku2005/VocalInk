@@ -7,43 +7,43 @@ const NotificationService = require('./NotificationService');
 const XPService = require('./XPService');
 const logger = require('../utils/logger');
 const mongoose = require('mongoose');
-
-// Optional Redis import with fallback
-let redis = null;
-try {
-  redis = require('redis');
-} catch (error) {
-  logger.warn('Redis module not found, using in-memory cache fallback');
-}
+const redisManager = require('./RedisManager');
 
 class BadgeService {
   constructor() {
     this.redisClient = null;
     this.memoryCache = new Map(); // Fallback in-memory cache
+    this.maxMemoryCache = 500; // Limit memory cache size
     this.initializeRedis();
   }
 
   async initializeRedis() {
-    if (!redis) {
-      logger.info('Redis not available, using in-memory cache');
-      return;
-    }
-
     try {
-      this.redisClient = redis.createClient({
-        url: process.env.REDIS_URL || 'redis://localhost:6379'
-      });
-      await this.redisClient.connect();
-      logger.info('Redis connected for BadgeService');
+      // Use centralized RedisManager
+      this.redisClient = redisManager.getClient('badge');
+      
+      // Connect if not already connected
+      if (this.redisClient.status !== 'ready') {
+        await this.redisClient.connect();
+      }
+      
+      logger.info(' BadgeService initialized with Redis');
     } catch (error) {
-      logger.warn('Redis not available for BadgeService, using in-memory cache');
+      logger.warn('Redis not available for BadgeService, using in-memory cache:', error.message);
       this.redisClient = null;
     }
   }
 
+  /**
+   * Check if Redis is available and ready
+   */
+  get isRedisReady() {
+    return this.redisClient && this.redisClient.status === 'ready';
+  }
+
   // Helper method to get from cache (Redis or memory)
   async getFromCache(key) {
-    if (this.redisClient) {
+    if (this.isRedisReady) {
       try {
         const cached = await this.redisClient.get(key);
         if (!cached) return null;
@@ -51,7 +51,12 @@ class BadgeService {
         return secureJSONParse(cached, { maxLength: 10000 }) || null;
       } catch (error) {
         logger.warn('Redis cache read failed:', error.message);
-        return this.memoryCache.get(key) || null;
+        // Fallback to memory
+        const memoryCached = this.memoryCache.get(key);
+        if (memoryCached && memoryCached.expiresAt > Date.now()) {
+          return memoryCached.data;
+        }
+        return null;
       }
     } else {
       const cached = this.memoryCache.get(key);
@@ -65,37 +70,43 @@ class BadgeService {
 
   // Helper method to set cache (Redis or memory)
   async setCache(key, data, ttlSeconds = 300) {
-    if (this.redisClient) {
+    if (this.isRedisReady) {
       try {
-        await this.redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
+        await this.redisClient.setex(key, ttlSeconds, JSON.stringify(data));
       } catch (error) {
         logger.warn('Redis cache write failed:', error.message);
         // Fallback to memory cache
-        this.memoryCache.set(key, {
-          data,
-          expiresAt: Date.now() + (ttlSeconds * 1000)
-        });
+        this.setMemoryCache(key, data, ttlSeconds);
       }
     } else {
-      this.memoryCache.set(key, {
-        data,
-        expiresAt: Date.now() + (ttlSeconds * 1000)
-      });
+      this.setMemoryCache(key, data, ttlSeconds);
     }
+  }
+
+  // Helper to set memory cache with size limit
+  setMemoryCache(key, data, ttlSeconds) {
+    // Evict if at capacity
+    if (this.memoryCache.size >= this.maxMemoryCache) {
+      const firstKey = this.memoryCache.keys().next().value;
+      this.memoryCache.delete(firstKey);
+    }
+    this.memoryCache.set(key, {
+      data,
+      expiresAt: Date.now() + (ttlSeconds * 1000)
+    });
   }
 
   // Helper method to delete from cache
   async deleteFromCache(key) {
-    if (this.redisClient) {
+    if (this.isRedisReady) {
       try {
         await this.redisClient.del(key);
       } catch (error) {
         logger.warn('Redis cache delete failed:', error.message);
-        this.memoryCache.delete(key);
       }
-    } else {
-      this.memoryCache.delete(key);
     }
+    // Always delete from memory too
+    this.memoryCache.delete(key);
   }
 
   /**

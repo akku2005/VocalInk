@@ -166,6 +166,102 @@ class AudioStorageService {
     }
 
     /**
+     * Get a specific segment by ID
+     * @param {string} blogId
+     * @param {string} segmentId
+     * @returns {Promise<Object|null>}
+     */
+    async getSegment(blogId, segmentId) {
+        const record = await this.getAudio(blogId);
+        if (!record || !record.segments) return null;
+        return record.segments.find(s => s.id === segmentId || s.paragraphId === segmentId) || null;
+    }
+
+    /**
+     * Upsert a single segment (merge into existing record)
+     * @param {string} blogId
+     * @param {Object} segment
+     * @returns {Promise<void>}
+     */
+    async upsertSegment(blogId, segment) {
+        const db = await this.openDB();
+        const existing = await this.getAudio(blogId);
+        const normalizedId = segment.id || segment.paragraphId;
+        const now = Date.now();
+        const updatedSegment = {
+            ...segment,
+            id: normalizedId,
+            paragraphId: segment.paragraphId || normalizedId,
+            updatedAt: now,
+        };
+
+        const next = {
+            blogId,
+            audioData: existing?.audioData || new ArrayBuffer(0),
+            segments: Array.isArray(existing?.segments)
+                ? (existing.segments.some(s => (s.id === normalizedId || s.paragraphId === normalizedId))
+                    ? existing.segments.map(s => (s.id === normalizedId || s.paragraphId === normalizedId) ? updatedSegment : s)
+                    : [...existing.segments, updatedSegment])
+                : [updatedSegment],
+            duration: (Array.isArray(existing?.segments) ? existing.segments : [updatedSegment])
+                .reduce((sum, s) => sum + (s.duration || 0), 0),
+            timestamp: now,
+            size: existing?.audioData?.byteLength || 0,
+            version: AUDIO_CACHE_VERSION,
+        };
+
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE_NAME], 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.put(next);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
+     * Merge multiple segments into existing record efficiently
+     * @param {string} blogId
+     * @param {Array<Object>} segments
+     * @returns {Promise<void>}
+     */
+    async mergeSegments(blogId, segments = []) {
+        if (!segments || segments.length === 0) return;
+        const db = await this.openDB();
+        const existing = await this.getAudio(blogId);
+        const now = Date.now();
+        const map = new Map();
+        (existing?.segments || []).forEach(s => {
+            const key = s.id || s.paragraphId;
+            map.set(key, s);
+        });
+        segments.forEach(seg => {
+            const key = seg.id || seg.paragraphId;
+            map.set(key, { ...seg, id: key, paragraphId: seg.paragraphId || key, updatedAt: now });
+        });
+        const merged = Array.from(map.values());
+        const totalDur = merged.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+        const next = {
+            blogId,
+            audioData: existing?.audioData || new ArrayBuffer(0),
+            segments: merged,
+            duration: totalDur,
+            timestamp: now,
+            size: existing?.audioData?.byteLength || 0,
+            version: AUDIO_CACHE_VERSION,
+        };
+
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE_NAME], 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.put(next);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
      * Check if audio exists in IndexedDB
      * @param {string} blogId - Blog post ID
      * @returns {Promise<boolean>}

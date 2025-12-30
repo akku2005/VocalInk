@@ -2,10 +2,11 @@ const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
-const Redis = require('ioredis');
 const textToSpeech = require('@google-cloud/text-to-speech');
 const logger = require('../utils/logger');
 const config = require('../config');
+const { splitHtmlIntoSegments } = require('../utils/splitHtmlIntoSegments');
+const redisManager = require('./RedisManager');
 
 // Optional Backblaze B2 S3-compatible uploader (lazy-loaded)
 let b2Uploader = null;
@@ -81,42 +82,8 @@ class TTSService {
   }
 
   /**
-   * Build Redis connection options from environment variables.
-   * Prefers REDIS_URL so containerized deployments use the correct host/password.
-   */
-  buildRedisConfig() {
-    const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3;
-    const retryDelay = parseInt(process.env.REDIS_RETRY_DELAY, 10) || 1000;
-    const redisUrl = process.env.REDIS_URL;
-
-    if (redisUrl) {
-      try {
-        const parsed = new URL(redisUrl);
-        return {
-          host: parsed.hostname,
-          port: parseInt(parsed.port || '6379', 10),
-          password: parsed.password || undefined,
-          db: parsed.pathname ? parseInt(parsed.pathname.slice(1) || '0', 10) : 0,
-          maxRetriesPerRequest: maxRetries,
-          retryDelayOnFailover: retryDelay,
-        };
-      } catch (error) {
-        logger.warn('Invalid REDIS_URL, falling back to host/port variables', { message: error.message });
-      }
-    }
-
-    return {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_DB, 10) || 0,
-      maxRetriesPerRequest: maxRetries,
-      retryDelayOnFailover: retryDelay,
-    };
-  }
-
-  /**
    * Lazy-init Redis publisher used for cancellation signaling.
+   * Uses centralized RedisManager for connection management.
    */
   ensureRedisPublisher() {
     if (this.redisPublisher) {
@@ -124,11 +91,8 @@ class TTSService {
     }
 
     try {
-      const redisConfig = this.buildRedisConfig();
-      this.redisPublisher = new Redis(redisConfig);
-      this.redisPublisher.on('error', (err) => {
-        logger.warn('Redis publisher error', { message: err.message });
-      });
+      // Use centralized RedisManager
+      this.redisPublisher = redisManager.getPublisher('tts');
     } catch (error) {
       logger.warn('Failed to initialize Redis publisher for TTS cancellations', { message: error.message });
       this.redisPublisher = null;
@@ -156,8 +120,8 @@ class TTSService {
     }
 
     try {
-      const filename = `elevenlabs-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.mp3`;
-      const audioPath = path.join(this.ttsDir, filename);
+      const filename = `elevenlabs-${Date.now()}-${Math.random().toString(36).substring(2, 11)}.mp3`;
+      let audioPath = path.join(this.ttsDir, filename);
 
       // Clean and validate text
       const cleanText = this.sanitizeText(text, 5000);
@@ -572,14 +536,49 @@ class TTSService {
           hl: language
         };
 
-        const response = await axios({
-          method: 'GET',
-          url: gttsUrl,
-          params,
-          responseType: 'arraybuffer',
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          timeout: 30000,
-        });
+        // Add delay between chunks to avoid rate limiting
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        let response;
+        let lastError;
+        const MAX_RETRIES = 3;
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            response = await axios({
+              method: 'GET',
+              url: gttsUrl,
+              params,
+              responseType: 'arraybuffer',
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+              timeout: 30000,
+            });
+            break; // Success, exit retry loop
+          } catch (chunkError) {
+            lastError = chunkError;
+            logger.warn(`gTTS chunk ${i} attempt ${attempt + 1} failed:`, {
+              chunkLength: chunk.length,
+              error: chunkError.message,
+              status: chunkError.response?.status
+            });
+            if (attempt < MAX_RETRIES - 1) {
+              await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // Exponential backoff
+            }
+          }
+        }
+
+        if (!response) {
+          logger.error('gTTS chunk failed after retries:', {
+            chunkIndex: i,
+            chunkLength: chunk.length,
+            chunkPreview: chunk.substring(0, 100),
+            error: lastError?.message,
+            status: lastError?.response?.status
+          });
+          throw lastError;
+        }
 
         const skipDiskStorage = options.skipDiskStorage === true;
         let audioUrl = null;
@@ -848,6 +847,56 @@ class TTSService {
     }
   }
 
+
+  /**
+   * Generate speech from HTML content while preserving structure.
+   * Parses HTML to extract text from semantic elements (p, li, h1-h6, tables, code blocks)
+   * and generates TTS for each segment with proper IDs for client-side highlighting.
+   * 
+   * @param {string} html - HTML content to convert to speech
+   * @param {Object} options - TTS options (provider, voice, etc.)
+   * @returns {Promise<Array>} Array of audio segment objects with IDs
+   */
+  async generateSegmentedSpeechFromHTML(html, options = {}) {
+    try {
+      // Parse HTML and extract segments
+      const segments = splitHtmlIntoSegments(html);
+
+      if (segments.length === 0) {
+        logger.warn('No segments extracted from HTML, falling back to plain text');
+        // Fallback to sanitized text extraction
+        const fallbackText = this.sanitizeText(html, 10000);
+        const audioResult = await this.generateSpeech(fallbackText, options);
+        return [{
+          ...audioResult,
+          id: 'tts-seg-0',
+          paragraphId: 'tts-seg-0',
+          text: fallbackText,
+          element: 'fallback'
+        }];
+      }
+
+      logger.info(`Generating TTS for ${segments.length} HTML segments`, {
+        provider: options.provider || 'default',
+        segmentCount: segments.length,
+        totalChars: segments.reduce((sum, s) => sum + s.text.length, 0)
+      });
+
+      // Generate audio for all segments using existing batch processing
+      const audioSegments = await this.generateSegmentedSpeech(segments, options);
+
+      logger.info(`Successfully generated ${audioSegments.length} audio segments from HTML`);
+      return audioSegments;
+
+    } catch (error) {
+      logger.error('Failed to generate segmented speech from HTML:', {
+        message: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
+  }
+
   /**
    * Generate speech for multiple segments (e.g., paragraphs)
    * Returns an array of audio segment objects
@@ -867,6 +916,12 @@ class TTSService {
           if (!segment.text || !segment.text.trim()) {
             return null;
           }
+
+          logger.debug('Generating audio for segment:', {
+            id: segment.id,
+            textLength: segment.text.length,
+            textPreview: segment.text.substring(0, 80)
+          });
 
           const audioResult = await this.generateSpeech(segment.text, options);
 
@@ -1115,8 +1170,18 @@ class TTSService {
     // Remove HTML tags
     let cleanText = text.replace(/<[^>]*>/g, '');
 
-    // Remove special characters that might cause issues
-    cleanText = cleanText.replace(/[^\w\s.,!?;:'"()-]/g, ' ');
+    // Replace curly quotes and special punctuation with ASCII equivalents
+    cleanText = cleanText
+      .replace(/[\u2018\u2019\u201A\u201B]/g, "'")  // Single curly quotes
+      .replace(/[\u201C\u201D\u201E\u201F]/g, '"')  // Double curly quotes
+      .replace(/[\u2013\u2014]/g, '-')              // En-dash, em-dash
+      .replace(/[\u2026]/g, '...')                  // Ellipsis
+      .replace(/[\u00A0]/g, ' ')                    // Non-breaking space
+      .replace(/[\u2022\u2023\u2043]/g, '-')        // Bullets
+      .replace(/[\u00B7]/g, '-');                   // Middle dot
+
+    // Remove special characters that might cause issues (keep basic punctuation and letters)
+    cleanText = cleanText.replace(/[^\w\s.,!?;:'"()\-]/g, ' ');
 
     // Normalize whitespace
     cleanText = cleanText.replace(/\s+/g, ' ').trim();
@@ -1140,11 +1205,32 @@ class TTSService {
 
   /**
    * Chunk text by sentences without exceeding maxLen
+   * If a single sentence exceeds maxLen, split it by words
    */
   chunkText(text, maxLen = 200) {
     const sentences = text.split(/([.!?])\s+/);
     const chunks = [];
     let buf = '';
+
+    // Helper to split long text by words
+    const splitLongText = (longText) => {
+      const result = [];
+      const words = longText.split(/\s+/);
+      let current = '';
+      for (const word of words) {
+        const next = current ? `${current} ${word}` : word;
+        if (next.length <= maxLen) {
+          current = next;
+        } else {
+          if (current) result.push(current);
+          // If single word exceeds limit, truncate it
+          current = word.length > maxLen ? word.substring(0, maxLen) : word;
+        }
+      }
+      if (current) result.push(current);
+      return result;
+    };
+
     for (let i = 0; i < sentences.length; i++) {
       const part = sentences[i];
       if (!part) continue;
@@ -1152,11 +1238,30 @@ class TTSService {
       if (next.length <= maxLen) {
         buf = next;
       } else {
-        if (buf) chunks.push(buf.trim());
-        buf = part;
+        if (buf) {
+          // Check if buf itself is too long
+          if (buf.length > maxLen) {
+            chunks.push(...splitLongText(buf));
+          } else {
+            chunks.push(buf.trim());
+          }
+        }
+        // Check if the new part is too long on its own
+        if (part.length > maxLen) {
+          chunks.push(...splitLongText(part));
+          buf = '';
+        } else {
+          buf = part;
+        }
       }
     }
-    if (buf) chunks.push(buf.trim());
+    if (buf) {
+      if (buf.length > maxLen) {
+        chunks.push(...splitLongText(buf));
+      } else {
+        chunks.push(buf.trim());
+      }
+    }
     return chunks.length ? chunks : [text.substring(0, Math.min(text.length, maxLen))];
   }
 

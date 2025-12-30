@@ -1,5 +1,20 @@
 const crypto = require('crypto');
 
+// SECURITY: Validate critical secrets in production
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    throw new Error('SECURITY ERROR: JWT_SECRET must be set and at least 32 characters in production');
+  }
+  if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32) {
+    throw new Error('SECURITY ERROR: JWT_REFRESH_SECRET must be set and at least 32 characters in production');
+  }
+}
+
+// Warn in development if using auto-generated secrets
+if (process.env.NODE_ENV !== 'production' && (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET)) {
+  console.warn('⚠️  WARNING: JWT secrets not set - using auto-generated values. Set JWT_SECRET and JWT_REFRESH_SECRET in .env');
+}
+
 // Security configuration
 const securityConfig = {
   // JWT Configuration

@@ -156,10 +156,12 @@ exports.getProfile = async (req, res) => {
         idOrUsername.startsWith('@') ? idOrUsername.slice(1) : idOrUsername
       );
       if (normalizedUsername) {
+        // Escape regex metacharacters to prevent ReDoS attacks
+        const escapedUsername = normalizedUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         orQueries.push(
           { username: normalizedUsername },
-          { displayName: new RegExp(`^${normalizedUsername}$`, 'i') },
-          { name: new RegExp(`^${normalizedUsername}$`, 'i') }
+          { displayName: new RegExp(`^${escapedUsername}$`, 'i') },
+          { name: new RegExp(`^${escapedUsername}$`, 'i') }
         );
       }
     }

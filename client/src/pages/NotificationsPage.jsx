@@ -748,7 +748,7 @@ const NotificationsPage = () => {
       {/* Loading overlay for page changes */}
       {loading && notifications.length > 0 && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 shadow-lg">
+          <div className="bg-surface dark:bg-surface rounded-lg p-4 shadow-lg">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
           </div>
         </div>

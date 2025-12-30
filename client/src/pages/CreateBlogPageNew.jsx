@@ -166,23 +166,23 @@ const CreateBlogPageNew = () => {
   const readTime = Math.ceil(wordCount / 200);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+      <div className="sticky top-0 z-50 bg-surface dark:bg-surface border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-surface-hover rounded-full transition-colors text-text-primary"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">
+                <h1 className="text-lg font-semibold text-text-primary">
                   {formData.title || "Untitled Story"}
                 </h1>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-text-secondary">
                   {wordCount} words · {readTime} min read
                 </p>
               </div>
@@ -190,7 +190,7 @@ const CreateBlogPageNew = () => {
 
             <div className="flex items-center gap-2">
               {uploadingImage && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-text-secondary">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Uploading...
                 </div>
@@ -232,7 +232,7 @@ const CreateBlogPageNew = () => {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!previewMode ? (
-          <div className="bg-white rounded-lg shadow-sm">
+          <div className="bg-surface dark:bg-surface rounded-lg shadow-sm border border-border">
             {/* Cover Image */}
             <div className="p-8 pb-0">
               <ImageUploader
@@ -253,7 +253,7 @@ const CreateBlogPageNew = () => {
                 placeholder="Title"
                 value={formData.title}
                 onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                className="w-full text-4xl font-bold placeholder-gray-300 border-none focus:outline-none resize-none"
+                className="w-full text-4xl font-bold placeholder-text-secondary text-text-primary bg-transparent border-none focus:outline-none resize-none"
                 rows="2"
                 style={{ fontFamily: "Georgia, serif" }}
               />
@@ -296,7 +296,7 @@ const CreateBlogPageNew = () => {
           </div>
         ) : (
           /* Preview Mode */
-          <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="bg-surface dark:bg-surface rounded-lg shadow-sm p-8 border border-border">
             {formData.coverImage && (
               <img
                 src={formData.coverImage}
@@ -304,7 +304,7 @@ const CreateBlogPageNew = () => {
                 className="w-full h-64 object-cover rounded-lg mb-8"
               />
             )}
-            <h1 className="text-4xl font-bold mb-4" style={{ fontFamily: "Georgia, serif" }}>
+            <h1 className="text-4xl font-bold mb-4 text-text-primary" style={{ fontFamily: "Georgia, serif" }}>
               {formData.title || "Untitled Story"}
             </h1>
             {formData.tags.length > 0 && (

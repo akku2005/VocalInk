@@ -1,18 +1,11 @@
 const logger = require('../utils/logger');
-
-// Optional Redis import with fallback
-let redis = null;
-try {
-  redis = require('redis');
-} catch (error) {
-  logger.warn('Redis module not found, using in-memory cache fallback');
-}
+const redisManager = require('./RedisManager');
 
 class CacheService {
   constructor() {
     this.redisClient = null;
     this.memoryCache = new Map(); // Fallback in-memory cache
-    this.maxMemoryCache = parseInt(process.env.MAX_MEMORY_CACHE_SIZE) || 1000; // Prevent memory leaks
+    this.maxMemoryCache = parseInt(process.env.MAX_MEMORY_CACHE_SIZE) || 1000;
     this.cacheStats = {
       hits: 0,
       misses: 0,
@@ -20,70 +13,38 @@ class CacheService {
       deletes: 0,
       evictions: 0
     };
-    this.redisRetryCount = 0;
-    this.maxRetries = parseInt(process.env.REDIS_MAX_RETRIES) || 3;
-    this.retryDelay = parseInt(process.env.REDIS_RETRY_DELAY) || 2000;
-    this.connectionTimeout = parseInt(process.env.REDIS_CONNECT_TIMEOUT) || 5000;
-    this.reconnectTimer = null;
+    this.isInitialized = false;
     this.initializeRedis();
   }
 
   async initializeRedis() {
-    if (!redis || process.env.ENABLE_CACHING !== 'true') {
-      logger.info('Redis not available or disabled, using in-memory cache');
+    if (process.env.ENABLE_CACHING !== 'true') {
+      logger.info('Caching disabled, using in-memory cache');
       return;
     }
 
     try {
-      const redisConfig = {
-        url: process.env.REDIS_URL || 'redis://localhost:6379',
-        password: process.env.REDIS_PASSWORD || undefined,
-        database: parseInt(process.env.REDIS_DB) || 0,
-        socket: {
-          connectTimeout: parseInt(process.env.REDIS_CONNECT_TIMEOUT) || 5000,
-          lazyConnect: true,
-          reconnectStrategy: (retries) => {
-            if (retries > this.maxRetries) {
-              logger.error('Redis max retries exceeded, using memory cache');
-              return false;
-            }
-            return Math.min(retries * this.retryDelay, 30000);
-          }
-        }
-      };
+      // Use centralized RedisManager
+      this.redisClient = redisManager.getClient('cache');
       
-      this.redisClient = redis.createClient(redisConfig);
+      // Connect if not already connected
+      if (this.redisClient.status !== 'ready') {
+        await this.redisClient.connect();
+      }
       
-      // Handle Redis events
-      this.redisClient.on('connect', () => {
-        logger.info('✅ Redis connection established');
-        this.redisRetryCount = 0;
-      });
-      
-      this.redisClient.on('error', (error) => {
-        logger.warn('Redis connection error:', error.message);
-        if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
-          this.redisRetryCount++;
-          if (this.redisRetryCount > this.maxRetries) {
-            logger.error('Redis connection failed permanently, falling back to memory cache');
-            this.redisClient = null;
-          }
-        }
-      });
-      
-      this.redisClient.on('ready', () => {
-        logger.info('✅ Redis ready for CacheService');
-      });
-      
-      this.redisClient.on('reconnecting', () => {
-        logger.info('🔄 Redis reconnecting...');
-      });
-      
-      await this.redisClient.connect();
+      this.isInitialized = true;
+      logger.info(' CacheService initialized with Redis');
     } catch (error) {
-      logger.warn('⚠️ Redis connection failed, using in-memory cache:', error.message);
+      logger.warn(' Redis connection failed, using in-memory cache:', error.message);
       this.redisClient = null;
     }
+  }
+
+  /**
+   * Check if Redis is available and ready
+   */
+  get isRedisReady() {
+    return this.redisClient && this.redisClient.status === 'ready';
   }
 
   /**
@@ -91,7 +52,7 @@ class CacheService {
    */
   async get(key) {
     try {
-      if (this.redisClient && this.redisClient.isReady) {
+      if (this.isRedisReady) {
         const cached = await this.redisClient.get(key);
         if (cached) {
           this.cacheStats.hits++;
@@ -137,8 +98,8 @@ class CacheService {
     try {
       this.cacheStats.sets++;
       
-      if (this.redisClient && this.redisClient.isReady) {
-        await this.redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
+      if (this.isRedisReady) {
+        await this.redisClient.setex(key, ttlSeconds, JSON.stringify(data));
       } else {
         // Memory cache with size limit to prevent memory leaks
         if (this.memoryCache.size >= this.maxMemoryCache) {
@@ -189,14 +150,13 @@ class CacheService {
     try {
       this.cacheStats.deletes++;
       
-      if (this.redisClient && this.redisClient.isReady) {
+      if (this.isRedisReady) {
         await this.redisClient.del(key);
-      } else {
-        this.memoryCache.delete(key);
       }
+      // Always delete from memory cache too (dual-write pattern)
+      this.memoryCache.delete(key);
     } catch (error) {
       logger.warn('Cache delete failed:', error.message);
-      // Fallback to memory cache
       this.memoryCache.delete(key);
     }
   }
@@ -208,14 +168,12 @@ class CacheService {
     try {
       this.cacheStats.deletes += keys.length;
       
-      if (this.redisClient && this.redisClient.isReady) {
-        await this.redisClient.del(keys);
-      } else {
-        keys.forEach(key => this.memoryCache.delete(key));
+      if (this.isRedisReady) {
+        await this.redisClient.del(...keys);
       }
+      keys.forEach(key => this.memoryCache.delete(key));
     } catch (error) {
       logger.warn('Cache deleteMultiple failed:', error.message);
-      // Fallback to memory cache
       keys.forEach(key => this.memoryCache.delete(key));
     }
   }
@@ -225,15 +183,13 @@ class CacheService {
    */
   async clear() {
     try {
-      if (this.redisClient && this.redisClient.isReady) {
-        await this.redisClient.flushDb();
-      } else {
-        this.memoryCache.clear();
+      if (this.isRedisReady) {
+        await this.redisClient.flushdb();
       }
+      this.memoryCache.clear();
       logger.info('Cache cleared successfully');
     } catch (error) {
       logger.warn('Cache clear failed:', error.message);
-      // Fallback to memory cache
       this.memoryCache.clear();
     }
   }
@@ -251,9 +207,8 @@ class CacheService {
       totalRequests: total,
       memoryCacheSize: this.memoryCache.size,
       maxMemoryCache: this.maxMemoryCache,
-      redisAvailable: !!(this.redisClient && this.redisClient.isReady),
-      redisRetries: this.redisRetryCount,
-      cacheType: this.redisClient && this.redisClient.isReady ? 'redis' : 'memory'
+      redisAvailable: this.isRedisReady,
+      cacheType: this.isRedisReady ? 'redis' : 'memory'
     };
   }
 
@@ -283,13 +238,12 @@ class CacheService {
    */
   async healthCheck() {
     try {
-      if (this.redisClient && this.redisClient.isReady) {
+      if (this.isRedisReady) {
         await this.redisClient.ping();
         return { 
           status: 'healthy', 
           type: 'redis',
-          connection: 'active',
-          retries: this.redisRetryCount
+          connection: 'active'
         };
       } else {
         return { 
@@ -311,17 +265,13 @@ class CacheService {
   }
 
   /**
-   * Graceful shutdown
+   * Graceful shutdown - now delegated to RedisManager
    */
   async shutdown() {
-    try {
-      if (this.redisClient) {
-        await this.redisClient.quit();
-        logger.info('Redis connection closed gracefully');
-      }
-    } catch (error) {
-      logger.warn('Error closing Redis connection:', error.message);
-    }
+    // RedisManager handles the actual connection cleanup
+    // Just clear local state
+    this.memoryCache.clear();
+    logger.info('CacheService shutdown complete');
   }
 }
 

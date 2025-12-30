@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoadingSpinner from "../components/ui/LoadingSpinner.jsx";
+import { RouteErrorBoundary } from "../components/error/RouteErrorBoundary.jsx";
+import { RouteLoaders } from "../components/ui/RouteLoaders.jsx";
 
 const Layout = lazy(() => import("../components/layout/Layout"));
 const ProtectedRoute = lazy(() => import("../components/auth/ProtectedRoute"));
@@ -17,6 +19,7 @@ const EmailVerification = lazy(() => import("../pages/auth/EmailVerificationPage
 const ForgotPassword = lazy(() => import("../pages/auth/ForgotPasswordPage"));
 const ResetPassword = lazy(() => import("../pages/auth/ResetPasswordPage"));
 const TwoFactorSetup = lazy(() => import("../pages/auth/TwoFactorSetupPage"));
+const TwoFactorRecovery = lazy(() => import("../pages/auth/TwoFactorRecoveryPage"));
 const Logout = lazy(() => import("../components/auth/Logout"));
 const ProfilePage = lazy(() => import("../pages/ProfilePage"));
 const ProfileEditPage = lazy(() => import("../pages/ProfileEditPage"));
@@ -42,20 +45,44 @@ const PrivacyPage = lazy(() => import("../pages/PrivacyPage"));
 const TermsPage = lazy(() => import("../pages/TermsPage"));
 const SupportPage = lazy(() => import("../pages/SupportPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+const AdminDashboard = lazy(() => import("../pages/AdminDashboard"));
+const GuidelinesPage = lazy(() => import("../pages/GuidelinesPage"));
 
 export default function AppRoutes() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center p-10"><LoadingSpinner /></div>}>
+    <Suspense fallback={<RouteLoaders.default />}>
       <Routes>
         <Route path="/" element={<Layout />}>
           {/* Public Routes - Accessible to everyone */}
           <Route index element={<Home />} />
-          <Route path="blogs" element={<BlogPage />} />
-          <Route path="series" element={<SeriesPage />} />
+          <Route path="blogs" element={
+            <RouteErrorBoundary title="Blog Error" message="Unable to load blogs. Please try again.">
+              <Suspense fallback={<RouteLoaders.blogs />}>
+                <BlogPage />
+              </Suspense>
+            </RouteErrorBoundary>
+          } />
+          <Route path="series" element={
+            <RouteErrorBoundary>
+              <SeriesPage />
+            </RouteErrorBoundary>
+          } />
 
           {/* Category-based blog URLs: /{category}/{slug} */}
-          <Route path=":category" element={<BlogPage />} />
-          <Route path=":category/:slug" element={<ArticlePage />} />
+          <Route path=":category" element={
+            <RouteErrorBoundary>
+              <Suspense fallback={<RouteLoaders.blogs />}>
+                <BlogPage />
+              </Suspense>
+            </RouteErrorBoundary>
+          } />
+          <Route path=":category/:slug" element={
+            <RouteErrorBoundary>
+              <Suspense fallback={<RouteLoaders.blog />}>
+                <ArticlePage />
+              </Suspense>
+            </RouteErrorBoundary>
+          } />
 
           {/* Backward compatibility - old article URLs */}
           <Route path="article/:slug" element={<ArticlePage />} />
@@ -74,6 +101,7 @@ export default function AppRoutes() {
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="support" element={<SupportPage />} />
+          <Route path="guidelines" element={<GuidelinesPage />} />
 
           {/* Guest Routes - Only for non-authenticated users */}
           <Route path="login" element={
@@ -99,6 +127,11 @@ export default function AppRoutes() {
           <Route path="reset-password" element={
             <GuestRoute>
               <ResetPassword />
+            </GuestRoute>
+          } />
+          <Route path="2fa-recovery" element={
+            <GuestRoute>
+              <TwoFactorRecovery />
             </GuestRoute>
           } />
 
@@ -175,6 +208,11 @@ export default function AppRoutes() {
           <Route path="2fa-setup" element={
             <ProtectedRoute>
               <TwoFactorSetup />
+            </ProtectedRoute>
+          } />
+          <Route path="admin" element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           } />
           <Route path="logout" element={<Logout />} />

@@ -460,7 +460,7 @@ const changePassword = async (req, res, next) => {
     try {
       await emailService.sendPasswordChangeNotification(user.email);
     } catch (e) {
-      console.error('Password change email failed:', e.message);
+      logger.warn('Password change email failed:', { error: e.message });
     }
 
     res.status(200).json({
@@ -468,7 +468,7 @@ const changePassword = async (req, res, next) => {
       message: 'Password updated successfully',
     });
   } catch (error) {
-    console.error('Change password error:', error); // Improved error logging
+    logger.error('Change password error:', { error: error.message, stack: error.stack });
     res.status(500).json({
       success: false,
       message: error.message || 'Error changing password',

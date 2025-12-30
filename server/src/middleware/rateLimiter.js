@@ -1,6 +1,6 @@
 const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
-const cacheService = require('../services/CacheService');
+const redisManager = require('../services/RedisManager');
 const { StatusCodes } = require('http-status-codes');
 
 let RedisStore;
@@ -25,6 +25,20 @@ try {
  * - No "Stuck" Blocks: Blocked requests do NOT reset the window.
  */
 
+// Redis client for rate limiting (lazy initialized)
+let rateLimitRedisClient = null;
+
+function getRateLimitRedisClient() {
+  if (rateLimitRedisClient) return rateLimitRedisClient;
+  try {
+    rateLimitRedisClient = redisManager.getClient('rate-limit');
+    return rateLimitRedisClient;
+  } catch (error) {
+    logger.warn('Redis not available for rate limiting:', error.message);
+    return null;
+  }
+}
+
 // Robust IP extraction
 const getClientIp = (req) => {
   return (
@@ -45,10 +59,16 @@ const standardKeyGenerator = (req) => {
 
 // Get Store (Redis or Memory)
 function getStore() {
-  if (RedisStore && cacheService.redisClient && cacheService.redisClient.isOpen) {
-    return new RedisStore({
-      sendCommand: (...args) => cacheService.redisClient.sendCommand(args),
-    });
+  const client = getRateLimitRedisClient();
+  if (RedisStore && client && client.status === 'ready') {
+    try {
+      return new RedisStore({
+        sendCommand: (...args) => client.call(...args),
+      });
+    } catch (error) {
+      logger.warn('Failed to create Redis store for rate limiting:', error.message);
+      return undefined;
+    }
   }
   return undefined; // Defaults to MemoryStore
 }

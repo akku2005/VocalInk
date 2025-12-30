@@ -59,7 +59,8 @@ const readMultilineEnvBlock = (key) => {
     const reconstructed = block.join('\n').trim();
     return reconstructed.startsWith('{') ? reconstructed : null;
   } catch (error) {
-    console.warn(`Failed to rebuild multi-line ${key} from .env:`, error.message);
+    // Note: console.warn used here because logger not yet initialized during config load
+    console.warn(`[config] Failed to rebuild multi-line ${key} from .env:`, error.message);
     return null;
   }
 };

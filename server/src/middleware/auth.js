@@ -11,6 +11,12 @@ const logger = require('../utils/logger');
 const protect = async (req, res, next) => {
   logger.debug('Protect route accessed');
   try {
+    // SECURITY: Fail-safe guard - DEV_AUTH_BYPASS must NEVER work in production
+    if (process.env.NODE_ENV === 'production' && process.env.DEV_AUTH_BYPASS === 'true') {
+      logger.error('CRITICAL SECURITY: DEV_AUTH_BYPASS attempted in production environment');
+      throw new UnauthorizedError('Authentication bypass is disabled in production');
+    }
+
     // Development-only authentication bypass
     logger.debug('Protect route processing');
 
@@ -19,7 +25,7 @@ const protect = async (req, res, next) => {
       // Security fix: Remove role assignment from headers, add IP restriction
       const allowedIPs = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
       const clientIP = req.ip || req.connection.remoteAddress;
-      
+
       if (!allowedIPs.includes(clientIP)) {
         logger.error('DEV_AUTH_BYPASS attempted from unauthorized IP', {
           ip: clientIP,
@@ -66,7 +72,7 @@ const protect = async (req, res, next) => {
     // Check if token is blacklisted
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const isBlacklisted = await Token.isAccessTokenBlacklisted(tokenHash);
-    
+
     if (isBlacklisted) {
       logger.warn('Blacklisted token access attempt', {
         ip: req.ip,
@@ -78,10 +84,10 @@ const protect = async (req, res, next) => {
 
     // Verify token with device/IP binding validation
     const decoded = await JWTService.verifyAccessToken(token, req);
-    
+
     // Check if user still exists and is active
     const user = await User.findById(decoded.userId).select('-password');
-    
+
     if (!user) {
       logger.warn('Token verification failed - user not found', {
         userId: decoded.userId,
@@ -112,15 +118,23 @@ const protect = async (req, res, next) => {
       throw new UnauthorizedError('Please verify your email before accessing this resource');
     }
 
-    // Update user's last active timestamp
-    user.lastActiveAt = new Date();
-    await user.save().catch(error => {
-      logger.error('Failed to update user last active timestamp:', error);
-    });
+    // Debounced update of user's last active timestamp
+    // Only update if last activity was more than 5 minutes ago to reduce DB writes
+    const ACTIVITY_UPDATE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+    const now = new Date();
+    const shouldUpdateActivity = !user.lastActiveAt ||
+      (now.getTime() - new Date(user.lastActiveAt).getTime() > ACTIVITY_UPDATE_THRESHOLD_MS);
+
+    if (shouldUpdateActivity) {
+      user.lastActiveAt = now;
+      user.save().catch(error => {
+        logger.error('Failed to update user last active timestamp:', error);
+      });
+    }
 
     // Add user to request object
     req.user = user;
-    
+
     // Log successful authentication
     logger.info('User authenticated successfully', {
       userId: user._id,
@@ -181,6 +195,20 @@ const optionalAuth = async (req, res, next) => {
   try {
     // SECURITY FIX: Only allow dev bypass in development environment, no header override
     if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true') {
+      // Security fix: Add IP restriction like in protect middleware
+      const allowedIPs = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+      const clientIP = req.ip || req.connection.remoteAddress;
+
+      if (!allowedIPs.includes(clientIP)) {
+        logger.error('DEV_AUTH_BYPASS attempted from unauthorized IP in optionalAuth', {
+          ip: clientIP,
+          url: req.originalUrl,
+          method: req.method,
+        });
+        // For optionalAuth, just skip the bypass instead of throwing
+        return next();
+      }
+
       const devUserId = process.env.DEV_AUTH_USER_ID || '000000000000000000000001';
       const devUserRole = process.env.DEV_AUTH_ROLE || 'reader'; // FIXED: No header override
       const devUserEmail = process.env.DEV_AUTH_EMAIL || 'devuser@example.com';
@@ -197,7 +225,7 @@ const optionalAuth = async (req, res, next) => {
         userId: devUserId,
         email: devUserEmail,
         role: devUserRole,
-        ip: req.ip,
+        ip: clientIP,
         url: req.originalUrl,
         method: req.method,
       });
@@ -218,7 +246,7 @@ const optionalAuth = async (req, res, next) => {
     // Check if token is blacklisted
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const isBlacklisted = await Token.isAccessTokenBlacklisted(tokenHash);
-    
+
     if (isBlacklisted) {
       logger.warn('Optional auth - blacklisted token', {
         ip: req.ip,
@@ -232,7 +260,7 @@ const optionalAuth = async (req, res, next) => {
 
     if (user && (!user.lockoutUntil || user.lockoutUntil <= new Date())) {
       req.user = user;
-      
+
       // Update user's last active timestamp
       user.lastActiveAt = new Date();
       await user.save().catch(error => {
@@ -298,7 +326,7 @@ const requireOwnerOrAdmin = async (req, res, next) => {
   }
 
   const resourceId = req.params.id || req.params.userId || req.body.userId;
-  
+
   if (!resourceId) {
     logger.warn('Owner/admin check failed - no resource ID provided', {
       userId: req.user._id,
@@ -380,10 +408,43 @@ const requirePermission = (permission) => {
 };
 
 // Enhanced rate limiting middleware for authentication
+// Uses in-memory store - for production, consider Redis store
+const rateLimit = require('express-rate-limit');
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 10, // 10 attempts per 15 minutes
+  message: {
+    success: false,
+    message: 'Too many authentication attempts, please try again later',
+    code: 'RATE_LIMIT_EXCEEDED',
+    retryAfter: 15 * 60 // seconds
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Rate limit by IP + email combination for targeted limiting
+    const email = req.body?.email || 'unknown';
+    return `${req.ip}-${email}`;
+  },
+  handler: (req, res) => {
+    logger.warn('Auth rate limit exceeded', {
+      ip: req.ip,
+      email: req.body?.email,
+      url: req.originalUrl,
+      method: req.method,
+    });
+    res.status(429).json({
+      success: false,
+      message: 'Too many authentication attempts, please try again later',
+      code: 'RATE_LIMIT_EXCEEDED',
+      retryAfter: 15 * 60
+    });
+  }
+});
+
 const authRateLimit = (req, res, next) => {
-  // This would integrate with your rate limiting system
-  // For now, we'll just pass through
-  next();
+  // Apply rate limiting
+  authRateLimiter(req, res, next);
 };
 
 // Device fingerprint validation middleware
@@ -399,7 +460,7 @@ const validateDeviceFingerprint = (req, res, next) => {
       url: req.originalUrl,
       method: req.method,
     });
-    
+
     // In strict mode, reject requests without device fingerprint
     if (process.env.STRICT_DEVICE_FINGERPRINTING === 'true') {
       return res.status(400).json({
@@ -422,7 +483,7 @@ const validateSession = async (req, res, next) => {
   try {
     // Check if user session is still valid
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       throw new UnauthorizedError('User session invalid');
     }
@@ -465,7 +526,7 @@ const requireSecureConnection = (req, res, next) => {
         url: req.originalUrl,
         method: req.method,
       });
-      
+
       return res.status(403).json({
         success: false,
         message: 'HTTPS connection required',

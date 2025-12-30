@@ -263,15 +263,13 @@ class ProductionServer {
         console.warn('⚠️ Error closing database connection:', error.message);
       }
 
-      // Close Redis connections
+      // Close all Redis connections via RedisManager
       try {
-        const Redis = require('ioredis');
-        if (global.redisClient) {
-          await global.redisClient.quit();
-          console.log('✅ Redis connection closed');
-        }
+        const redisManager = require('./src/services/RedisManager');
+        await redisManager.shutdown();
+        console.log('✅ All Redis connections closed');
       } catch (error) {
-        console.warn('⚠️ Error closing Redis connection:', error.message);
+        console.warn('⚠️ Error closing Redis connections:', error.message);
       }
 
       // Close other connections

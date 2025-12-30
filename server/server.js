@@ -2,10 +2,12 @@ const app = require('./src/app');
 const logger = require('./src/utils/logger');
 const webSocketService = require('./src/services/WebSocketService');
 const { runStartupCleanup } = require('./src/utils/startupCleanup');
+const redisManager = require('./src/services/RedisManager');
 
 // Force restart trigger: 2025-11-27
 const DESIRED_PORT = parseInt(process.env.PORT, 10) || 5000;
 const MAX_ATTEMPTS = 10;
+let server = null;
 
 // Lightweight health/heartbeat route (non-API)
 // app.get('/test', (req, res) => {
@@ -17,8 +19,50 @@ const MAX_ATTEMPTS = 10;
 //   });
 // });
 
+/**
+ * Graceful shutdown handler
+ */
+async function gracefulShutdown(signal) {
+  logger.info(`Received ${signal}. Starting graceful shutdown...`);
+
+  try {
+    // Close HTTP server
+    if (server) {
+      server.close(() => {
+        logger.info('✅ HTTP server closed');
+      });
+    }
+
+    // Close WebSocket service
+    if (webSocketService) {
+      webSocketService.close();
+      logger.info('✅ WebSocket service closed');
+    }
+
+    // Close all Redis connections via RedisManager
+    await redisManager.shutdown();
+
+    // Close MongoDB connection
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.close();
+      logger.info('✅ Database connection closed');
+    }
+
+    logger.info('✅ Graceful shutdown completed');
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 function startServer(startPort = DESIRED_PORT, attemptsLeft = MAX_ATTEMPTS) {
-  const server = app.listen(startPort, () => {
+  server = app.listen(startPort, () => {
     logger.success(`🚀 Server is running on port ${startPort}`);
     logger.info('Server restarted with updates [2025-11-27]');
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);

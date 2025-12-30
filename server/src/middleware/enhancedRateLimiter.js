@@ -1,8 +1,15 @@
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
-const Redis = require('ioredis');
 const logger = require('../utils/logger');
 const SecurityMonitoringService = require('../services/SecurityMonitoringService');
+const redisManager = require('../services/RedisManager');
+
+// Optional Redis store import
+let RedisStore = null;
+try {
+  RedisStore = require('rate-limit-redis').default || require('rate-limit-redis');
+} catch (e) {
+  logger.warn('rate-limit-redis not found, using memory store for enhanced rate limiter');
+}
 
 /**
  * Enhanced Rate Limiter with Security Monitoring
@@ -10,25 +17,59 @@ const SecurityMonitoringService = require('../services/SecurityMonitoringService
  */
 class EnhancedRateLimiter {
   constructor() {
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    this.redis = null;
+    this.redisAvailable = false;
     this.securityMonitor = new SecurityMonitoringService();
     this.rateLimiters = new Map();
     this.userBehavior = new Map();
     this.suspiciousIPs = new Set();
     
+    this.initializeRedis();
     this.initializeRateLimiters();
     this.setupSecurityMonitoring();
+  }
+
+  /**
+   * Initialize Redis connection with fallback
+   */
+  initializeRedis() {
+    try {
+      this.redis = redisManager.getClient('rate-limiter');
+      this.redisAvailable = true;
+      logger.info('✅ Enhanced rate limiter using Redis');
+    } catch (error) {
+      logger.warn('Redis not available for enhanced rate limiter, using memory store:', error.message);
+      this.redis = null;
+      this.redisAvailable = false;
+    }
+  }
+
+  /**
+   * Get Redis store or undefined for memory fallback
+   */
+  getStore() {
+    if (RedisStore && this.redis && this.redisAvailable) {
+      try {
+        return new RedisStore({
+          sendCommand: (...args) => this.redis.call(...args),
+        });
+      } catch (error) {
+        logger.warn('Failed to create Redis store, falling back to memory:', error.message);
+        return undefined;
+      }
+    }
+    return undefined; // Falls back to MemoryStore
   }
 
   /**
    * Initialize rate limiters with different strategies
    */
   initializeRateLimiters() {
+    const store = this.getStore();
+
     // Global rate limiter - very permissive for legitimate users
     this.globalLimiter = rateLimit({
-      store: new RedisStore({
-        sendCommand: (...args) => this.redis.call(...args),
-      }),
+      store,
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 1000, // 1000 requests per 15 minutes
       message: {
@@ -44,9 +85,7 @@ class EnhancedRateLimiter {
 
     // Authentication rate limiter - stricter for login attempts
     this.authLimiter = rateLimit({
-      store: new RedisStore({
-        sendCommand: (...args) => this.redis.call(...args),
-      }),
+      store: this.getStore(),
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 5, // 5 login attempts per 15 minutes
       message: {
@@ -62,9 +101,7 @@ class EnhancedRateLimiter {
 
     // API rate limiter - moderate for API endpoints
     this.apiLimiter = rateLimit({
-      store: new RedisStore({
-        sendCommand: (...args) => this.redis.call(...args),
-      }),
+      store: this.getStore(),
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 100, // 100 API requests per 15 minutes
       message: {
@@ -80,9 +117,7 @@ class EnhancedRateLimiter {
 
     // File upload rate limiter - strict for file operations
     this.uploadLimiter = rateLimit({
-      store: new RedisStore({
-        sendCommand: (...args) => this.redis.call(...args),
-      }),
+      store: this.getStore(),
       windowMs: 60 * 60 * 1000, // 1 hour
       max: 10, // 10 file uploads per hour
       message: {
@@ -98,9 +133,7 @@ class EnhancedRateLimiter {
 
     // Dynamic rate limiter - adapts based on security events
     this.dynamicLimiter = rateLimit({
-      store: new RedisStore({
-        sendCommand: (...args) => this.redis.call(...args),
-      }),
+      store: this.getStore(),
       windowMs: 5 * 60 * 1000, // 5 minutes
       max: (req) => this.getDynamicLimit(req), // Dynamic limit based on security context
       message: {
@@ -114,7 +147,7 @@ class EnhancedRateLimiter {
       }
     });
 
-    logger.info('Enhanced rate limiters initialized');
+    logger.info('✅ Enhanced rate limiters initialized');
   }
 
   /**

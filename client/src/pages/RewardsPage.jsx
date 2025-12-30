@@ -121,7 +121,9 @@ const RewardsPage = () => {
     };
 
     load();
-  }, [isAuthenticated, userProfile]);
+    // Use userProfile?._id instead of userProfile object to prevent re-renders
+    // when object reference changes but data stays the same
+  }, [isAuthenticated, userProfile?._id]);
 
   const getRarityColor = (rarity) =>
     rarityStyles[rarity]?.className || rarityStyles.common.className;

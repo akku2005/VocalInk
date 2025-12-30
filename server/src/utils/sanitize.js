@@ -527,6 +527,12 @@ async function getLocationFromIP(ipAddress) {
   }
 }
 
+// Escape special regex characters to prevent ReDoS attacks
+function escapeRegex(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 module.exports = {
   sanitizeInput,
   sanitizeMongoQuery,
@@ -542,5 +548,6 @@ module.exports = {
   getBrowserName,
   getOperatingSystem,
   getLocationFromIP,
+  escapeRegex,
   DISPOSABLE_DOMAINS
 };

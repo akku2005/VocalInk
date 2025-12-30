@@ -58,15 +58,21 @@ const AnalyticsPage = () => {
   const [dashboardOverview, setDashboardOverview] = useState(null);
   const [personalAnalytics, setPersonalAnalytics] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [growthStats, setGrowthStats] = useState(null);
+  const [analyticsSeries, setAnalyticsSeries] = useState([]);
   const [loading, setLoading] = useState({
     overview: true,
     personal: true,
     activity: true,
+    chart: true,
+    growth: true,
   });
   const [errors, setErrors] = useState({
     overview: null,
     personal: null,
     activity: null,
+    chart: null,
+    growth: null,
   });
 
   const formatNumber = (value = 0) => {
@@ -120,14 +126,44 @@ const AnalyticsPage = () => {
     }
   };
 
+  const loadGrowthStats = async () => {
+    setLoading((prev) => ({ ...prev, growth: true }));
+    try {
+      const data = await dashboardService.getGrowthStats(timeRange);
+      setGrowthStats(data);
+      setErrors((prev) => ({ ...prev, growth: null }));
+    } catch (error) {
+      setErrors((prev) => ({ ...prev, growth: "Unable to load growth stats." }));
+    } finally {
+      setLoading((prev) => ({ ...prev, growth: false }));
+    }
+  };
+
+  const loadAnalyticsSeries = async () => {
+    setLoading((prev) => ({ ...prev, chart: true }));
+    try {
+      const data = await dashboardService.getAnalytics(timeRange);
+      setAnalyticsSeries(data?.data || []);
+      setErrors((prev) => ({ ...prev, chart: null }));
+    } catch (error) {
+      setErrors((prev) => ({ ...prev, chart: "Unable to load analytics trend." }));
+    } finally {
+      setLoading((prev) => ({ ...prev, chart: false }));
+    }
+  };
+
   useEffect(() => {
     loadOverview();
     loadActivity();
     loadPersonalAnalytics();
+    loadGrowthStats();
+    loadAnalyticsSeries();
   }, []);
 
   useEffect(() => {
     loadPersonalAnalytics();
+    loadGrowthStats();
+    loadAnalyticsSeries();
   }, [timeRange]);
 
   const handleDownloadReport = () => {
@@ -138,41 +174,43 @@ const AnalyticsPage = () => {
     if (!dashboardOverview?.stats) return [];
     const stats = dashboardOverview.stats;
 
+    const viewsChange = growthStats?.growth?.views;
+
     return [
       {
         label: "Total Views",
         value: stats.totalViews?.toLocaleString() || "0",
         icon: Eye,
         color: "blue",
-        trend: "up",
-        trendValue: "12%",
+        trend: viewsChange > 0 ? "up" : viewsChange < 0 ? "down" : null,
+        trendValue: viewsChange !== undefined && viewsChange !== null ? `${Math.abs(viewsChange)}%` : null,
       },
       {
         label: "Total Likes",
         value: stats.totalLikes?.toLocaleString() || "0",
         icon: Heart,
         color: "rose",
-        trend: "up",
-        trendValue: "8%",
+        trend: null,
+        trendValue: null,
       },
       {
         label: "Comments",
         value: stats.totalComments?.toLocaleString() || "0",
         icon: MessageCircle,
         color: "amber",
-        trend: "down",
-        trendValue: "3%",
+        trend: null,
+        trendValue: null,
       },
       {
         label: "Followers",
         value: dashboardOverview.stats?.followerCount?.toLocaleString() || "0",
         icon: Users,
         color: "emerald",
-        trend: "up",
-        trendValue: "24%",
+        trend: null,
+        trendValue: null,
       },
     ];
-  }, [dashboardOverview]);
+  }, [dashboardOverview, growthStats]);
 
   const normalizedAgeGroups = useMemo(() => {
     const groups = personalAnalytics?.audience?.ageGroups || [];
@@ -205,17 +243,26 @@ const AnalyticsPage = () => {
   }, [personalAnalytics]);
 
   const growthData = useMemo(() => {
-    const timeline = personalAnalytics?.timeline || [];
     const metricKey = preferredMetric === 'engagement' ? 'likes' : preferredMetric;
+    const source = analyticsSeries?.length ? analyticsSeries : (personalAnalytics?.timeline || []);
+    if (!source || !source.length) return [];
 
-    return timeline.map((point) => ({
-      date: point.label || point.date || '',
-      value:
-        (metricKey && point[metricKey] !== undefined)
-          ? point[metricKey]
-          : point.views || 0,
-    }));
-  }, [personalAnalytics, preferredMetric]);
+    return source.map((point) => {
+      const dateObj = point._id
+        ? new Date(point._id.year || new Date().getFullYear(), (point._id.month || 1) - 1, point._id.day || 1)
+        : point.date
+          ? new Date(point.date)
+          : null;
+      const dateStr = dateObj ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : (point.label || '');
+      const rawValue = (metricKey && point[metricKey] !== undefined)
+        ? point[metricKey]
+        : point.views || 0;
+      return {
+        date: dateStr,
+        value: rawValue,
+      };
+    });
+  }, [analyticsSeries, personalAnalytics, preferredMetric]);
 
   return (
     <div className="relative min-h-screen pb-20 overflow-hidden bg-background text-text-primary">
@@ -411,20 +458,42 @@ const AnalyticsPage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 rounded-lg border border-border bg-white/40 dark:bg-gray-900/40">
-                <p className="text-xs text-text-secondary">Top region</p>
-                <p className="text-base font-semibold text-text-primary">
-                  {normalizedLocations?.[0]?.label || "No data"}
-                </p>
-                <p className="text-xs text-text-secondary">{normalizedLocations?.[0]?.value || 0}% of audience</p>
-              </div>
-              <div className="p-3 rounded-lg border border-border bg-white/40 dark:bg-gray-900/40">
-                <p className="text-xs text-text-secondary">Primary age band</p>
-                <p className="text-base font-semibold text-text-primary">
-                  {normalizedAgeGroups?.[0]?.range || "No data"}
-                </p>
-                <p className="text-xs text-text-secondary">{normalizedAgeGroups?.[0]?.value || 0}% of audience</p>
-              </div>
+              {(() => {
+                const topLocation = normalizedLocations?.find(loc => loc.value > 0);
+                const topAgeGroup = [...(normalizedAgeGroups || [])].sort((a, b) => b.value - a.value).find(g => g.value > 0);
+                const hasAudienceData = topLocation || topAgeGroup;
+
+                if (!hasAudienceData) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <div className="p-3 rounded-full bg-gray-100 dark:bg-gray-700/50 mb-3">
+                        <Users className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <p className="text-sm font-medium text-text-primary mb-1">No audience data yet</p>
+                      <p className="text-xs text-text-secondary max-w-[180px]">Insights will appear as followers add their profile details</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="p-3 rounded-lg border border-border bg-white/40 dark:bg-gray-900/40">
+                      <p className="text-xs text-text-secondary">Top region</p>
+                      <p className="text-base font-semibold text-text-primary">
+                        {topLocation?.label || "No data"}
+                      </p>
+                      <p className="text-xs text-text-secondary">{topLocation?.value || 0}% of audience</p>
+                    </div>
+                    <div className="p-3 rounded-lg border border-border bg-white/40 dark:bg-gray-900/40">
+                      <p className="text-xs text-text-secondary">Primary age band</p>
+                      <p className="text-base font-semibold text-text-primary">
+                        {topAgeGroup?.range || "No data"}
+                      </p>
+                      <p className="text-xs text-text-secondary">{topAgeGroup?.value || 0}% of audience</p>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>

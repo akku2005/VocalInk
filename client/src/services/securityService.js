@@ -2,13 +2,13 @@ import api from './api';
 
 class SecurityService {
   constructor() {
-    this.baseURL = '/security';
+    this.baseURL = '/settings';
   }
 
   // Two-Factor Authentication
   async generate2FASecret() {
     try {
-      const response = await api.post(`${this.baseURL}/2fa/generate`);
+      const response = await api.post(`${this.baseURL}/2fa/enable`);
       if (response.data.success) {
         return response.data.data;
       }
@@ -21,7 +21,7 @@ class SecurityService {
 
   async enable2FA(token) {
     try {
-      const response = await api.post(`${this.baseURL}/2fa/enable`, { token });
+      const response = await api.post(`${this.baseURL}/2fa/verify`, { token });
       if (response.data.success) {
         return response.data.data;
       }
@@ -32,11 +32,10 @@ class SecurityService {
     }
   }
 
-  async disable2FA(password, token) {
+  async disable2FA(password) {
     try {
       const response = await api.post(`${this.baseURL}/2fa/disable`, { 
-        password, 
-        token 
+        password
       });
       if (response.data.success) {
         return response.data;
@@ -44,6 +43,63 @@ class SecurityService {
       throw new Error(response.data.message || 'Failed to disable 2FA');
     } catch (error) {
       console.error('Error disabling 2FA:', error);
+      throw error;
+    }
+  }
+
+  // 2FA Recovery endpoints
+  async request2FARecovery(email) {
+    try {
+      const response = await api.post(`${this.baseURL}/2fa/recovery/request`, { email });
+      if (response.data.success) {
+        return response.data;
+      }
+      throw new Error(response.data.message || 'Failed to request 2FA recovery');
+    } catch (error) {
+      console.error('Error requesting 2FA recovery:', error);
+      throw error;
+    }
+  }
+
+  async verify2FARecovery(email, recoveryCode, backupCode) {
+    try {
+      const response = await api.post(`${this.baseURL}/2fa/recovery/verify`, { 
+        email, 
+        recoveryCode, 
+        backupCode 
+      });
+      if (response.data.success) {
+        return response.data;
+      }
+      throw new Error(response.data.message || 'Failed to verify 2FA recovery');
+    } catch (error) {
+      console.error('Error verifying 2FA recovery:', error);
+      throw error;
+    }
+  }
+
+  async regenerateBackupCodes() {
+    try {
+      const response = await api.post(`${this.baseURL}/2fa/backup-codes/regenerate`);
+      if (response.data.success) {
+        return response.data.data;
+      }
+      throw new Error(response.data.message || 'Failed to regenerate backup codes');
+    } catch (error) {
+      console.error('Error regenerating backup codes:', error);
+      throw error;
+    }
+  }
+
+  async getBackupCodesStatus() {
+    try {
+      const response = await api.get(`${this.baseURL}/2fa/backup-codes/status`);
+      if (response.data.success) {
+        return response.data.data;
+      }
+      throw new Error(response.data.message || 'Failed to get backup codes status');
+    } catch (error) {
+      console.error('Error getting backup codes status:', error);
       throw error;
     }
   }
@@ -88,6 +144,19 @@ class SecurityService {
     }
   }
 
+  async clearLoginHistory() {
+    try {
+      const response = await api.delete(`${this.baseURL}/sessions/history`);
+      if (response.data.success) {
+        return response.data;
+      }
+      throw new Error(response.data.message || 'Failed to clear login history');
+    } catch (error) {
+      console.error('Error clearing login history:', error);
+      throw error;
+    }
+  }
+
   // Data Export and Account Management
   async exportUserData() {
     try {
@@ -118,7 +187,7 @@ class SecurityService {
   async deleteAccount(password, confirmText) {
     try {
       const response = await api.delete(`${this.baseURL}/account`, {
-        data: { password, confirmText }
+        data: { password, confirmationText: confirmText }
       });
       if (response.data.success) {
         return response.data;

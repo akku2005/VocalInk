@@ -270,10 +270,10 @@ class SettingsService {
     }
   }
 
-  // Disable two-factor authentication - FIXED: Use correct endpoint
-  async disable2FA() {
+  // Disable two-factor authentication - FIXED: Use correct endpoint with password
+  async disable2FA(password) {
     try {
-      const response = await api.post('/settings/2fa/disable');
+      const response = await api.post('/settings/2fa/disable', { password });
       
       if (response.data.success) {
         return response.data.data;
@@ -649,7 +649,86 @@ class SettingsService {
       throw error;
     }
   }
+
+  // ============= 2FA Recovery Methods =============
+
+  // Request 2FA recovery code via email
+  async request2FARecovery(email) {
+    try {
+      const response = await api.post('/settings/2fa/recovery/request', { email });
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
+    }
+  }
+
+  // Verify 2FA recovery code and disable 2FA
+  async verify2FARecovery(email, recoveryCode) {
+    try {
+      const response = await api.post('/settings/2fa/recovery/verify', { email, recoveryCode });
+      return response.data;
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
+    }
+  }
+
+  // Regenerate backup codes
+  async regenerateBackupCodes(password) {
+    try {
+      const response = await api.post('/settings/2fa/backup-codes/regenerate', { password });
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to regenerate backup codes');
+      }
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
+    }
+  }
+
+  // Get backup codes status
+  async getBackupCodesStatus() {
+    try {
+      const response = await api.get('/settings/2fa/backup-codes/status');
+      
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to get backup codes status');
+      }
+    } catch (error) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw error;
+    }
+  }
 }
 
-export const settingsService = new SettingsService();
+// Create singleton instance and export both the instance and named methods
+const settingsService = new SettingsService();
+
+// Export named methods for direct import
+export const {
+  request2FARecovery,
+  verify2FARecovery,
+  regenerateBackupCodes,
+  getBackupCodesStatus
+} = {
+  request2FARecovery: (email) => settingsService.request2FARecovery(email),
+  verify2FARecovery: (email, code) => settingsService.verify2FARecovery(email, code),
+  regenerateBackupCodes: (password) => settingsService.regenerateBackupCodes(password),
+  getBackupCodesStatus: () => settingsService.getBackupCodesStatus()
+};
+
 export default settingsService;

@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { sessionStorageHelper } from '../../utils/storage';
 import API_CONFIG from '../../constants/apiConfig';
+import { useAuth } from '../../hooks/useAuth';
 
 const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const socketRef = useRef(null);
+  const { accessToken, isAuthenticated } = useAuth();
   const hasUnread = unreadCount > 0;
 
   // Update unread count
@@ -47,13 +49,21 @@ export const NotificationProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const token = sessionStorageHelper.getItem('accessToken');
-    if (!token || typeof window === 'undefined') return;
+    // Close existing socket if auth state changes
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+
+    const token = accessToken || sessionStorageHelper.getItem('accessToken');
+    if (!isAuthenticated || !token || typeof window === 'undefined') return;
 
     const base = resolveWsBase();
     if (!base) return;
 
-    const ws = new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`);
+    // Send token via subprotocol to avoid leaking it in query params
+    const protocols = [`auth.token.${token}`];
+    const ws = new WebSocket(`${base}/ws`, protocols);
     socketRef.current = ws;
 
     ws.onmessage = (event) => {
@@ -77,7 +87,7 @@ export const NotificationProvider = ({ children }) => {
       ws.close();
       socketRef.current = null;
     };
-  }, []);
+  }, [accessToken, isAuthenticated]);
 
   const value = {
     unreadCount,

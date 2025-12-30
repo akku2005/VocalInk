@@ -1,8 +1,8 @@
 const Bull = require('bull');
-const Redis = require('ioredis');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const config = require('../config');
+const redisManager = require('./RedisManager');
 
 class TTSQueueService {
   constructor() {
@@ -15,41 +15,10 @@ class TTSQueueService {
     // Don't call initialize() in constructor - it will be called explicitly
   }
 
-  buildRedisConfig() {
-    const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3;
-    const retryDelay = parseInt(process.env.REDIS_RETRY_DELAY, 10) || 1000;
-    const redisUrl = process.env.REDIS_URL;
-
-    if (redisUrl) {
-      try {
-        const parsed = new URL(redisUrl);
-        return {
-          host: parsed.hostname,
-          port: parseInt(parsed.port || '6379', 10),
-          password: parsed.password || undefined,
-          db: parsed.pathname ? parseInt(parsed.pathname.slice(1) || '0', 10) : 0,
-          maxRetriesPerRequest: maxRetries,
-          retryDelayOnFailover: retryDelay,
-        };
-      } catch (error) {
-        logger.warn('Invalid REDIS_URL, falling back to host/port variables', { message: error.message });
-      }
-    }
-
-    return {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_DB, 10) || 0,
-      maxRetriesPerRequest: maxRetries,
-      retryDelayOnFailover: retryDelay,
-    };
-  }
-
   async initialize() {
     try {
-      // Redis configuration based on environment variables
-      const redisConfig = this.buildRedisConfig();
+      // Get Redis configuration from centralized manager
+      const redisConfig = redisManager.getBullConfig();
 
       // Main TTS processing queue
       this.queue = new Bull('tts-processing', {
@@ -80,8 +49,8 @@ class TTSQueueService {
         redis: redisConfig,
       });
 
-      // Initialize Redis publisher for cancellation events
-      this.publisher = new Redis(redisConfig);
+      // Use centralized Redis publisher for cancellation events
+      this.publisher = redisManager.getPublisher('tts-queue');
 
       // Initialize circuit breakers for each provider
       this.initializeCircuitBreakers();
@@ -89,7 +58,7 @@ class TTSQueueService {
       // Initialize health checks
       this.initializeHealthChecks();
 
-      logger.info('TTS Queue Service initialized successfully');
+      logger.info('✅ TTS Queue Service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize TTS Queue Service:', error);
       throw error;
@@ -602,11 +571,9 @@ class TTSQueueService {
       if (this.deadLetterQueue) {
         await this.deadLetterQueue.close();
       }
-      if (this.publisher) {
-        await this.publisher.quit();
-      }
+      // Publisher is managed by RedisManager, no need to quit here
 
-      logger.info('TTS Queue Service shutdown completed');
+      logger.info('✅ TTS Queue Service shutdown completed');
     } catch (error) {
       logger.error('Error during TTS Queue Service shutdown:', error);
     }

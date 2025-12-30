@@ -268,7 +268,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegisterUser"
+                  "type": "object",
+                  "required": ["email", "password", "firstName", "lastName"],
+                  "properties": {
+                    "email": { "type": "string", "format": "email" },
+                    "password": { "type": "string", "minLength": 8 },
+                    "firstName": { "type": "string", "minLength": 2, "maxLength": 50 },
+                    "lastName": { "type": "string", "minLength": 2, "maxLength": 50 },
+                    "role": { "type": "string", "enum": ["reader", "writer", "admin"], "default": "reader" },
+                    "username": { "type": "string", "minLength": 3, "maxLength": 30 },
+                    "skipVerification": { "type": "boolean", "description": "Development-only auto verify flag" }
+                  }
                 }
               }
             }
@@ -377,6 +387,33 @@
           }
         }
       },
+      "/auth/resend-verification": {
+        "post": {
+          "tags": ["Authentication"],
+          "summary": "Resend verification code",
+          "description": "Resend email verification code to an unverified user",
+          "security": [],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["email"],
+                  "properties": {
+                    "email": { "type": "string", "format": "email" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Verification code sent" },
+            "400": { "description": "Already verified or invalid email" },
+            "404": { "description": "User not found" }
+          }
+        }
+      },
       "/auth/forgot-password": {
         "post": {
           "tags": ["Authentication"],
@@ -442,6 +479,7 @@
           "tags": ["Authentication"],
           "summary": "Get current user",
           "description": "Get authenticated user's profile",
+          "security": [{ "bearerAuth": [] }],
           "responses": {
             "200": {
               "description": "User profile retrieved",
@@ -461,6 +499,7 @@
           "tags": ["Authentication"],
           "summary": "Logout user",
           "description": "Invalidate current session",
+          "security": [{ "bearerAuth": [] }],
           "responses": {
             "200": {
               "description": "Logout successful",
@@ -590,6 +629,7 @@
           "tags": ["Authentication"],
           "summary": "Logout from all devices",
           "description": "Invalidate all user sessions",
+          "security": [{ "bearerAuth": [] }],
           "responses": {
             "200": {
               "description": "Logged out from all devices successfully",
@@ -609,6 +649,7 @@
           "tags": ["Authentication"],
           "summary": "Get user sessions",
           "description": "Get all active sessions for current user",
+          "security": [{ "bearerAuth": [] }],
           "responses": {
             "200": {
               "description": "User sessions retrieved successfully",
@@ -651,6 +692,7 @@
           "tags": ["Authentication"],
           "summary": "Setup 2FA",
           "description": "Generate 2FA setup QR code and secret",
+          "security": [{ "bearerAuth": [] }],
           "responses": {
             "200": {
               "description": "2FA setup generated successfully",
@@ -678,6 +720,7 @@
           "tags": ["Authentication"],
           "summary": "Verify 2FA setup",
           "description": "Verify 2FA setup with token",
+          "security": [{ "bearerAuth": [] }],
           "requestBody": {
             "required": true,
             "content": {
@@ -713,6 +756,7 @@
           "tags": ["Authentication"],
           "summary": "Disable 2FA",
           "description": "Disable two-factor authentication",
+          "security": [{ "bearerAuth": [] }],
           "requestBody": {
             "required": true,
             "content": {

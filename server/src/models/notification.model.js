@@ -122,7 +122,8 @@ notificationSchema.statics.createFollowNotification = async function (
     content: `${fromUser.name} started following you`,
     data: {
       fromUserId,
-      actionUrl: `/users/${fromUserId}`,
+      fromUsername: fromUser.username,
+      actionUrl: `/profile/${fromUser.username || fromUserId}`,
     },
   });
 };
@@ -134,15 +135,26 @@ notificationSchema.statics.createLikeNotification = async function (
 ) {
   const fromUser = await this.model('User').findById(fromUserId);
   const blog = await this.model('Blog').findById(blogId);
+
+  // Build category-based URL: /{category}/{slug}
+  const categorySlug = blog.categorySlug ||
+    (blog.category ? blog.category.toLowerCase().replace(/\s+/g, '-') : null) ||
+    (blog.tags && blog.tags.length > 0 ? blog.tags[0].toLowerCase().replace(/\s+/g, '-') : null) ||
+    'blog';
+  const blogSlug = blog.slug || blogId;
+
   return this.create({
     userId,
     type: 'like',
-    title: 'New Like',
+    title: 'New like on your blog',
     content: `${fromUser.name} liked your blog "${blog.title}"`,
     data: {
       fromUserId,
+      fromUsername: fromUser.username,
       blogId,
-      actionUrl: `/blogs/${blogId}`,
+      blogSlug: blog.slug,
+      categorySlug,
+      actionUrl: `/${categorySlug}/${blogSlug}`,
     },
   });
 };
@@ -155,6 +167,14 @@ notificationSchema.statics.createCommentNotification = async function (
 ) {
   const fromUser = await this.model('User').findById(fromUserId);
   const blog = await this.model('Blog').findById(blogId);
+
+  // Build category-based URL: /{category}/{slug}
+  const categorySlug = blog.categorySlug ||
+    (blog.category ? blog.category.toLowerCase().replace(/\s+/g, '-') : null) ||
+    (blog.tags && blog.tags.length > 0 ? blog.tags[0].toLowerCase().replace(/\s+/g, '-') : null) ||
+    'blog';
+  const blogSlug = blog.slug || blogId;
+
   return this.create({
     userId,
     type: 'comment',
@@ -162,9 +182,12 @@ notificationSchema.statics.createCommentNotification = async function (
     content: `${fromUser.name} commented on your blog "${blog.title}"`,
     data: {
       fromUserId,
+      fromUsername: fromUser.username,
       blogId,
+      blogSlug: blog.slug,
+      categorySlug,
       commentId,
-      actionUrl: `/blogs/${blogId}#comment-${commentId}`,
+      actionUrl: `/${categorySlug}/${blogSlug}#comment-${commentId}`,
     },
   });
 };
@@ -181,7 +204,8 @@ notificationSchema.statics.createBadgeNotification = async function (
     content: `Congratulations! You earned the "${badge.name}" badge!`,
     data: {
       badgeId,
-      actionUrl: `/users/${userId}/badges`,
+      badgeSlug: badge.slug,
+      actionUrl: `/badges/${badge.slug || badgeId}`,
     },
     priority: 'high',
   });
@@ -200,7 +224,7 @@ notificationSchema.statics.createLevelUpNotification = async function (
     data: {
       level: newLevel,
       xpGained,
-      actionUrl: `/users/${userId}/profile`,
+      actionUrl: '/profile/me',
     },
     priority: 'high',
   });

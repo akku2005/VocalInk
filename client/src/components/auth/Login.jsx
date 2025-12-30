@@ -21,13 +21,25 @@ const loginSchema = yup
   })
   .required();
 
+// Accepts either 6-digit TOTP code or 8-character backup code
 const twoFactorSchema = yup
   .object({
     twoFactorToken: yup
       .string()
-      .length(6, "2FA code must be 6 digits")
-      .matches(/^\d+$/, "2FA code must contain only numbers")
-      .required("2FA code is required"),
+      .required("2FA code is required")
+      .test(
+        'valid-2fa-code',
+        'Enter a 6-digit code or 8-character backup code',
+        (value) => {
+          if (!value) return false;
+          const cleaned = value.replace(/[\s-]/g, '');
+          // 6-digit TOTP code
+          if (/^\d{6}$/.test(cleaned)) return true;
+          // 8-character alphanumeric backup code
+          if (/^[a-zA-Z0-9]{8}$/.test(cleaned)) return true;
+          return false;
+        }
+      ),
   })
   .required();
 
@@ -325,8 +337,8 @@ const Login = () => {
                   <Input
                     id="twoFactorToken"
                     type="text"
-                    placeholder="Enter 6-digit code"
-                    maxLength={6}
+                    placeholder="6-digit code or backup code"
+                    maxLength={8}
                     className="text-center text-lg tracking-widest"
                     {...register2FA("twoFactorToken")}
                   />
@@ -335,6 +347,9 @@ const Login = () => {
                       {errors2FA.twoFactorToken.message}
                     </p>
                   )}
+                  <p className="text-xs text-text-secondary">
+                    Enter your authenticator code or a backup code
+                  </p>
                 </div>
 
                 <Button
@@ -349,14 +364,14 @@ const Login = () => {
             </CardContent>
           </Card>
 
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <p className="text-sm text-text-secondary">
-              Don't have access to your 2FA device?{" "}
+              Lost your authenticator and backup codes?{" "}
               <Link
-                to="/contact-support"
+                to="/2fa-recovery"
                 className="font-medium text-primary hover:text-primary/80"
               >
-                Contact Support
+                Recover Account
               </Link>
             </p>
           </div>

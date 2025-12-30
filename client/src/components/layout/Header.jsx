@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   X,
+  Shield,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../../hooks/useAuth";
@@ -257,6 +258,17 @@ const Header = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed }) => {
                         <Settings className="w-4 h-4 mr-3" />
                         Settings
                       </Link>
+
+                      {user?.role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          className="flex items-center px-4 py-3 sm:py-2 text-sm text-text-primary cursor-pointer hover:bg-[var(--secondary-btn-hover)] rounded touch-target"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Shield className="w-4 h-4 mr-3" />
+                          Admin Panel
+                        </Link>
+                      )}
 
                       <hr className="my-1 border-[var(--border-color)]" />
 

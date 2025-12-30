@@ -16,11 +16,22 @@ const api = axios.create({
 // Request interceptor for authentication
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorageHelper.getItem('accessToken');
+    let token = sessionStorageHelper.getItem('accessToken');
+
+    // Fallback to checking cookies if not in session storage (e.g., new tab)
+    if (!token && typeof document !== 'undefined') {
+      const match = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('accessToken='));
+      if (match) {
+        token = decodeURIComponent(match.split('=')[1]);
+        // Sync back to session storage
+        sessionStorageHelper.setItem('accessToken', token);
+      }
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Add device fingerprint for JWT validation
     const deviceFingerprint = sessionStorageHelper.getItem('deviceFingerprint');
     if (deviceFingerprint) {
@@ -31,7 +42,7 @@ api.interceptors.request.use(
     if (locationHeader) {
       config.headers['X-User-Location'] = locationHeader;
     }
-    
+
     return config;
   },
   (error) => {
@@ -52,7 +63,7 @@ api.interceptors.response.use(
       originalRequest.url !== '/auth/refresh-token'
     ) {
       originalRequest._retry = true;
-      
+
       // Check if it's a 2FA or verification requirement
       const responseData = error.response.data;
       if (responseData.twoFactorRequired || responseData.requiresVerification) {
@@ -60,29 +71,29 @@ api.interceptors.response.use(
         // These are handled by the auth context
         return Promise.reject(error);
       }
-      
+
       // Try to refresh the token
       try {
         const refreshToken = sessionStorageHelper.getItem('refreshToken');
         if (refreshToken) {
           console.log('Attempting automatic token refresh...');
-          
+
           // Call the refresh token endpoint
           const refreshResponse = await api.post('/auth/refresh-token', {
             refreshToken
           });
-          
+
           if (refreshResponse.data.success) {
             const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data;
-            
+
             // Update stored tokens
             sessionStorageHelper.setItem('accessToken', accessToken);
             sessionStorageHelper.setItem('refreshToken', newRefreshToken);
             api.defaults.headers.Authorization = `Bearer ${accessToken}`;
-            
+
             // Update the current request's authorization header
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-            
+
             // Retry the original request
             console.log('Token refreshed, retrying original request...');
             return api(originalRequest);
@@ -91,11 +102,11 @@ api.interceptors.response.use(
       } catch (refreshError) {
         console.error('Automatic token refresh failed:', refreshError);
       }
-      
+
       // If refresh failed, clear tokens and redirect to login
       sessionStorageHelper.removeItem('accessToken');
       sessionStorageHelper.removeItem('refreshToken');
-      
+
       // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
@@ -193,7 +204,7 @@ export const handleApiError = (error) => {
   if (error.response) {
     // Server responded with error status
     const { status, data } = error.response;
-    
+
     switch (status) {
       case 400:
         return {

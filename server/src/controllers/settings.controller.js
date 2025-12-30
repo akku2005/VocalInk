@@ -6,6 +6,7 @@ const QRCode = require('qrcode');
 const { ValidationError, UnauthorizedError, NotFoundError, BadRequestError } = require('../utils/errors');
 const SessionManager = require('../utils/sessionManager');
 const { validatePassword } = require('../utils/sanitize');
+const logger = require('../utils/logger');
 
 // Get all user settings
 const getAllSettings = async (req, res) => {
@@ -139,7 +140,7 @@ const getAllSettings = async (req, res) => {
       data: settings
     });
   } catch (error) {
-    console.error('Error fetching settings:', error);
+    logger.error('Error fetching settings:', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -179,7 +180,7 @@ const updateProfile = async (req, res) => {
       message: 'Profile updated successfully'
     });
   } catch (error) {
-    console.error('Error updating profile:', error);
+    logger.error('Error updating profile:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update profile'
@@ -245,7 +246,7 @@ const updateAccount = async (req, res) => {
       message: 'Account settings updated successfully'
     });
   } catch (error) {
-    console.error('Error updating account settings:', error);
+    logger.error('Error updating account settings:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update account settings'
@@ -300,7 +301,7 @@ const updatePrivacy = async (req, res) => {
       message: 'Privacy settings updated successfully'
     });
   } catch (error) {
-    console.error('Error updating privacy settings:', error);
+    logger.error('Error updating privacy settings:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update privacy settings'
@@ -349,7 +350,7 @@ const updateNotifications = async (req, res) => {
       message: 'Notification settings updated successfully'
     });
   } catch (error) {
-    console.error('Error updating notification settings:', error);
+    logger.error('Error updating notification settings:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update notification settings'
@@ -379,7 +380,7 @@ const updateAI = async (req, res) => {
       message: 'AI preferences updated successfully'
     });
   } catch (error) {
-    console.error('Error updating AI preferences:', error);
+    logger.error('Error updating AI preferences:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update AI preferences'
@@ -425,7 +426,7 @@ const updateGamification = async (req, res) => {
       message: 'Gamification settings updated successfully'
     });
   } catch (error) {
-    console.error('Error updating gamification settings:', error);
+    logger.error('Error updating gamification settings:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update gamification settings'
@@ -462,7 +463,7 @@ const updateAppearance = async (req, res) => {
       message: 'Theme updated successfully'
     });
   } catch (error) {
-    console.error('Error updating theme:', error);
+    logger.error('Error updating theme:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update theme'
@@ -471,15 +472,40 @@ const updateAppearance = async (req, res) => {
 };
 
 // Bulk update (for backward compatibility)
+// SECURITY: Only allow specific safe fields to be updated
 const bulkUpdate = async (req, res) => {
   try {
     const userId = req.user.id;
     const updates = req.body;
 
-    const user = await User.findByIdAndUpdate(userId, updates, {
+    // SECURITY FIX: Whitelist of allowed fields for bulk update
+    // Prevents privilege escalation by blocking role, isAdmin, isVerified, etc.
+    const allowedFields = [
+      'firstName', 'lastName', 'displayName', 'bio', 'avatar', 'coverImage',
+      'location', 'website', 'company', 'jobTitle', 'gender', 'occupation',
+      'nationality', 'mobile', 'dob', 'language', 'timezone', 'socialLinks',
+      'theme', 'notificationSettings', 'privacySettings', 'aiPreferences',
+      'gamificationSettings', 'securitySettings', 'accountVisibility'
+    ];
+
+    const sanitizedUpdates = {};
+    for (const key of Object.keys(updates)) {
+      if (allowedFields.includes(key)) {
+        sanitizedUpdates[key] = updates[key];
+      }
+    }
+
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: 'No valid fields provided for update'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(userId, sanitizedUpdates, {
       new: true,
       runValidators: true
-    }).select('-password -refreshToken');
+    }).select('-password -refreshToken -twoFactorSecret -backupCodes');
 
     if (!user) {
       throw new NotFoundError('User not found');
@@ -491,12 +517,28 @@ const bulkUpdate = async (req, res) => {
       message: 'Settings updated successfully'
     });
   } catch (error) {
-    console.error('Error bulk updating settings:', error);
+    logger.error('Error bulk updating settings:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update settings'
     });
   }
+};
+
+// Generate secure backup codes helper
+const generateBackupCodes = (count = 10) => {
+  const crypto = require('crypto');
+  const codes = [];
+  for (let i = 0; i < count; i++) {
+    // Generate 8-character alphanumeric code with better entropy
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+    codes.push({
+      code: code,
+      used: false,
+      usedAt: null
+    });
+  }
+  return codes;
 };
 
 // Two-Factor Authentication endpoints
@@ -510,10 +552,8 @@ const enable2FA = async (req, res) => {
       issuer: 'VocalInk'
     });
 
-    // Generate backup codes
-    const backupCodes = Array.from({ length: 10 }, () => 
-      Math.random().toString(36).substring(2, 8).toUpperCase()
-    );
+    // Generate backup codes with proper structure
+    const backupCodes = generateBackupCodes(10);
 
     // Update user with 2FA secret and backup codes
     const user = await User.findByIdAndUpdate(
@@ -538,12 +578,12 @@ const enable2FA = async (req, res) => {
       data: {
         secret: secret.base32,
         qrCode: qrCodeUrl,
-        backupCodes: backupCodes
+        backupCodes: backupCodes.map(bc => bc.code)
       },
       message: '2FA setup initiated. Please verify with your authenticator app.'
     });
   } catch (error) {
-    console.error('Error setting up 2FA:', error);
+    logger.error('Error setting up 2FA:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to setup 2FA'
@@ -581,7 +621,7 @@ const verify2FA = async (req, res) => {
       message: '2FA enabled successfully'
     });
   } catch (error) {
-    console.error('Error verifying 2FA:', error);
+    logger.error('Error verifying 2FA:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to verify 2FA'
@@ -617,10 +657,219 @@ const disable2FA = async (req, res) => {
       message: '2FA disabled successfully'
     });
   } catch (error) {
-    console.error('Error disabling 2FA:', error);
+    logger.error('Error disabling 2FA:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to disable 2FA'
+    });
+  }
+};
+
+// Regenerate backup codes
+const regenerateBackupCodes = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { password } = req.body;
+
+    const user = await User.findById(userId).select('+password');
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    if (!user.twoFactorEnabled) {
+      throw new BadRequestError('2FA is not enabled on this account');
+    }
+
+    // Verify password for security
+    const isValidPassword = await user.comparePassword(password);
+    if (!isValidPassword) {
+      throw new BadRequestError('Invalid password');
+    }
+
+    // Generate new backup codes
+    const newBackupCodes = generateBackupCodes(10);
+    
+    await User.findByIdAndUpdate(userId, {
+      backupCodes: newBackupCodes
+    });
+
+    // Send notification email
+    const EmailService = require('../services/EmailService');
+    await EmailService.sendBackupCodesRegeneratedEmail(user.email, user.name || user.firstName);
+
+    logger.info('Backup codes regenerated', { userId });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        backupCodes: newBackupCodes.map(bc => bc.code)
+      },
+      message: 'Backup codes regenerated successfully. Please save them securely.'
+    });
+  } catch (error) {
+    logger.error('Error regenerating backup codes:', { error: error.message, stack: error.stack });
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || 'Failed to regenerate backup codes'
+    });
+  }
+};
+
+// Get remaining backup codes count
+const getBackupCodesStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const backupCodes = user.backupCodes || [];
+    const unusedCount = backupCodes.filter(bc => !bc.used).length;
+    const totalCount = backupCodes.length;
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        twoFactorEnabled: user.twoFactorEnabled,
+        unusedBackupCodes: unusedCount,
+        totalBackupCodes: totalCount
+      }
+    });
+  } catch (error) {
+    logger.error('Error getting backup codes status:', { error: error.message, stack: error.stack });
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || 'Failed to get backup codes status'
+    });
+  }
+};
+
+// Request 2FA recovery via email (for users who lost authenticator)
+const request2FARecovery = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new BadRequestError('Email is required');
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    
+    // Always return success to prevent email enumeration
+    if (!user || !user.twoFactorEnabled) {
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: 'If an account with 2FA enabled exists for this email, a recovery code has been sent.'
+      });
+    }
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: 'If an account with 2FA enabled exists for this email, a recovery code has been sent.'
+      });
+    }
+
+    // Generate recovery code (6-digit numeric for easier input)
+    const recoveryCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const recoveryExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Hash the recovery code before storing
+    const hashedCode = require('crypto')
+      .createHash('sha256')
+      .update(recoveryCode)
+      .digest('hex');
+
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorRecoveryToken: hashedCode,
+      twoFactorRecoveryExpires: recoveryExpires
+    });
+
+    // Send recovery email
+    const EmailService = require('../services/EmailService');
+    await EmailService.send2FARecoveryEmail(user.email, recoveryCode, user.name || user.firstName);
+
+    logger.info('2FA recovery email sent', { userId: user._id, email: user.email });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'If an account with 2FA enabled exists for this email, a recovery code has been sent.'
+    });
+  } catch (error) {
+    logger.error('Error requesting 2FA recovery:', { error: error.message, stack: error.stack });
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || 'Failed to request 2FA recovery'
+    });
+  }
+};
+
+// Verify 2FA recovery code and disable 2FA
+const verify2FARecovery = async (req, res) => {
+  try {
+    const { email, recoveryCode } = req.body;
+
+    if (!email || !recoveryCode) {
+      throw new BadRequestError('Email and recovery code are required');
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    
+    if (!user) {
+      throw new BadRequestError('Invalid recovery code or email');
+    }
+
+    if (!user.twoFactorRecoveryToken || !user.twoFactorRecoveryExpires) {
+      throw new BadRequestError('No recovery request found. Please request a new recovery code.');
+    }
+
+    // Check if recovery code has expired
+    if (new Date() > user.twoFactorRecoveryExpires) {
+      // Clear expired recovery token
+      await User.findByIdAndUpdate(user._id, {
+        twoFactorRecoveryToken: null,
+        twoFactorRecoveryExpires: null
+      });
+      throw new BadRequestError('Recovery code has expired. Please request a new one.');
+    }
+
+    // Verify the recovery code
+    const hashedCode = require('crypto')
+      .createHash('sha256')
+      .update(recoveryCode)
+      .digest('hex');
+
+    if (hashedCode !== user.twoFactorRecoveryToken) {
+      throw new BadRequestError('Invalid recovery code');
+    }
+
+    // Disable 2FA
+    await User.findByIdAndUpdate(user._id, {
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      backupCodes: [],
+      twoFactorRecoveryToken: null,
+      twoFactorRecoveryExpires: null
+    });
+
+    // Send notification email
+    const EmailService = require('../services/EmailService');
+    await EmailService.send2FADisabledNotification(user.email, user.name || user.firstName, 'email_recovery');
+
+    logger.info('2FA disabled via email recovery', { userId: user._id, email: user.email });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: '2FA has been disabled. You can now log in with just your password.'
+    });
+  } catch (error) {
+    logger.error('Error verifying 2FA recovery:', { error: error.message, stack: error.stack });
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || 'Failed to verify recovery code'
     });
   }
 };
@@ -692,7 +941,7 @@ const getActiveSessions = async (req, res) => {
       message: 'Active sessions retrieved successfully'
     });
   } catch (error) {
-    console.error('Error getting active sessions:', error);
+    logger.error('Error getting active sessions:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to get active sessions'
@@ -727,7 +976,7 @@ const revokeSession = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error revoking session:', error);
+    logger.error('Error revoking session:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to revoke session'
@@ -767,7 +1016,7 @@ const revokeAllSessions = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error revoking all sessions:', error);
+    logger.error('Error revoking all sessions:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to revoke all sessions'
@@ -796,7 +1045,7 @@ const clearLoginHistory = async (req, res) => {
       message: 'Login history cleared successfully'
     });
   } catch (error) {
-    console.error('Error clearing login history:', error);
+    logger.error('Error clearing login history:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to clear login history'
@@ -857,7 +1106,7 @@ const exportUserData = async (req, res) => {
       message: 'User data exported successfully'
     });
   } catch (error) {
-    console.error('Error exporting user data:', error);
+    logger.error('Error exporting user data:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to export user data'
@@ -907,7 +1156,7 @@ const deleteAccount = async (req, res) => {
       message: 'Account deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting account:', error);
+    logger.error('Error deleting account:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to delete account'
@@ -958,7 +1207,7 @@ const updateSecurity = async (req, res) => {
       data: user.securitySettings
     });
   } catch (error) {
-    console.error('Error updating security settings:', error);
+    logger.error('Error updating security settings:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to update security settings'
@@ -1018,7 +1267,7 @@ const changePassword = async (req, res) => {
       message: 'Password changed successfully'
     });
   } catch (error) {
-    console.error('Error changing password:', error);
+    logger.error('Error changing password:', { error: error.message, stack: error.stack });
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: error.message || 'Failed to change password'
@@ -1035,17 +1284,25 @@ module.exports = {
   updateAI,
   updateGamification,
   updateAppearance,
+  updateSecurity,
   bulkUpdate,
   // Security endpoints
   enable2FA,
   verify2FA,
   disable2FA,
+  // 2FA Recovery endpoints
+  regenerateBackupCodes,
+  getBackupCodesStatus,
+  request2FARecovery,
+  verify2FARecovery,
+  // Session management
   getActiveSessions,
   revokeSession,
   revokeAllSessions,
   clearLoginHistory,
+  // Data management
   exportUserData,
   deleteAccount,
-  updateSecurity,
+  // Password management
   changePassword
 };

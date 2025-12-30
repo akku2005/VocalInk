@@ -133,8 +133,16 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Enhanced CORS configuration
+// Default to explicit allowlist; avoid permissive wildcard with credentials
+const defaultCorsOrigins = ['http://localhost:5173', 'http://localhost:3000'];
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true, // Allow specific origins or all in dev
+  origin: (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean)
+    .concat(defaultCorsOrigins)
+    // Deduplicate while preserving order
+    .filter((value, index, self) => self.indexOf(value) === index),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -190,6 +198,25 @@ app.use(express.urlencoded({
   extended: true,
   limit: process.env.MAX_REQUEST_SIZE || '10mb'
 }));
+
+// Content-Type validation for API endpoints (prevent content-type confusion attacks)
+app.use('/api', (req, res, next) => {
+  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    const contentType = req.get('Content-Type');
+    // Allow JSON, form data, and multipart (for file uploads)
+    const allowedTypes = ['application/json', 'application/x-www-form-urlencoded', 'multipart/form-data'];
+    const isAllowed = allowedTypes.some(type => contentType?.toLowerCase().includes(type));
+    
+    if (contentType && !isAllowed) {
+      return res.status(415).json({
+        success: false,
+        message: 'Unsupported Media Type. Use application/json for API requests.',
+        code: 'UNSUPPORTED_MEDIA_TYPE'
+      });
+    }
+  }
+  next();
+});
 
 // Enhanced mongo sanitize middleware for Express 5 compatibility
 const { sanitizeMongoQuery } = require('./utils/sanitize');

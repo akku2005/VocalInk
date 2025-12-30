@@ -4,6 +4,8 @@
 @import '@fontsource/dancing-script/400.css';
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Custom CSS Variables for Themes */
 :root {
   /* White Theme Colors */
@@ -602,4 +604,86 @@ span[data-tts-segment].tts-highlighted {
       0 0 25px rgba(59, 130, 246, 0.5),
       0 6px 16px rgba(0, 0, 0, 0.2);
   }
+}
+
+[data-theme="dark"] .article-content span[data-tts-segment].tts-highlighted,
+[data-theme="dark"] span[data-tts-segment].tts-highlighted {
+  background: linear-gradient(135deg, rgb(30, 64, 175), rgb(37, 99, 235)) !important;
+  color: white !important;
+}
+
+[data-theme="dark"] .article-content [data-tts-segment].tts-highlighted,
+[data-theme="dark"] [data-tts-segment].tts-highlighted {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.95), rgba(37, 99, 235, 0.95)) !important;
+  color: white !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-content span[data-tts-segment].tts-highlighted,
+  span[data-tts-segment].tts-highlighted,
+  .article-content [data-tts-segment].tts-highlighted,
+  [data-tts-segment].tts-highlighted {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ============================================
+   Global Dark Mode Fallbacks
+   These override hardcoded light-mode colors 
+   when dark mode is active
+   ============================================ */
+
+/* Text color fallbacks for dark mode */
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-700 {
+  color: rgb(var(--color-text-secondary)) !important;
+}
+
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-black {
+  color: rgb(var(--color-text-primary)) !important;
+}
+
+/* Background fallbacks for dark mode */
+[data-theme="dark"] .bg-white {
+  background-color: rgb(var(--color-surface)) !important;
+}
+
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-100 {
+  background-color: rgb(var(--color-background)) !important;
+}
+
+/* Border fallbacks for dark mode */
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300 {
+  border-color: rgb(var(--color-border)) !important;
+}
+
+/* Hover state fallbacks */
+[data-theme="dark"] .hover\:bg-gray-100:hover,
+[data-theme="dark"] .hover\:bg-gray-50:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Placeholder text fallbacks */
+[data-theme="dark"] .placeholder-gray-400::placeholder,
+[data-theme="dark"] .placeholder-gray-500::placeholder {
+  color: rgb(var(--color-text-secondary)) !important;
 }

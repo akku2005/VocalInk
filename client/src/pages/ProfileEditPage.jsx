@@ -364,7 +364,7 @@ const ProfileEditPage = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => coverInputRef.current?.click()}
-                          className="bg-white text-black hover:bg-gray-100"
+                          className="bg-surface text-text-primary hover:bg-surface-hover border-border"
                         >
                           <Camera className="w-4 h-4 mr-2" />
                           Change
@@ -374,7 +374,7 @@ const ProfileEditPage = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => removeImage('coverImage')}
-                          className="bg-white text-black hover:bg-gray-100"
+                          className="bg-surface text-text-primary hover:bg-surface-hover border-border"
                         >
                           <X className="w-4 h-4 mr-2" />
                           Remove
@@ -405,7 +405,7 @@ const ProfileEditPage = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => coverInputRef.current?.click()}
-                        className="mt-2 bg-white text-gray-800 hover:bg-gray-100"
+                        className="mt-2 bg-surface text-text-primary hover:bg-surface-hover border-border"
                       >
                         <ImageIcon className="w-4 h-4 mr-2" />
                         Choose Image
@@ -448,7 +448,7 @@ const ProfileEditPage = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => avatarInputRef.current?.click()}
-                          className="bg-white text-black hover:bg-gray-100 w-8 h-8 p-0"
+                          className="bg-surface text-text-primary hover:bg-surface-hover border-border w-8 h-8 p-0"
                         >
                           <Camera className="w-4 h-4" />
                         </Button>

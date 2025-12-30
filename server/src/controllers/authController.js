@@ -643,15 +643,46 @@ class AuthController {
             success: false,
             message: 'Two-factor authentication code required',
             twoFactorRequired: true,
+            canUseBackupCode: true,
           });
         }
 
-        const verified = speakeasy.totp.verify({
+        // First, try to verify as TOTP code
+        let verified = speakeasy.totp.verify({
           secret: user.twoFactorSecret,
           encoding: 'base32',
           token: twoFactorToken,
           window: 1, // Allow 30 seconds before/after
         });
+
+        // If TOTP verification failed, try backup code
+        if (!verified) {
+          const normalizedInput = twoFactorToken.toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const backupCodes = user.backupCodes || [];
+          
+          // Find matching unused backup code
+          const backupCodeIndex = backupCodes.findIndex(bc => 
+            bc.code === normalizedInput && !bc.used
+          );
+
+          if (backupCodeIndex !== -1) {
+            // Mark backup code as used
+            backupCodes[backupCodeIndex].used = true;
+            backupCodes[backupCodeIndex].usedAt = new Date();
+            
+            await User.findByIdAndUpdate(user._id, {
+              backupCodes: backupCodes
+            });
+
+            verified = true;
+            logger.info('User logged in using backup code', {
+              userId: user._id,
+              email: user.email,
+              ip: req.ip,
+              remainingBackupCodes: backupCodes.filter(bc => !bc.used).length
+            });
+          }
+        }
 
         if (!verified) {
           logger.warn('Invalid 2FA code provided', {
@@ -662,9 +693,10 @@ class AuthController {
 
           return res.status(401).json({
             success: false,
-            message: 'Invalid two-factor authentication code. Please check your authenticator app and try again.',
+            message: 'Invalid two-factor authentication code. Please check your authenticator app or use a backup code.',
             twoFactorRequired: true,
             twoFactorRetry: true, // Flag to indicate this is a retry, not initial requirement
+            canUseBackupCode: true,
           });
         }
       }

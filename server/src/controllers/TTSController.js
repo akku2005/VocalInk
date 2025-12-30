@@ -67,6 +67,7 @@ class TTSController {
 
       let content = text;
       let blog = null;
+      let isHtmlContent = false;
 
       // If blogId is provided, get content from blog
       if (blogId) {
@@ -88,6 +89,7 @@ class TTSController {
         }
 
         content = blog.content;
+        isHtmlContent = true; // Blog content is HTML
       }
 
       // Prepare options
@@ -107,7 +109,8 @@ class TTSController {
         useSpeakerBoost,
         pitch,
         volumeGainDb,
-        effectsProfileId
+        effectsProfileId,
+        skipDiskStorage: true // Use IndexedDB storage on client
       };
 
       // Prepare request info
@@ -120,22 +123,60 @@ class TTSController {
         blogId: blogId || null
       };
 
-      // Generate TTS
-      const result = await this.ttsService.generateSpeech(content, options, req.user.id, requestInfo);
-
-      // If immediate processing, update blog
-      if (result.processedImmediately && blog) {
-        blog.ttsUrl = result.result.url;
-        blog.ttsOptions = options;
-        blog.audioDuration = result.result.duration;
-        await blog.save();
-
-        logger.info('TTS generated for blog (immediate)', {
+      // Generate TTS - use HTML-aware method for blog content
+      let result;
+      if (isHtmlContent) {
+        // For blog HTML content, use segmented generation with structure preservation
+        logger.info('Generating TTS from HTML content with structure preservation', {
           userId: req.user.id,
           blogId: blog._id,
-          ttsUrl: result.result.url,
-          provider: result.result.provider
+          contentLength: content.length
         });
+
+        const audioSegments = await this.ttsService.ttsService.generateSegmentedSpeechFromHTML(content, options);
+
+        result = {
+          success: true,
+          audioSegments,
+          processedImmediately: true,
+          duration: audioSegments.reduce((sum, seg) => sum + (seg.duration || 0), 0),
+          provider: audioSegments[0]?.provider || options.provider,
+          timestamp: new Date()
+        };
+
+        // Update blog with audio segments
+        if (blog) {
+          blog.audioSegments = audioSegments;
+          blog.ttsOptions = options;
+          blog.audioDuration = result.duration;
+          await blog.save();
+
+          logger.info('TTS generated for blog (HTML segmented)', {
+            userId: req.user.id,
+            blogId: blog._id,
+            segmentCount: audioSegments.length,
+            duration: result.duration,
+            provider: result.provider
+          });
+        }
+      } else {
+        // For plain text, use standard generation
+        result = await this.ttsService.generateSpeech(content, options, req.user.id, requestInfo);
+
+        // If immediate processing, update blog
+        if (result.processedImmediately && blog) {
+          blog.ttsUrl = result.result.url;
+          blog.ttsOptions = options;
+          blog.audioDuration = result.result.duration;
+          await blog.save();
+
+          logger.info('TTS generated for blog (immediate)', {
+            userId: req.user.id,
+            blogId: blog._id,
+            ttsUrl: result.result.url,
+            provider: result.result.provider
+          });
+        }
       }
 
       res.json({

@@ -15,10 +15,19 @@ class WebSocketService {
    * Initialize WebSocket server
    */
   initialize(server) {
-    this.wss = new WebSocket.Server({ 
+    this.wss = new WebSocket.Server({
       server,
       path: '/ws',
-      clientTracking: true
+      clientTracking: true,
+      // Select auth token subprotocol if provided
+      handleProtocols: (protocols) => {
+        // Ensure protocols is an array before using find
+        if (!protocols || !Array.isArray(protocols) || protocols.length === 0) {
+          return false;
+        }
+        const authProto = protocols.find(p => typeof p === 'string' && p.startsWith('auth.token.'));
+        return authProto || protocols[0];
+      }
     });
 
     this.wss.on('connection', (ws, req) => {
@@ -107,19 +116,33 @@ class WebSocketService {
    * Extract JWT token from request
    */
   extractToken(req) {
-    // Try query parameter first
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    let token = url.searchParams.get('token');
-
-    // Try Authorization header
-    if (!token) {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
+    // Prefer subprotocol-based token to avoid query exposure
+    const protoHeader = req.headers['sec-websocket-protocol'];
+    if (protoHeader) {
+      // Header may contain comma-separated list; pick auth.token.* if present
+      const candidates = protoHeader.split(',').map(p => p.trim());
+      const authProto = candidates.find(p => p.startsWith('auth.token.'));
+      if (authProto) {
+        return authProto.replace('auth.token.', '');
       }
     }
 
-    return token;
+    // Try Authorization header (non-browser clients)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+
+    // DEPRECATED: Fallback to query parameter (security risk - tokens in URLs get logged)
+    // This will be removed in a future version. Use subprotocol 'auth.token.<JWT>' instead.
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const queryToken = url.searchParams.get('token');
+    if (queryToken) {
+      logger.warn('DEPRECATED: WebSocket token passed via query parameter. Use subprotocol auth.token.<JWT> instead.', {
+        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
+      });
+    }
+    return queryToken;
   }
 
   /**
@@ -131,18 +154,18 @@ class WebSocketService {
       const message = secureJSONParse(data, {
         maxLength: 1000,
         validateSchema: (data) => {
-          return typeof data === 'object' && 
-                 data !== null && 
-                 typeof data.type === 'string' &&
-                 ['join_room', 'leave_room', 'ping'].includes(data.type);
+          return typeof data === 'object' &&
+            data !== null &&
+            typeof data.type === 'string' &&
+            ['join_room', 'leave_room', 'ping'].includes(data.type);
         }
       });
-      
+
       if (!message) {
         logger.warn('Invalid WebSocket message received:', { userId, data: data.substring(0, 100) });
         return;
       }
-      
+
       switch (message.type) {
         case 'join_room':
           this.joinRoom(userId, message.roomId);
@@ -166,7 +189,7 @@ class WebSocketService {
    */
   handleDisconnection(userId) {
     this.clients.delete(userId);
-    
+
     // Remove from all rooms
     for (const [roomId, connections] of this.rooms.entries()) {
       connections.delete(userId);
@@ -186,7 +209,7 @@ class WebSocketService {
       this.rooms.set(roomId, new Set());
     }
     this.rooms.get(roomId).add(userId);
-    
+
     this.sendToUser(userId, {
       type: 'room_joined',
       roomId,
@@ -205,7 +228,7 @@ class WebSocketService {
         this.rooms.delete(roomId);
       }
     }
-    
+
     this.sendToUser(userId, {
       type: 'room_left',
       roomId,

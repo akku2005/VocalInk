@@ -16,8 +16,9 @@ import { resolveAssetUrl } from "../../constants/apiConfig";
 import { getProfilePath } from "../../utils/profileUrl";
 import { getCleanExcerpt, stripHtml } from "../../utils/textUtils";
 import { buildAbsoluteUrl } from "../../utils/siteUrl";
+import logger from "../../utils/logger";
 
-const normalizeArticleContent = (html, segmentIds = []) => {
+const normalizeArticleContent = (html, segments = []) => {
   if (!html || typeof html !== 'string') return '';
   let normalized = html
     .replaceAll('src="/api/uploads/', 'src="/uploads/')
@@ -28,20 +29,129 @@ const normalizeArticleContent = (html, segmentIds = []) => {
       return `url(${quote}data:image/${type};base64,`;
     });
 
-  const addTtsMarkers = (markup, ids = []) => {
+  const addTtsMarkers = (markup, serverSegments = []) => {
     try {
       if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
         return markup;
       }
       const parser = new DOMParser();
       const doc = parser.parseFromString(markup, 'text/html');
-      const candidates = doc.body.querySelectorAll('p, li, blockquote, h1, h2, h3, h4, h5, h6, span');
-      let idx = 0;
+      
+      // CRITICAL: First, remove ALL existing data-tts-segment attributes
+      // This prevents stale/inline span markers from interfering with highlighting
+      const existingMarkers = doc.body.querySelectorAll('[data-tts-segment]');
+      existingMarkers.forEach((el) => {
+        el.removeAttribute('data-tts-segment');
+        // Also remove IDs that were auto-generated for TTS
+        if (el.id && el.id.startsWith('tts-seg-')) {
+          el.removeAttribute('id');
+        }
+      });
+      
+      // Select block-level elements only (matching server-side Cheerio selector)
+      const blockSelector = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, td, th, pre';
+      const allElements = doc.body.querySelectorAll(blockSelector);
+      
+      // Filter out nested elements (matching server-side logic)
+      // e.g., a <p> inside a <blockquote> should be skipped
+      const topLevelElements = Array.from(allElements).filter((el) => {
+        let parent = el.parentElement;
+        while (parent && parent !== doc.body) {
+          if (parent.matches(blockSelector)) {
+            return false; // Has a parent that matches block selector - skip
+          }
+          parent = parent.parentElement;
+        }
+        return true;
+      });
+      
+      // Helper: normalize text for comparison (remove extra whitespace, lowercase)
+      const normalizeText = (text) => {
+        return (text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      };
+      
+      // Build a map of server segment texts for matching
+      // Each segment has: { id, text, ... }
+      const segmentMap = new Map();
+      serverSegments.forEach((seg, idx) => {
+        const id = seg.id || seg.paragraphId || seg._id || `tts-seg-${idx}`;
+        const text = normalizeText(seg.text || '');
+        if (text) {
+          segmentMap.set(text, id);
+          // Also store first 50 chars for partial matching
+          if (text.length > 50) {
+            segmentMap.set(text.substring(0, 50), id);
+          }
+        }
+      });
+      
+      // Track which segments have been matched
+      const matchedSegments = new Set();
+      let fallbackIdx = 0;
 
-      candidates.forEach((el) => {
-        if (el.hasAttribute('data-tts-segment')) return;
-        const assignedId = ids[idx] || `tts-seg-${idx}`;
-        idx += 1;
+      // Debug: Log segment map
+      if (serverSegments.length > 0) {
+        logger.log('🎯 TTS Segment Matching:', {
+          serverSegments: serverSegments.length,
+          domElements: topLevelElements.length,
+          segmentTexts: serverSegments.slice(0, 5).map(s => ({
+            id: s.id,
+            text: (s.text || '').substring(0, 40) + '...'
+          }))
+        });
+      }
+
+      topLevelElements.forEach((el) => {
+        // Skip elements with less than 3 characters (matching server-side logic)
+        const text = el.textContent?.trim() || '';
+        if (text.length < 3) return;
+        
+        const normalizedElText = normalizeText(text);
+        let assignedId = null;
+        let matchType = 'none';
+        
+        // Try to match by exact text or partial text
+        if (segmentMap.has(normalizedElText)) {
+          assignedId = segmentMap.get(normalizedElText);
+          matchedSegments.add(assignedId);
+          matchType = 'exact';
+        } else if (normalizedElText.length > 50 && segmentMap.has(normalizedElText.substring(0, 50))) {
+          // Partial match using first 50 chars
+          assignedId = segmentMap.get(normalizedElText.substring(0, 50));
+          matchedSegments.add(assignedId);
+          matchType = 'partial';
+        } else {
+          // Fuzzy match: find segment that starts with or contains similar text
+          for (const [segText, segId] of segmentMap) {
+            if (matchedSegments.has(segId)) continue;
+            // Check if segment text starts with element text or vice versa
+            if (segText.startsWith(normalizedElText.substring(0, 30)) || 
+                normalizedElText.startsWith(segText.substring(0, 30))) {
+              assignedId = segId;
+              matchedSegments.add(segId);
+              matchType = 'fuzzy';
+              break;
+            }
+          }
+        }
+        
+        // Fallback: use sequential ID if no match found
+        if (!assignedId) {
+          const fallbackSegment = serverSegments[fallbackIdx];
+          assignedId = fallbackSegment?.id || fallbackSegment?.paragraphId || `tts-seg-${fallbackIdx}`;
+          fallbackIdx++;
+          matchType = 'fallback';
+        }
+        
+        // Debug log for mismatches
+        if (matchType === 'fallback' && serverSegments.length > 0) {
+          console.warn('⚠️ TTS: No text match for element:', {
+            elementText: text.substring(0, 50),
+            assignedId,
+            matchType
+          });
+        }
+        
         el.setAttribute('data-tts-segment', assignedId);
         if (!el.id) {
           el.id = assignedId;
@@ -55,7 +165,7 @@ const normalizeArticleContent = (html, segmentIds = []) => {
     }
   };
 
-  normalized = addTtsMarkers(normalized, segmentIds);
+  normalized = addTtsMarkers(normalized, segments);
 
   return normalized;
 };
@@ -77,6 +187,10 @@ export default function ArticleView() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [normalizedContent, setNormalizedContent] = useState('');
   const [normalizedSummary, setNormalizedSummary] = useState('');
+  const [currentSegmentText, setCurrentSegmentText] = useState('');
+  const articleContentRef = useRef(null);
+  const allSegmentsRef = useRef(null);
+  const lastHighlightedRef = useRef(null);
 
   const commentsSectionRef = useRef(null);
   const { showInfo, showError } = useToast();
@@ -87,41 +201,58 @@ export default function ArticleView() {
     const segmentId = typeof segmentData === 'string' ? segmentData : segmentData?.segmentId;
     const segmentIndex = typeof segmentData === 'object' ? segmentData?.segmentIndex : undefined;
 
-    // Remove highlight from all segments
-    const allSegments = document.querySelectorAll('[data-tts-segment]');
-    allSegments.forEach(el => {
-      el.classList.remove('tts-highlighted');
-    });
+    if (lastHighlightedRef.current) {
+      lastHighlightedRef.current.classList.remove('tts-highlighted');
+      lastHighlightedRef.current = null;
+    }
 
     // If no segmentId (audio paused/stopped), just clear and return
     if (!segmentId) {
+      setCurrentSegmentText('');
       return;
     }
 
-    // Add highlight to active segment - try multiple methods
-    let element = document.getElementById(segmentId);
+    // Add highlight to active segment - search within article content only
+    let element = null;
 
-    if (!element) {
-      element = document.querySelector(`[data-tts-segment="${segmentId}"]`);
+    // First try: find by ID within article content
+    if (articleContentRef.current) {
+      element = articleContentRef.current.querySelector(`#${CSS.escape(segmentId)}`);
     }
 
-    if (!element && !segmentId.startsWith('tts-seg-')) {
-      element = document.getElementById(`tts-seg-${segmentId}`);
+    // Second try: find by data-tts-segment attribute within article content
+    if (!element && articleContentRef.current) {
+      element = articleContentRef.current.querySelector(`[data-tts-segment="${segmentId}"]`);
     }
 
-    if (!element && !segmentId.startsWith('tts-seg-')) {
-      element = document.querySelector(`[data-tts-segment="tts-seg-${segmentId}"]`);
+    // Third try: add tts-seg- prefix if not present
+    if (!element && !segmentId.startsWith('tts-seg-') && articleContentRef.current) {
+      element = articleContentRef.current.querySelector(`#tts-seg-${segmentId}`);
+    }
+
+    if (!element && !segmentId.startsWith('tts-seg-') && articleContentRef.current) {
+      element = articleContentRef.current.querySelector(`[data-tts-segment="tts-seg-${segmentId}"]`);
     }
 
     // Fallback: use segment index to target Nth marker when IDs don't align
-    if (!element && typeof segmentIndex === 'number') {
-      const targets = Array.from(allSegments);
+    // IMPORTANT: Only search within articleContentRef to avoid highlighting elements outside the article
+    if (!element && typeof segmentIndex === 'number' && articleContentRef.current) {
+      let targets = allSegmentsRef.current ? Array.from(allSegmentsRef.current) : [];
+      if (!targets.length) {
+        // Only search within article content - never fall back to document
+        allSegmentsRef.current = articleContentRef.current.querySelectorAll('[data-tts-segment]');
+        targets = Array.from(allSegmentsRef.current);
+      }
       element = targets[segmentIndex] || null;
     }
 
     if (element) {
       // Apply highlight class
       element.classList.add('tts-highlighted');
+      lastHighlightedRef.current = element;
+      if (typeof segmentData === 'object' && segmentData?.text) {
+        setCurrentSegmentText(segmentData.text);
+      }
 
       // Smooth scroll to element
       setTimeout(() => {
@@ -136,6 +267,16 @@ export default function ArticleView() {
       console.warn('TTS: Segment not found -', segmentId);
     }
   };
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      // Only search within article content to prevent highlighting elements outside the article
+      if (articleContentRef.current) {
+        allSegmentsRef.current = articleContentRef.current.querySelectorAll('[data-tts-segment]');
+      }
+    }, 0);
+    return () => clearTimeout(id);
+  }, [normalizedContent]);
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -208,20 +349,19 @@ export default function ArticleView() {
 
           const authorDetails = await resolveAuthorDetails(blogData.author);
 
-          const segmentIds = (blogData.audioSegments || []).map(
-            (seg, idx) => seg.id || seg.paragraphId || seg._id || `tts-seg-${idx}`
-          );
+          // Pass full segment objects for text-based matching
+          const segments = blogData.audioSegments || [];
 
-          const normalizedSummaryHtml = normalizeArticleContent(blogData.summary || '', segmentIds);
-          const normalizedHtml = normalizeArticleContent(blogData.content || '', segmentIds);
+          const normalizedSummaryHtml = normalizeArticleContent(blogData.summary || '', segments);
+          // Don't normalize content here - let the ToC useEffect handle it
           setNormalizedSummary(normalizedSummaryHtml);
-          setNormalizedContent(normalizedHtml);
+          // normalizedContent will be set by the ToC useEffect
 
           setArticle({
             id: blogData._id,
             slug: blogData.slug || slug, // Store slug
             title: blogData.title,
-            content: normalizedHtml,
+            content: blogData.content || '', // Store RAW content - normalization happens in ToC useEffect
             author: authorDetails.authorName,
             authorHandle: authorDetails.authorHandle,
             authorId: authorDetails.authorId,
@@ -319,17 +459,24 @@ export default function ArticleView() {
     };
   };
 
-  // Parse Table of Contents
+  // Parse Table of Contents AND add TTS markers
+  // IMPORTANT: Must apply TTS normalization FIRST, then ToC parsing
   useEffect(() => {
     if (article?.content) {
-      const { tocItems, html } = buildTocAndInjectIds(article.content);
+      // First: normalize for TTS (add data-tts-segment markers)
+      // Pass full segment objects for text-based matching
+      const segments = article.audioSegments || [];
+      const ttsNormalizedHtml = normalizeArticleContent(article.content, segments);
+      
+      // Second: build ToC from TTS-normalized HTML (preserves TTS markers)
+      const { tocItems, html } = buildTocAndInjectIds(ttsNormalizedHtml);
       setToc(tocItems);
       setNormalizedContent(html);
     } else {
       setToc([]);
       setNormalizedContent('');
     }
-  }, [article?.content]);
+  }, [article?.content, article?.audioSegments]);
 
   // Handle hash navigation
   useEffect(() => {
@@ -413,10 +560,10 @@ export default function ArticleView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading blog...</p>
+          <p className="text-text-secondary">Loading blog...</p>
         </div>
       </div>
     );
@@ -424,10 +571,10 @@ export default function ArticleView() {
 
   if (error || !article) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-500 mb-2">Article not found!</h2>
-          <p className="text-gray-600">{error || 'The blog you are looking for does not exist.'}</p>
+          <h2 className="text-2xl font-bold text-error mb-2">Article not found!</h2>
+          <p className="text-text-secondary">{error || 'The blog you are looking for does not exist.'}</p>
         </div>
       </div>
     );
@@ -564,13 +711,15 @@ export default function ArticleView() {
                 onAudioGenerated={(url) => setAudioUrl(url)}
                 onSegmentChange={handleSegmentChange}
               />
+              <div className="sr-only" aria-live="polite" aria-atomic="true">{currentSegmentText ? `Now reading: ${currentSegmentText}` : ''}</div>
             </div>
 
             {/* Blog Content with Read More */}
             <div className="relative mb-12">
               <div
                 className={`article-content prose prose-lg max-w-none dark:prose-invert prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-primary-500 hover:prose-a:text-primary-600 prose-strong:text-text-primary prose-code:text-primary-500 ${!isExpanded ? 'max-h-[600px] overflow-hidden' : ''}`}
-                dangerouslySetInnerHTML={{ __html: normalizedContent || normalizeArticleContent(article.content || '', (article.audioSegments || []).map((seg, idx) => seg.id || seg.paragraphId || seg._id || `tts-seg-${idx}`)) }}
+                ref={articleContentRef}
+                dangerouslySetInnerHTML={{ __html: normalizedContent || normalizeArticleContent(article.content || '', article.audioSegments || []) }}
               />
 
               {!isExpanded && (
@@ -658,12 +807,12 @@ export default function ArticleView() {
                   <div className="w-24 h-24 rounded-full bg-surface-hover overflow-hidden mb-4 ring-4 ring-surface shadow-md">
                     {article.authorAvatar ? (
                       <img src={resolveAssetUrl(article.authorAvatar)} alt={article.author} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-primary-500/10 text-primary-500">
-                      <User className="w-10 h-10" />
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary-500/10 text-primary-500">
+                        <User className="w-10 h-10" />
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="text-xl font-bold text-text-primary mb-1 cursor-pointer hover:text-primary-500 transition-colors"

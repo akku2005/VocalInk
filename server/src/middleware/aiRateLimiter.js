@@ -1,12 +1,37 @@
 const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
-const cacheService = require('../services/CacheService');
+const redisManager = require('../services/RedisManager');
 let RedisStore;
 try { RedisStore = require('rate-limit-redis').default || require('rate-limit-redis'); } catch (e) { RedisStore = null; }
 
-const getStore = () => (RedisStore && cacheService.redisClient ? new RedisStore({
-  sendCommand: (...args) => cacheService.redisClient.sendCommand(args)
-}) : undefined);
+// Lazy initialized Redis client for AI rate limiting
+let aiRateLimitRedisClient = null;
+
+function getAiRateLimitClient() {
+  if (aiRateLimitRedisClient) return aiRateLimitRedisClient;
+  try {
+    aiRateLimitRedisClient = redisManager.getClient('ai-rate-limit');
+    return aiRateLimitRedisClient;
+  } catch (error) {
+    logger.warn('Redis not available for AI rate limiting:', error.message);
+    return null;
+  }
+}
+
+const getStore = () => {
+  const client = getAiRateLimitClient();
+  if (RedisStore && client && client.status === 'ready') {
+    try {
+      return new RedisStore({
+        sendCommand: (...args) => client.call(...args)
+      });
+    } catch (error) {
+      logger.warn('Failed to create Redis store for AI rate limiting:', error.message);
+      return undefined;
+    }
+  }
+  return undefined;
+};
 
 // Custom IP key generator function
 const getClientIp = (req) => {

@@ -496,6 +496,173 @@ class EmailService {
       // Don't throw - notification failure shouldn't fail the follow action
     }
   }
+
+  // 2FA Recovery Email
+  async send2FARecoveryEmail(email, recoveryCode, userName) {
+    try {
+      const html = generateEmailHtml({
+        title: 'Two-Factor Authentication Recovery',
+        content: `
+          <p class="text">Hello${userName ? ` ${userName}` : ''},</p>
+          <p class="text">We received a request to disable two-factor authentication on your VocalInk account.</p>
+          <p class="text">Use the following recovery code to disable 2FA and regain access to your account:</p>
+          <div class="code-container" style="text-align: center; margin: 30px 0;">
+            <span class="code" style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #3B82F6; background-color: #EFF6FF; padding: 16px 32px; border-radius: 8px; display: inline-block;">${recoveryCode}</span>
+          </div>
+          <p class="text" style="color: #DC2626;"><strong>⚠️ Security Warning:</strong> This code will expire in 15 minutes. If you did not request this, please secure your account immediately by changing your password.</p>
+          <p class="text">After using this code, 2FA will be disabled and you'll need to set it up again if desired.</p>
+        `,
+        actionText: 'Go to Login',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+        previewText: 'Your 2FA recovery code for VocalInk',
+        themeColor: emailConfig.colors.warning
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject: 'VocalInk - Two-Factor Authentication Recovery Code',
+        html,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('2FA recovery email sent successfully', { email });
+    } catch (error) {
+      logger.error('Error sending 2FA recovery email:', {
+        error: error.message,
+        email,
+      });
+      throw error;
+    }
+  }
+
+  // 2FA Disabled Notification Email
+  async send2FADisabledNotification(email, userName, method) {
+    try {
+      const methodText = method === 'backup_code' ? 'a backup code' :
+        method === 'email_recovery' ? 'email recovery' :
+          'your authenticator app';
+
+      const html = generateEmailHtml({
+        title: 'Two-Factor Authentication Disabled',
+        content: `
+          <p class="text">Hello${userName ? ` ${userName}` : ''},</p>
+          <p class="text">Two-factor authentication has been <strong>disabled</strong> on your VocalInk account using ${methodText}.</p>
+          <div class="info-box" style="border-left-color: ${emailConfig.colors.warning}; background-color: #FFFBEB;">
+            <p class="text" style="margin: 0; color: #92400E;">
+              <strong>Time:</strong> ${new Date().toLocaleString()}<br>
+              <strong>Method:</strong> ${methodText}
+            </p>
+          </div>
+          <p class="text">If you performed this action, we recommend re-enabling 2FA to keep your account secure.</p>
+          <p class="text" style="color: #DC2626;"><strong>If you did not disable 2FA, your account may be compromised.</strong> Please change your password immediately and contact support.</p>
+        `,
+        actionText: 'Secure Your Account',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings`,
+        previewText: 'Two-factor authentication has been disabled on your account.',
+        themeColor: emailConfig.colors.danger
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject: 'VocalInk - Two-Factor Authentication Disabled',
+        html,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('2FA disabled notification sent successfully', { email });
+    } catch (error) {
+      logger.error('Error sending 2FA disabled notification:', {
+        error: error.message,
+        email,
+      });
+      // Don't throw - notification failure shouldn't block the action
+    }
+  }
+
+  // Backup Codes Regenerated Notification
+  async sendBackupCodesRegeneratedEmail(email, userName) {
+    try {
+      const html = generateEmailHtml({
+        title: 'Backup Codes Regenerated',
+        content: `
+          <p class="text">Hello${userName ? ` ${userName}` : ''},</p>
+          <p class="text">New backup codes have been generated for your VocalInk account. Your old backup codes are no longer valid.</p>
+          <p class="text"><strong>Important:</strong> Make sure to save your new backup codes in a secure location. You can view them in your account security settings.</p>
+          <p class="text" style="color: #DC2626;">If you did not request new backup codes, please change your password immediately.</p>
+        `,
+        actionText: 'View Security Settings',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings`,
+        previewText: 'New backup codes have been generated for your account.',
+        themeColor: emailConfig.colors.primary
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject: 'VocalInk - Backup Codes Regenerated',
+        html,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Backup codes regenerated email sent successfully', { email });
+    } catch (error) {
+      logger.error('Error sending backup codes regenerated email:', {
+        error: error.message,
+        email,
+      });
+      // Don't throw - notification failure shouldn't block the action
+    }
+  }
+
+  /**
+   * Send notification when content is deleted by admin
+   * @param {string} email - User's email
+   * @param {string} userName - User's name
+   * @param {string} contentTitle - Title of the deleted content
+   * @param {string} reason - Reason for deletion
+   * @param {string} contentType - Type of content (blog, comment, etc.)
+   */
+  async sendContentDeletionEmail(email, userName, contentTitle, reason, contentType) {
+    try {
+      const html = generateEmailHtml({
+        title: 'Content Removed from VocalInk',
+        content: `
+          <p class="text">Hello ${userName},</p>
+          <p class="text">We are writing to inform you that your ${contentType} titled <strong>"${contentTitle}"</strong> has been removed from VocalInk.</p>
+          <div class="info-box" style="border-left-color: ${emailConfig.colors.danger}; background-color: #FEF2F2;">
+            <p class="text" style="margin: 0; color: #991B1B;">
+              <strong>Reason for Removal:</strong><br>
+              ${reason}
+            </p>
+          </div>
+          <p class="text">If you believe this was a mistake or have any questions, please contact our support team.</p>
+          <p class="text">Please review our Community Guidelines to ensure future content complies with our policies.</p>
+        `,
+        actionText: 'View Community Guidelines',
+        actionUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/guidelines`,
+        previewText: `Your ${contentType} has been removed.`,
+        themeColor: emailConfig.colors.danger
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'noreply@example.com',
+        to: email,
+        subject: `Your ${contentType} has been removed from VocalInk`,
+        html,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Content deletion email sent successfully', { email, contentType });
+    } catch (error) {
+      logger.error('Error sending content deletion email:', {
+        error: error.message,
+        email
+      });
+      // Don't throw - notification failure shouldn't block the action
+    }
+  }
 }
 
 // Create singleton instance

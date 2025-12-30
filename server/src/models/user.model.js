@@ -144,7 +144,13 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpires: { type: Date },
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: { type: String },
-    backupCodes: [{ type: String }],
+    backupCodes: [{
+      code: { type: String },
+      used: { type: Boolean, default: false },
+      usedAt: { type: Date }
+    }],
+    twoFactorRecoveryToken: { type: String },
+    twoFactorRecoveryExpires: { type: Date },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
 

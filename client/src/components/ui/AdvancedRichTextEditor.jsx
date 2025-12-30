@@ -1,17 +1,34 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { executeSlashCommand, getAvailableCommands } from '../../utils/slashCommands';
 import { useToast } from '../../hooks/useToast';
+import { Keyboard, Type, Wand2, Pencil, FileText, Sparkles } from 'lucide-react';
 
-const AdvancedRichTextEditor = ({ value, onChange, className }) => {
+const AdvancedRichTextEditor = ({ value, onChange, className, placeholder }) => {
   const quillRef = useRef(null);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandMenuPosition, setCommandMenuPosition] = useState({ top: 0, left: 0 });
   const [commandFilter, setCommandFilter] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const [charCount, setCharCount] = useState(0);
   const { addToast } = useToast();
 
   const availableCommands = getAvailableCommands();
+
+  // Calculate word and character count
+  useEffect(() => {
+    if (!value) {
+      setWordCount(0);
+      setCharCount(0);
+      return;
+    }
+    // Strip HTML tags for counting
+    const text = value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    setCharCount(text.length);
+    setWordCount(text ? text.split(/\s+/).filter(Boolean).length : 0);
+  }, [value]);
 
   // Detect slash command
   useEffect(() => {
@@ -114,19 +131,28 @@ const AdvancedRichTextEditor = ({ value, onChange, className }) => {
 
   const modules = React.useMemo(
     () => ({
-      toolbar: [
-        [{ header: '1' }, { header: '2' }, { font: [] }],
-        [{ size: [] }],
-        ['bold', 'italic', 'underline', 'strike', 'blockquote', 'code-block'],
-        [
-          { list: 'ordered' },
-          { list: 'bullet' },
-          { indent: '-1' },
-          { indent: '+1' },
+      toolbar: {
+        container: [
+          [{ header: '1' }, { header: '2' }],
+          [{ font: [] }],
+          [{ size: ['small', false, 'large', 'huge'] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          ['blockquote', 'code-block'],
+          [{ color: [] }, { background: [] }],
+          [{ align: [] }],
+          [
+            { list: 'ordered' },
+            { list: 'bullet' },
+            { indent: '-1' },
+            { indent: '+1' },
+          ],
+          ['link', 'image', 'video'],
+          ['clean'],
         ],
-        ['link', 'image', 'video'],
-        ['clean'],
-      ],
+      },
+      clipboard: {
+        matchVisual: false,
+      },
     }),
     []
   );
@@ -141,6 +167,9 @@ const AdvancedRichTextEditor = ({ value, onChange, className }) => {
     'strike',
     'blockquote',
     'code-block',
+    'color',
+    'background',
+    'align',
     'list',
     'indent',
     'link',
@@ -148,18 +177,198 @@ const AdvancedRichTextEditor = ({ value, onChange, className }) => {
     'video',
   ];
 
+  // Handle focus/blur events
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = () => setIsFocused(false);
+
   return (
-    <div className="relative">
-      <ReactQuill
-        ref={quillRef}
-        theme="snow"
-        value={value}
-        onChange={onChange}
-        modules={modules}
-        formats={formats}
-        className={className}
-        placeholder="Start writing... (Type '/' for commands)"
-      />
+    <div className="relative group">
+      {/* Editor Container with enhanced styling */}
+      <div 
+        className={`
+          relative rounded-xl overflow-hidden transition-all duration-300
+          ${isFocused 
+            ? 'ring-2 ring-primary/50 shadow-lg shadow-primary/10' 
+            : 'ring-1 ring-border hover:ring-border/80'
+          }
+        `}
+      >
+        {/* Custom styled ReactQuill */}
+        <div 
+          className="advanced-editor-wrapper"
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        >
+          <ReactQuill
+            ref={quillRef}
+            theme="snow"
+            value={value}
+            onChange={onChange}
+            modules={modules}
+            formats={formats}
+            className={`${className} advanced-quill-editor`}
+            placeholder={placeholder || "Start writing your story... (Type '/' for AI commands)"}
+          />
+        </div>
+
+        {/* Bottom Status Bar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-surface-hover/50 border-t border-border/50 text-xs">
+          <div className="flex items-center gap-4 text-text-secondary">
+            <span className="flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              {wordCount} {wordCount === 1 ? 'word' : 'words'}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5" />
+              {charCount} {charCount === 1 ? 'character' : 'characters'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-text-secondary/70">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Type</span> <kbd className="px-1.5 py-0.5 rounded bg-background text-[10px] font-mono">/</kbd> <span className="hidden sm:inline">for AI</span>
+            </span>
+            {isFocused && (
+              <span className="flex items-center gap-1 text-primary animate-pulse">
+                <Pencil className="w-3 h-3" />
+                <span className="hidden sm:inline">Writing</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Custom Editor Styles */}
+      <style>{`
+        .advanced-quill-editor .ql-toolbar {
+          border: none !important;
+          border-bottom: 1px solid var(--border, rgba(255,255,255,0.1)) !important;
+          background: var(--surface-hover, rgba(255,255,255,0.02));
+          padding: 12px 16px !important;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+
+        .advanced-quill-editor .ql-toolbar .ql-formats {
+          margin-right: 12px;
+        }
+
+        .advanced-quill-editor .ql-container {
+          border: none !important;
+          font-size: 16px;
+          line-height: 1.8;
+        }
+
+        .advanced-quill-editor .ql-editor {
+          min-height: 350px;
+          padding: 24px 28px !important;
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          color: var(--text-primary, #fff);
+        }
+
+        .advanced-quill-editor .ql-editor.ql-blank::before {
+          color: var(--text-secondary, rgba(255,255,255,0.4));
+          font-style: normal;
+          font-size: 16px;
+          left: 28px;
+          right: 28px;
+        }
+
+        .advanced-quill-editor .ql-editor p {
+          margin-bottom: 1em;
+        }
+
+        .advanced-quill-editor .ql-editor h1 {
+          font-size: 2em;
+          font-weight: 700;
+          margin-bottom: 0.5em;
+          color: var(--text-primary, #fff);
+        }
+
+        .advanced-quill-editor .ql-editor h2 {
+          font-size: 1.5em;
+          font-weight: 600;
+          margin-bottom: 0.5em;
+          color: var(--text-primary, #fff);
+        }
+
+        .advanced-quill-editor .ql-editor blockquote {
+          border-left: 4px solid var(--primary, #6366f1);
+          padding-left: 16px;
+          margin: 1em 0;
+          font-style: italic;
+          color: var(--text-secondary, rgba(255,255,255,0.7));
+        }
+
+        .advanced-quill-editor .ql-editor pre.ql-syntax {
+          background: rgba(0,0,0,0.3);
+          border-radius: 8px;
+          padding: 16px;
+          font-family: 'Fira Code', 'Monaco', monospace;
+          font-size: 14px;
+          overflow-x: auto;
+        }
+
+        .advanced-quill-editor .ql-editor a {
+          color: var(--primary, #6366f1);
+          text-decoration: underline;
+        }
+
+        .advanced-quill-editor .ql-snow .ql-stroke {
+          stroke: var(--text-secondary, rgba(255,255,255,0.6));
+        }
+
+        .advanced-quill-editor .ql-snow .ql-fill {
+          fill: var(--text-secondary, rgba(255,255,255,0.6));
+        }
+
+        .advanced-quill-editor .ql-snow .ql-picker {
+          color: var(--text-secondary, rgba(255,255,255,0.6));
+        }
+
+        .advanced-quill-editor .ql-snow .ql-picker-options {
+          background: var(--surface, #1a1a2e);
+          border-color: var(--border, rgba(255,255,255,0.1));
+          border-radius: 8px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .advanced-quill-editor .ql-toolbar button:hover,
+        .advanced-quill-editor .ql-toolbar button.ql-active {
+          background: var(--primary, #6366f1) !important;
+          border-radius: 6px;
+        }
+
+        .advanced-quill-editor .ql-toolbar button:hover .ql-stroke,
+        .advanced-quill-editor .ql-toolbar button.ql-active .ql-stroke {
+          stroke: white !important;
+        }
+
+        .advanced-quill-editor .ql-toolbar button:hover .ql-fill,
+        .advanced-quill-editor .ql-toolbar button.ql-active .ql-fill {
+          fill: white !important;
+        }
+
+        /* Dark theme adjustments */
+        .dark .advanced-quill-editor .ql-editor {
+          color: #e5e5e5;
+        }
+
+        .dark .advanced-quill-editor .ql-editor.ql-blank::before {
+          color: rgba(255,255,255,0.35);
+        }
+
+        /* Sepia theme */
+        .sepia .advanced-quill-editor .ql-editor {
+          background: #faf8f1;
+          color: #3d3929;
+        }
+
+        .sepia .advanced-quill-editor .ql-toolbar {
+          background: #f5f3ea;
+        }
+      `}</style>
 
       {/* Slash Command Menu */}
       {showCommandMenu && filteredCommands.length > 0 && (

@@ -1,7 +1,7 @@
 const TTSService = require('./TTSService');
-const Redis = require('ioredis');
 const logger = require('../utils/logger');
 const config = require('../config');
+const redisManager = require('./RedisManager');
 
 class TTSWorkerService {
   constructor(queueService) {
@@ -10,34 +10,6 @@ class TTSWorkerService {
     this.processingJobs = new Map();
     this.maxConcurrentJobs = parseInt(process.env.TTS_MAX_CONCURRENT_JOBS) || 5;
     this.subscriber = null;
-  }
-
-  buildRedisConfig() {
-    const maxRetries = parseInt(process.env.REDIS_MAX_RETRIES, 10) || 3;
-    const redisUrl = process.env.REDIS_URL;
-
-    if (redisUrl) {
-      try {
-        const parsed = new URL(redisUrl);
-        return {
-          host: parsed.hostname,
-          port: parseInt(parsed.port || '6379', 10),
-          password: parsed.password || undefined,
-          db: parsed.pathname ? parseInt(parsed.pathname.slice(1) || '0', 10) : 0,
-          maxRetriesPerRequest: maxRetries,
-        };
-      } catch (error) {
-        logger.warn('Invalid REDIS_URL, falling back to host/port variables', { message: error.message });
-      }
-    }
-
-    return {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_DB) || 0,
-      maxRetriesPerRequest: maxRetries,
-    };
   }
 
   /**
@@ -70,13 +42,12 @@ class TTSWorkerService {
         this.handleJobStalled(job);
       });
 
-      logger.info('TTS Worker started successfully', {
+      logger.info('✅ TTS Worker started successfully', {
         maxConcurrentJobs: this.maxConcurrentJobs
       });
 
-      // Initialize Redis subscriber for cancellation events
-      const redisConfig = this.buildRedisConfig();
-      this.subscriber = new Redis(redisConfig);
+      // Use centralized RedisManager for subscriber
+      this.subscriber = redisManager.getSubscriber('tts-worker');
       await this.subscriber.subscribe('tts:cancellation');
 
       this.subscriber.on('message', (channel, message) => {
@@ -562,8 +533,9 @@ class TTSWorkerService {
         await this.queueService.queue.close();
       }
 
+      // Subscriber is managed by RedisManager, just unsubscribe
       if (this.subscriber) {
-        await this.subscriber.quit();
+        await this.subscriber.unsubscribe('tts:cancellation');
       }
 
       // Abort all running jobs
@@ -573,7 +545,7 @@ class TTSWorkerService {
         }
       }
 
-      logger.info('TTS Worker stopped');
+      logger.info('✅ TTS Worker stopped');
     } catch (error) {
       logger.error('Error stopping TTS Worker:', error);
     }

@@ -78,7 +78,7 @@ const errorHandler = (err, req, res, next) => {
         value: e.value,
       })),
     });
-    
+
     error = {
       success: false,
       message: 'Validation Error',
@@ -112,7 +112,7 @@ const errorHandler = (err, req, res, next) => {
       duplicateField: field,
       duplicateValue: value,
     });
-    
+
     error = {
       success: false,
       message: `${field} already exists with value: ${value}`,
@@ -163,7 +163,7 @@ const errorHandler = (err, req, res, next) => {
       mongoCode: err.code,
       mongoMessage: err.message,
     });
-    
+
     error = {
       success: false,
       message: 'Database operation failed',
@@ -172,9 +172,9 @@ const errorHandler = (err, req, res, next) => {
       timestamp: new Date().toISOString(),
       path: req.originalUrl,
       method: req.method,
-      ...(process.env.NODE_ENV === 'development' && { 
+      ...(process.env.NODE_ENV === 'development' && {
         mongoCode: err.code,
-        mongoMessage: err.message 
+        mongoMessage: err.message
       }),
     };
   } else if (err.name === 'SyntaxError' && err.status === 400) {
@@ -196,7 +196,7 @@ const errorHandler = (err, req, res, next) => {
       multerCode: err.code,
       multerField: err.field,
     });
-    
+
     error = {
       success: false,
       message: `File upload error: ${err.message}`,
@@ -255,10 +255,10 @@ const errorHandler = (err, req, res, next) => {
       timestamp: new Date().toISOString(),
       path: req.originalUrl,
       method: req.method,
-      ...(process.env.NODE_ENV === 'development' && { 
+      ...(process.env.NODE_ENV === 'development' && {
         stack: err.stack,
         name: err.name,
-        code: err.code 
+        code: err.code
       }),
     };
   }
@@ -290,12 +290,18 @@ const handleUnhandledRejection = (reason, promise) => {
     timestamp: new Date().toISOString(),
     reason: reason,
     promise: promise,
-    stack: reason.stack,
+    stack: reason?.stack,
   });
-  
-  // In production, you might want to exit the process
+
+  // In production, log to monitoring but don't immediately crash
+  // This allows Sentry/monitoring to capture the error
+  // The process should be managed by a process manager (PM2, Docker, etc.) for restarts
   if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
+    logger.error('CRITICAL: Unhandled rejection in production - process will be restarted by process manager');
+    // Give time for async logging/monitoring to complete, then exit gracefully
+    setTimeout(() => {
+      process.exit(1);
+    }, 3000);
   }
 };
 
@@ -309,10 +315,14 @@ const handleUncaughtException = (error) => {
       stack: error.stack,
     },
   });
-  
-  // In production, you might want to exit the process
+
+  // Uncaught exceptions are more serious - we should exit but allow cleanup
   if (process.env.NODE_ENV === 'production') {
-    process.exit(1);
+    logger.error('CRITICAL: Uncaught exception in production - initiating graceful shutdown');
+    // Give time for async logging/monitoring to complete
+    setTimeout(() => {
+      process.exit(1);
+    }, 3000);
   }
 };
 

@@ -116,9 +116,15 @@ exports.createBlog = async (req, res) => {
 
 exports.getBlogs = async (req, res) => {
   try {
+    // Parse and validate pagination parameters
+    const MAX_PAGE_SIZE = 100;
+    const rawPage = parseInt(req.query.page) || 1;
+    const rawLimit = parseInt(req.query.limit) || 10;
+
+    const page = Math.max(1, rawPage); // Ensure page is at least 1
+    const limit = Math.min(Math.max(1, rawLimit), MAX_PAGE_SIZE); // Clamp between 1 and MAX_PAGE_SIZE
+
     const {
-      page = 1,
-      limit = 10,
       status = 'published',
       mood,
       tags,
@@ -294,8 +300,6 @@ exports.getBlogById = async (req, res) => {
 
 exports.getBlogBySlug = async (req, res) => {
   try {
-    const cacheKey = cacheService.generateKey('blog-slug', req.params.slug);
-
     // Note: We avoid caching here to ensure view counts stay fresh per request
     const blog = await Blog.findOne({ slug: req.params.slug })
       .populate('author', 'firstName lastName displayName username email avatar bio');
@@ -556,146 +560,23 @@ exports.generateTTS = async (req, res) => {
       userRole: req.user.role
     });
 
-    // 1. Parse content and extract segments
+    // 1. Parse content and extract segments using HTML parser
     let content = blog.content || '';
-    const segments = [];
-    let segmentIndex = 0;
 
-    // Use cheerio for proper HTML parsing
-    const cheerio = require('cheerio');
-    const $ = cheerio.load(content, { decodeEntities: false });
+    // Import HTML segmentation
+    const { splitHtmlIntoSegments } = require('../utils/splitHtmlIntoSegments');
 
-    // Helper function to split text into sentences (improved)
-    const splitIntoSentences = (text) => {
-      text = text.trim();
-      if (!text) return [];
+    logger.info(`TTS: Using HTML-based segmentation for blog content`);
 
-      // Split by sentence boundaries
-      const sentences = [];
-      const parts = text.split(/([.!?]+\s+|[.!?]+$)/);
+    // Use Cheerio HTML parser to segment content (matches client-side DOM parsing)
+    // This ensures segment IDs align with client-side data-tts-segment attributes
+    const segments = await splitHtmlIntoSegments(content, { useAI: false });
 
-      let currentSentence = '';
-      for (let i = 0; i < parts.length; i++) {
-        currentSentence += parts[i];
-        // If this part ends with punctuation, it's end of sentence
-        if (/[.!?]+\s*$/.test(parts[i])) {
-          const trimmed = currentSentence.trim();
-          if (trimmed.length > 0) {
-            sentences.push(trimmed);
-          }
-          currentSentence = '';
-        }
-      }
-
-      // Add any remaining text
-      if (currentSentence.trim().length > 0) {
-        sentences.push(currentSentence.trim());
-      }
-
-      return sentences.filter(s => s.length > 0);
-    };
-
-    // Helper function to wrap text node with span
-    const wrapTextNodes = (element, sentence, id) => {
-      // Simple approach: try to wrap the sentence text directly
-      let html = $(element).html();
-
-      // Check if sentence is already wrapped
-      if (html && html.includes(`data-tts-segment="${id}"`)) return false;
-
-      // Escape special regex characters in sentence
-      const escapedSentence = sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // Try simple replacement first (when sentence has no HTML within it)
-      const simpleRegex = new RegExp(escapedSentence, 'i');
-      if (simpleRegex.test(html)) {
-        const newHtml = html.replace(simpleRegex, `<span id="${id}" data-tts-segment="${id}">$&</span>`);
-        $(element).html(newHtml);
-        return true;
-      }
-
-      // If simple match failed, try matching with potential HTML tags around and between words
-      const words = escapedSentence.split(/\s+/);
-      if (words.length > 1) {
-        // Create pattern that allows tags before, after, and between words
-        // Pattern: (?:<[^>]*>)*word1(?:<[^>]*>)*(?:\s+|&nbsp;|&#160;)*(?:<[^>]*>)*word2...
-        // We allow whitespace OR entities between words, and optional tags
-        const wordPatterns = words.map(word => `(?:<[^>]*>)*${word}(?:<[^>]*>)*`);
-
-        // Join words with flexible whitespace/entity pattern
-        // Matches: whitespace, &nbsp;, &#160;, or tags (which are already handled by wordPatterns surrounding logic, but we need to be careful)
-        // Actually, the joiner should be: (?:<[^>]*>|\s|&nbsp;|&#160;)+
-        // But we already have tags around words. So we just need to handle the separator.
-        // The separator in the sentence was whitespace. In HTML it could be whitespace, &nbsp;, or a tag that implies space (like <br>).
-        // Let's try a robust separator: (?:<[^>]*>|\s|&nbsp;|&#160;)+
-        const separator = '(?:<[^>]*>|\\s|&nbsp;|&#160;)+';
-        const pattern = wordPatterns.join(separator);
-
-        const flexibleRegex = new RegExp(`(${pattern})`, 'i');
-
-        if (flexibleRegex.test(html)) {
-          const newHtml = html.replace(flexibleRegex, `<span id="${id}" data-tts-segment="${id}">$1</span>`);
-          $(element).html(newHtml);
-          return true;
-        }
-      }
-
-      // Last resort: wrap the entire element if it only contains this sentence
-      const elementText = $(element).text().trim();
-      if (elementText === sentence) {
-        $(element).wrapInner(`<span id="${id}" data-tts-segment="${id}"></span>`);
-        return true;
-      }
-
-      return false;
-    };
-
-    // Extract text blocks and create segments
-    const blockSelectors = 'p, h1, h2, h3, h4, h5, h6, li, blockquote, div:not(:has(p)):not(:has(h1)):not(:has(h2)):not(:has(h3)):not(:has(h4)):not(:has(h5)):not(:has(h6))';
-    const $blocks = $(blockSelectors);
-
-    logger.info(`TTS: Found ${$blocks.length} content blocks to process`);
-
-    // Process each block
-    $blocks.each((blockIndex, element) => {
-      // Get clean text content (no HTML tags)
-      const blockText = $(element).text().trim();
-
-      if (!blockText) return; // Skip empty blocks
-
-      // Split into sentences
-      const sentences = splitIntoSentences(blockText);
-
-      // Create segments and wrap in DOM
-      sentences.forEach((sentence) => {
-        const id = `tts-seg-${segmentIndex}`;
-
-        segments.push({
-          id,
-          text: sentence,
-          index: segmentIndex,
-          blockTag: element.name
-        });
-
-        // Wrap the sentence in the DOM
-        const wrapped = wrapTextNodes(element, sentence, id);
-        if (!wrapped) {
-          logger.warn(`TTS: Failed to wrap segment ${id}: "${sentence.substring(0, 50)}..."`);
-        }
-
-        segmentIndex++;
-      });
-    });
-
-    logger.info(`TTS: Created ${segments.length} sentence segments from ${$blocks.length} blocks`);
-
-    // Get updated HTML
-    let updatedContent = $.html();
+    logger.info(`TTS: HTML parser created ${segments.length} segments`);
 
     if (segments.length === 0) {
       logger.error('TTS: No segments created from blog content', {
-        contentLength: content.length,
-        blocksFound: blocks.length
+        contentLength: content.length
       });
       return res.status(400).json({ message: 'No valid text content found to generate audio' });
     }
@@ -722,7 +603,7 @@ exports.generateTTS = async (req, res) => {
     });
 
     // 3. Update Blog
-    blog.content = updatedContent; // Save content with injected IDs
+    // Note: AI segmentation doesn't modify HTML, so we don't update blog.content
 
     // Map results to schema - NO URL/PATH since audio is stored client-side
     blog.audioSegments = audioSegments.map(seg => ({
@@ -847,15 +728,23 @@ exports.translateBlog = async (req, res) => {
     }
     const { targetLang } = req.body;
     if (!targetLang) return res.status(400).json({ message: 'targetLang is required' });
-    // Use LibreTranslate (free, open-source, public instance or self-hosted)
-    const apiUrl = 'https://libretranslate.de/translate';
+
+    // Use configurable URL or default to LibreTranslate public instance
+    const apiUrl = process.env.LIBRETRANSLATE_URL || 'https://libretranslate.de/translate';
+
+    // Sanitize content before sending to external service
+    const contentToTranslate = (blog.content || '')
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
     const response = await axios.post(apiUrl, {
-      q: blog.content,
+      q: contentToTranslate,
       source: blog.language || 'en',
       target: targetLang,
-      format: 'text',
+      format: 'html', // Preserve HTML structure
     }, {
-      headers: { 'accept': 'application/json' }
+      headers: { 'accept': 'application/json' },
+      timeout: 30000, // 30 second timeout to prevent hanging
     });
     logger.info(`Blog translated`, { user: req.user._id.toString(), blog: blog._id, targetLang });
     res.json({
@@ -865,7 +754,18 @@ exports.translateBlog = async (req, res) => {
     });
   } catch (err) {
     logger.error(`Translation error`, { user: req.user._id.toString(), blog: req.params.id, error: err.message });
-    res.status(500).json({ message: err.message });
+
+    // Sanitize error message to avoid leaking internal details
+    let errorMessage = 'Translation failed';
+    if (err.code === 'ECONNABORTED') {
+      errorMessage = 'Translation service timeout - please try again';
+    } else if (err.response?.status === 429) {
+      errorMessage = 'Translation rate limit exceeded - please try again later';
+    } else if (err.response?.status >= 500) {
+      errorMessage = 'Translation service temporarily unavailable';
+    }
+
+    res.status(err.response?.status || 500).json({ message: errorMessage });
   }
 };
 exports.likeBlog = async (req, res) => {

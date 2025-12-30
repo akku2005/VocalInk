@@ -14,6 +14,7 @@ import {
   Search,
   TrendingUp,
   Award,
+  Shield,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -21,7 +22,7 @@ import { useTheme } from "../context/ThemeContext";
 
 const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { actualTheme } = useTheme();
 
   // Public navigation items (always visible)
@@ -42,9 +43,18 @@ const Sidebar = ({ open, setOpen, collapsed, toggleCollapsed }) => {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  // Combine navigation based on authentication status
+  // Admin navigation items (only visible for admin users)
+  const adminNavigation = [
+    { name: "Admin Panel", href: "/admin", icon: Shield },
+  ];
+
+  // Combine navigation based on authentication status and role
   const navigation = isAuthenticated
-    ? [...publicNavigation, ...privateNavigation]
+    ? [
+        ...publicNavigation,
+        ...privateNavigation,
+        ...(user?.role === 'admin' ? adminNavigation : [])
+      ]
     : publicNavigation;
 
   const isActive = (href) => {

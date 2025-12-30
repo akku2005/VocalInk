@@ -372,10 +372,10 @@ const RichTextEditor = ({ value, onChange, className = "" }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
-        <div className="p-6 min-h-64 glassmorphism-card text-black rounded-lg border border-border">
+        <div className="p-6 min-h-64 glassmorphism-card text-text-primary rounded-lg border border-border">
           <EditorContent
             editor={editor}
-            className="text-black leading-8 text-[17px] "
+            className="text-text-primary leading-8 text-[17px] "
             style={{ whiteSpace: "pre-wrap" }}
           />
         </div>

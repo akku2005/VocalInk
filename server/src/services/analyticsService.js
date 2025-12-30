@@ -1,5 +1,6 @@
 const Blog = require('../models/blog.model');
 const User = require('../models/user.model');
+const Comment = require('../models/comment.model');
 const AnalyticsFetchLog = require('../models/analyticsFetchLog.model');
 const cacheService = require('./CacheService');
 const logger = require('../utils/logger');
@@ -93,7 +94,14 @@ class AnalyticsService {
       .map(({ label, views, likes, comments }) => ({ label, views, likes, comments }));
   }
 
-  static async buildAudience(followerIds = []) {
+  /**
+   * Build audience demographics from multiple sources:
+   * - Followers
+   * - Users who commented on blogs
+   * - Users who liked blogs
+   * - Users who bookmarked blogs
+   */
+  static async buildAudience(userId, followerIds = [], blogIds = []) {
     const now = new Date();
     const ageGroups = [
       { label: '13-17', min: 13, max: 17, value: 0 },
@@ -106,24 +114,15 @@ class AnalyticsService {
     ];
 
     const locationMap = {};
+    const processedUserIds = new Set();
 
-    if (!followerIds.length) {
-      return {
-        ageGroups,
-        locations: [],
-      };
-    }
+    // Helper to process user demographics
+    const processUser = (user) => {
+      if (!user || processedUserIds.has(user._id.toString())) return;
+      processedUserIds.add(user._id.toString());
 
-    const followers = await User.find({
-      _id: { $in: followerIds },
-    })
-      .select('dob location')
-      .lean();
-
-    followers.forEach((follower) => {
-      if (follower.dob) {
-        const dob = new Date(follower.dob);
-        // More accurate age calculation accounting for birth month/day
+      if (user.dob) {
+        const dob = new Date(user.dob);
         const age = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
         const bucket = ageGroups.find(
           (group) => age >= group.min && age <= group.max
@@ -133,11 +132,69 @@ class AnalyticsService {
         }
       }
 
-      const location = follower.location?.split(',')?.[0]?.trim();
+      const location = user.location?.split(',')?.[0]?.trim();
       if (location) {
         locationMap[location] = (locationMap[location] || 0) + 1;
       }
-    });
+    };
+
+    try {
+      // 1. Get followers with demographics
+      if (followerIds.length > 0) {
+        const followers = await User.find({
+          _id: { $in: followerIds },
+        })
+          .select('_id dob location')
+          .lean();
+        followers.forEach(processUser);
+      }
+
+      // 2. Get users who commented on author's blogs
+      if (blogIds.length > 0) {
+        const comments = await Comment.find({
+          blogId: { $in: blogIds },
+          status: 'active',
+        })
+          .select('userId')
+          .lean();
+        
+        const commenterIds = [...new Set(comments.map(c => c.userId?.toString()).filter(Boolean))];
+        if (commenterIds.length > 0) {
+          const commenters = await User.find({
+            _id: { $in: commenterIds },
+          })
+            .select('_id dob location')
+            .lean();
+          commenters.forEach(processUser);
+        }
+      }
+
+      // 3. Get users who liked or bookmarked the blogs
+      if (blogIds.length > 0) {
+        const blogsWithEngagement = await Blog.find({
+          _id: { $in: blogIds },
+        })
+          .select('likedBy bookmarkedBy')
+          .lean();
+
+        const engagedUserIds = new Set();
+        blogsWithEngagement.forEach(blog => {
+          (blog.likedBy || []).forEach(id => engagedUserIds.add(id.toString()));
+          (blog.bookmarkedBy || []).forEach(id => engagedUserIds.add(id.toString()));
+        });
+
+        if (engagedUserIds.size > 0) {
+          const engagedUsers = await User.find({
+            _id: { $in: [...engagedUserIds] },
+          })
+            .select('_id dob location')
+            .lean();
+          engagedUsers.forEach(processUser);
+        }
+      }
+    } catch (error) {
+      logger.warn('Error gathering audience demographics', { error: error.message, userId });
+    }
 
     const locationStats = Object.entries(locationMap)
       .map(([label, value]) => ({ label, value }))
@@ -147,6 +204,7 @@ class AnalyticsService {
     return {
       ageGroups,
       locations: locationStats,
+      totalAudienceMembers: processedUserIds.size,
     };
   }
 
@@ -216,7 +274,8 @@ class AnalyticsService {
       }));
 
     const followerIds = Array.isArray(user.followers) ? user.followers : [];
-    const audience = await this.buildAudience(followerIds);
+    const blogIds = blogs.map(blog => blog._id);
+    const audience = await this.buildAudience(user._id, followerIds, blogIds);
 
     const topPosts = blogs.slice(0, 3).map((blog) => {
       const engagementScore = blog.views

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VocalInk Special Offer</title>
+    <style>
+        /* Base styles */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        /* Header */
+        .header {
+            background-color: #1e1b4b; /* Dark Indigo */
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .logo {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: bold;
+            text-decoration: none;
+            letter-spacing: 1px;
+        }
+        
+        .logo span {
+            color: #818cf8; /* Light Indigo Accent */
+        }
+        
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+        
+        .hero h1 {
+            margin: 0 0 15px;
+            font-size: 28px;
+        }
+        
+        .hero p {
+            margin: 0;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        
+        /* content */
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .greeting {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1e1b4b;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 25px 0;
+        }
+        
+        .feature-list li {
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .feature-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4f46e5;
+            font-weight: bold;
+        }
+        
+        /* Button */
+        .btn-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: #4f46e5;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+        }
+        
+        .btn:hover {
+            background-color: #4338ca;
+        }
+        
+        /* Footer */
+        .footer {
+            background-color: #f8fafc;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .footer a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        
+        /* Responsive */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                margin: 0;
+                border-radius: 0;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <a href="#" class="logo">Vocal<span>Ink</span></a>
+        </div>
+        
+        <!-- Hero Banner -->
+        <div class="hero">
+            <h1>Turn Your Words Into Impact</h1>
+            <p>Elevate your writing with AI-powered publishing</p>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content">
+            <div class="greeting">Hi {{name}},</div>
+            
+            <p>We're thrilled to have you as part of the VocalInk community! As a valued member, we want to help you reach a wider audience and create stunning content faster than ever.</p>
+            
+            <p><strong>Unlock the full potential of your stories with our Premium features:</strong></p>
+            
+            <ul class="feature-list">
+                <li><strong>AI Voice Generation:</strong> Automatically convert your blogs into engaging podcasts.</li>
+                <li><strong>Advanced Analytics:</strong> See exactly who is reading and engaging with your work.</li>
+                <li><strong>Exclusive Badges:</strong> Stand out in the community with premium verification.</li>
+                <li><strong>Priority Support:</strong> Get help whenever you need it, 24/7.</li>
+            </ul>
+            
+            <div class="btn-container">
+                <a href="https://vocallink.com/upgrade" class="btn">Start Your Free Trial</a>
+            </div>
+            
+            <p>Don't just write—resonate. Join thousands of top creators who are amplifying their voice with VocalInk Premium today.</p>
+            
+            <p>Happy Writing,<br>The VocalInk Team</p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>&copy; 2025 VocalInk. All rights reserved.</p>
+            <p>123 Creative Avenue, Tech City, TC 90210</p>
+            <p>
+                <a href="#">Privacy Policy</a> | 
+                <a href="#">Terms of Service</a> | 
+                <a href="#">Unsubscribe</a>
+            </p>
+            <p style="margin-top: 10px; font-size: 11px;">
+                You received this email at {{email}} because you subscribed to marketing updates.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

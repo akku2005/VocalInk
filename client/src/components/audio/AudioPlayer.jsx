@@ -60,6 +60,7 @@ const AudioPlayer = ({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [ttsJobId, setTtsJobId] = useState(null);
+  const abortControllerRef = useRef(null); // For cancelling HTTP request
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -427,9 +428,14 @@ const AudioPlayer = ({
 
   const generateTTS = async () => {
     if (!isAuthenticated) return;
+
+    // Create AbortController for this request - allows cancellation immediately
+    abortControllerRef.current = new AbortController();
+
     setIsGenerating(true);
     setError(null);
     setTtsJobId(null);
+
     try {
       const response = await api.post(`/blogs/${blogId}/tts`, {
         provider: 'googlecloud',
@@ -439,12 +445,14 @@ const AudioPlayer = ({
         similarityBoost: 0.55,
         style: 0.2,
         useSpeakerBoost: true
+      }, {
+        signal: abortControllerRef.current.signal // Pass abort signal to axios
       });
 
       if (response?.data) {
         const { audioSegments, jobId } = response.data;
 
-        // Store job ID for potential cancellation
+        // Store job ID for potential server-side cancellation
         if (jobId) {
           setTtsJobId(jobId);
         }
@@ -531,6 +539,13 @@ const AudioPlayer = ({
         handleQuotaToast(usage);
       }
     } catch (error) {
+      // Check if it was cancelled by user
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        logger.log('TTS generation cancelled by user');
+        showInfo('Audio generation cancelled');
+        return;
+      }
+
       console.error('Error generating TTS:', error);
       const usage = error?.response?.data?.usage;
       if (usage) {
@@ -540,19 +555,30 @@ const AudioPlayer = ({
     } finally {
       setIsGenerating(false);
       setTtsJobId(null);
+      abortControllerRef.current = null;
     }
   };
 
   const cancelTTS = async () => {
-    if (!ttsJobId || !blogId) return;
-    try {
-      await api.post(`/blogs/${blogId}/tts/cancel/${ttsJobId}`);
+    // First priority: abort the client-side HTTP request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
       setIsGenerating(false);
-      setTtsJobId(null);
-      showInfo({ message: 'TTS generation cancelled.' });
-    } catch (error) {
-      console.error('Error cancelling TTS:', error);
-      showError({ message: 'Failed to cancel TTS generation.' });
+      abortControllerRef.current = null;
+      return; // The generateTTS catch block will handle the rest
+    }
+
+    // Fallback: try server-side cancellation if we have a job ID
+    if (ttsJobId && blogId) {
+      try {
+        await api.post(`/blogs/${blogId}/tts/cancel/${ttsJobId}`);
+        setIsGenerating(false);
+        setTtsJobId(null);
+        showInfo('TTS generation cancelled.');
+      } catch (error) {
+        console.error('Error cancelling TTS:', error);
+        showError('Failed to cancel TTS generation.');
+      }
     }
   };
 
@@ -657,12 +683,16 @@ const AudioPlayer = ({
             </div>
           </div>
 
-            <div className="flex items-center gap-2">
-              {!hasPlayableAudio ? (
-                isGenerating ? (
+          <div className="flex items-center gap-2">
+            {!hasPlayableAudio ? (
+              isGenerating ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-primary">Generating...</span>
+                  </div>
                   <Button
                     onClick={cancelTTS}
-                    disabled={!ttsJobId}
                     variant="destructive"
                     size="sm"
                     className="shadow-lg hover:shadow-xl hover:shadow-red-500/50"
@@ -670,7 +700,21 @@ const AudioPlayer = ({
                     <X className="w-4 h-4 mr-2" />
                     Cancel
                   </Button>
-                ) : (
+                </>
+              ) : (
+                <>
+                  {/* Voice Selection before generation */}
+                  <div className="hidden sm:block">
+                    <select
+                      value={voiceSettings.voice}
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, voice: e.target.value }))}
+                      className="px-3 py-2 text-sm font-medium rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 text-text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all cursor-pointer outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      {effectiveVoiceOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
                   <Button
                     onClick={generateTTS}
                     size="sm"
@@ -679,27 +723,28 @@ const AudioPlayer = ({
                     <Mic2 className="w-4 h-4 mr-2" />
                     Generate Audio
                   </Button>
-                )
-              ) : (
-                <>
-                  <button
-                    onClick={() => setShowSettings(!showSettings)}
-                    className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
-                    title="Voice settings"
-                  >
-                    <Settings className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
-                    title={isExpanded ? 'Collapse player' : 'Expand player'}
-                  >
-                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                  </button>
                 </>
-              )}
-            </div>
+              )
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
+                  title="Voice settings"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-text-secondary"
+                  title={isExpanded ? 'Collapse player' : 'Expand player'}
+                >
+                  {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+              </>
+            )}
           </div>
+        </div>
 
         {/* Player Controls */}
         <div className="p-6 space-y-6">
@@ -768,7 +813,7 @@ const AudioPlayer = ({
                       max="2"
                       step="0.25"
                       value={voiceSettings.speed}
-                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))} 
+                      onChange={(e) => setVoiceSettings(prev => ({ ...prev, speed: parseFloat(e.target.value) }))}
                       className="w-full accent-primary cursor-pointer"
                     />
                   </div>
@@ -896,7 +941,6 @@ const AudioPlayer = ({
                       {isGenerating ? (
                         <Button
                           onClick={cancelTTS}
-                          disabled={!ttsJobId}
                           variant="destructive"
                           size="md"
                           className="shadow-lg hover:shadow-xl hover:shadow-red-500/50"
